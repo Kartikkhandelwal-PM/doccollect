@@ -78,7 +78,7 @@ export default function Clients() {
             to={`/clients/${c.id}`}
             className="flex items-center gap-4 border-b border-line px-6 py-3.5 last:border-b-0 hover:bg-slate-50"
           >
-            <Avatar name={c.name} kind={c.kind} size={44} />
+            <Avatar name={c.name} size={44} />
             <div className="min-w-0 flex-1">
               <div className="text-[15px] font-semibold">
                 {c.name} <span className={`ml-1 text-xs font-bold ${serviceColor[c.service]}`}>{c.service}</span>

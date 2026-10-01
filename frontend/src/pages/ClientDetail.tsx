@@ -109,7 +109,7 @@ export default function ClientDetail() {
       </nav>
 
       <section className="flex items-center gap-5 rounded-[20px] border border-[#D3E9E4] bg-gradient-to-r from-[#DDF3EC] via-[#E7F4F6] to-[#E6EEFC] px-7 py-6">
-        <Avatar name={client.name} kind={client.kind} size={76} />
+        <Avatar name={client.name} size={76} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-[24px] font-bold tracking-tight">{client.name}</h1>
@@ -252,7 +252,7 @@ export default function ClientDetail() {
                 <br />
                 {other.name} ({other.service}) uses the same WhatsApp number. Requests to both go out as one message.
                 <Link to={`/clients/${other.id}`} className="mt-3 flex items-center gap-2 rounded-[10px] bg-white px-2.5 py-2 font-semibold text-ink">
-                  <Avatar name={other.name} kind={other.kind} size={26} />
+                  <Avatar name={other.name} size={26} />
                   {other.name} · {other.service}
                   <span className="ml-auto text-xs text-brand">Open</span>
                 </Link>

@@ -14,7 +14,7 @@ function pick(seed: string) {
 }
 
 // "Kartik Khandelwal" -> "KK", "Priya Textiles Pvt Ltd" -> "PT", "Anand" -> "A"
-export function initials(name: string) {
+function initials(name: string) {
   const words = name.trim().split(/\s+/).filter(Boolean)
   return words
     .slice(0, 2)
@@ -25,8 +25,6 @@ export function initials(name: string) {
 interface Props {
   name: string
   size?: number
-  // kept so existing call sites keep working; initials are shown for every client
-  kind?: 'person' | 'firm'
 }
 
 export default function Avatar({ name, size = 40 }: Props) {

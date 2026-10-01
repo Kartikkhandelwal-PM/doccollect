@@ -90,7 +90,12 @@ export function MasterProvider({ children }: { children: ReactNode }) {
       let grew = true
       while (grew) {
         grew = false
-        for (const f of folders) if (f.parentId && gone.has(f.parentId) && !gone.has(f.id)) (gone.add(f.id), (grew = true))
+        for (const f of folders) {
+          if (f.parentId && gone.has(f.parentId) && !gone.has(f.id)) {
+            gone.add(f.id)
+            grew = true
+          }
+        }
       }
       setFolders((p) => p.filter((f) => !gone.has(f.id) || f.locked))
       setUploads((p) => p.filter((u) => !(u.folderId && gone.has(u.folderId))))

@@ -25,7 +25,7 @@ export interface Client {
   sharedWith?: string
 }
 
-export type AttentionKind = 'received' | 'no_response' | 'unassigned'
+type AttentionKind = 'received' | 'no_response' | 'unassigned'
 
 export interface AttentionItem {
   id: string

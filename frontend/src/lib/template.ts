@@ -30,7 +30,7 @@ export const sample: Record<string, string> = {
 }
 
 // A list of documents as numbered lines. Very long lists show the first few and point to the link.
-export const MAX_LISTED = 8
+const MAX_LISTED = 8
 export function formatList(names: string[]) {
   const lines = names.slice(0, MAX_LISTED).map((n, i) => `${i + 1}. ${n}`)
   const more = names.length - MAX_LISTED
@@ -43,14 +43,4 @@ export function formatList(names: string[]) {
 export function fillTemplate(text: string, values: Record<string, string> = {}, useSamples = true) {
   const all = useSamples ? { ...sample, ...values } : values
   return text.replace(/\{(\w+)\}/g, (m, k: string) => all[k] ?? m)
-}
-
-// WhatsApp (Meta) will reject a template that breaks these rules, so we check ours.
-export function metaIssues(text: string): string[] {
-  const t = text.trim()
-  const issues: string[] = []
-  if (/^\W*\{\w+\}/.test(t)) issues.push('starts with a variable')
-  if (/\{\w+\}\W*$/.test(t)) issues.push('ends with a variable')
-  if (/\}\s*\{/.test(t)) issues.push('has two variables side by side')
-  return issues
 }

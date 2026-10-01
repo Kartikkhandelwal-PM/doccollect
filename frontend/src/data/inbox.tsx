@@ -21,7 +21,7 @@ export interface Msg {
   tick?: 'sent' | 'read'
 }
 
-export interface Suggestion {
+interface Suggestion {
   msgId: string
   docName: string
   clientId: string

@@ -1,4 +1,4 @@
-export interface CatalogDoc {
+interface CatalogDoc {
   id: string
   name: string
 }
@@ -170,6 +170,3 @@ export const templates: Template[] = [
   { id: 'loan', name: 'Loan application', docIds: ['pan', 'aadhaar', 'address', 'bank', 'form16', 'salary', '26as', 'bs', 'pl'] },
   { id: 'custom', name: 'Custom', docIds: [] },
 ]
-
-export const docName = (id: string, extra: CatalogDoc[] = []) =>
-  [...groups.flatMap((g) => g.docs), ...extra].find((d) => d.id === id)?.name ?? id

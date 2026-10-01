@@ -4,9 +4,8 @@ import { groups as seedGroups, templates as seedTemplates } from './catalog'
 import { seedMessages } from './messageTemplates'
 import type { MsgTemplate } from './messageTemplates'
 
-export type { MsgTemplate }
 
-export interface DocItem {
+interface DocItem {
   id: string
   name: string
   group: string

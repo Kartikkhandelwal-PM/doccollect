@@ -16,7 +16,7 @@ export function useAttention() {
     const today = todayISO()
     const review: AttentionItem[] = []
     const silent: AttentionItem[] = []
-    const stats = { toReview: 0, waiting: 0, overdue: 0, approved: 0 }
+    const stats = { overdue: 0 }
 
     for (const r of requests) {
       for (const rc of r.clients) {
@@ -27,9 +27,6 @@ export function useAttention() {
         const toReview = counted.filter((d) => d.status === 'to_review')
         const got = counted.filter(isReceived).length
         const late = missing > 0 && r.due < today
-        stats.approved += counted.filter((d) => d.status === 'approved').length
-        stats.toReview += toReview.length
-        if (missing > 0) stats.waiting++
         if (late) stats.overdue++
 
         const base = { clientId: rc.clientId, service: client.service, requestId: r.id, request: r.title, got, total: counted.length, toReview: toReview.length, title: client.name }
