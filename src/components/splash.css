@@ -1,0 +1,330 @@
+/* DocCollect splash. One timeline: glow, folder, three documents fly in, check, name, progress, fade out. */
+.sp {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: hidden;
+  background: #f6f8fb;
+  color: #0e1b2c;
+  cursor: pointer;
+  transition: opacity 600ms ease, transform 600ms cubic-bezier(0.4, 0, 0.2, 1), filter 600ms ease;
+}
+.sp.sp-leave {
+  opacity: 0;
+  transform: scale(1.035);
+  filter: blur(8px);
+  pointer-events: none;
+}
+/* Every animation holds its first frame until it starts and its last frame after it ends.
+   !important, because an "animation:" shorthand on a class would otherwise switch this off. */
+.sp *,
+.sp *::before,
+.sp *::after {
+  animation-fill-mode: both !important;
+}
+
+/* Background: a faint dot grid that fades towards the edges, plus two soft lights */
+.sp-grid {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(14, 27, 44, 0.09) 1.2px, transparent 1.2px);
+  background-size: 28px 28px;
+  -webkit-mask-image: radial-gradient(circle at 50% 46%, #000 0%, transparent 62%);
+  mask-image: radial-gradient(circle at 50% 46%, #000 0%, transparent 62%);
+  animation: sp-fade 1200ms ease 100ms;
+}
+.sp-glow {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  width: 760px;
+  height: 760px;
+  margin: -380px 0 0 -380px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(11, 122, 107, 0.2) 0%, rgba(11, 122, 107, 0.07) 38%, transparent 66%);
+  animation: sp-glow-in 1400ms cubic-bezier(0.2, 0.8, 0.2, 1) 0ms, sp-breathe 4200ms ease-in-out 1400ms infinite;
+}
+.sp-glow.b {
+  width: 520px;
+  height: 520px;
+  margin: -230px 0 0 -90px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.14) 0%, transparent 65%);
+  animation: sp-glow-in 1600ms cubic-bezier(0.2, 0.8, 0.2, 1) 300ms, sp-breathe 5200ms ease-in-out 1900ms infinite reverse;
+}
+
+/* Little documents drifting upwards, kept clear of the loading area at the bottom */
+.sp-bits {
+  position: absolute;
+  inset: 0 0 150px 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.sp-bit {
+  position: absolute;
+  bottom: -20px;
+  border-radius: 3px;
+  opacity: 0;
+  animation: sp-float var(--dur) ease-in var(--delay) infinite;
+}
+
+/* Rings that spread out when the documents land */
+.sp-ring {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  width: 300px;
+  height: 300px;
+  margin: -150px 0 0 -150px;
+  border-radius: 50%;
+  border: 2px solid rgba(11, 122, 107, 0.45);
+  opacity: 0;
+  animation: sp-ring 1500ms cubic-bezier(0.2, 0.7, 0.2, 1) var(--delay);
+}
+
+.sp-center {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  padding-top: 16px;
+}
+.sp-stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+/* The picture and the name shrink on short screens, so nothing ever lands on top of anything else */
+.sp-art {
+  width: clamp(170px, 34vh, 300px);
+  height: auto;
+  aspect-ratio: 6 / 5;
+  overflow: visible;
+  filter: drop-shadow(0 22px 30px rgba(7, 94, 82, 0.22));
+}
+
+/* The folder arrives, then bobs gently */
+.sp-folder {
+  transform-box: fill-box;
+  transform-origin: 50% 90%;
+  animation: sp-folder-in 900ms cubic-bezier(0.34, 1.56, 0.64, 1) 150ms, sp-bob 3200ms ease-in-out 1900ms infinite;
+}
+.sp-shadow {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: sp-shadow-in 900ms ease 250ms, sp-shadow-bob 3200ms ease-in-out 1900ms infinite;
+}
+/* Each document flies from its own direction and settles in the folder */
+.sp-sheet {
+  transform-box: fill-box;
+  transform-origin: 50% 60%;
+  animation: sp-fly 1000ms cubic-bezier(0.22, 1.2, 0.36, 1) var(--delay);
+}
+/* The front of the folder gives a small nudge as each document lands */
+.sp-front {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: sp-nudge 520ms ease 1500ms;
+}
+.sp-draw {
+  stroke-dasharray: var(--len);
+  animation: sp-draw var(--time, 700ms) cubic-bezier(0.65, 0, 0.35, 1) var(--delay);
+}
+.sp-badge {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: sp-pop 700ms cubic-bezier(0.34, 1.7, 0.5, 1) 1650ms;
+}
+
+/* Name */
+.sp-name {
+  display: flex;
+  margin-top: 6px;
+  font-size: clamp(34px, 6.2vh, 48px);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+}
+.sp-name span {
+  display: inline-block;
+  animation: sp-rise 700ms cubic-bezier(0.2, 0.8, 0.2, 1) calc(1400ms + var(--i) * 45ms);
+}
+.sp-name span.accent {
+  color: #0b7a6b;
+}
+.sp-line {
+  height: 3px;
+  width: 64px;
+  margin-top: 12px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #0b7a6b, #3bb3a1);
+  transform-origin: center;
+  animation: sp-line 700ms cubic-bezier(0.2, 0.8, 0.2, 1) 1900ms;
+}
+.sp-tag {
+  margin-top: clamp(8px, 1.6vh, 14px);
+  padding: 0 24px;
+  text-align: center;
+  font-size: clamp(13px, 2.1vh, 16px);
+  color: #5b6b7f;
+  animation: sp-rise-soft 800ms ease 2000ms;
+}
+
+/* Progress and footer sit in a block of their own under the picture */
+.sp-bottom {
+  position: relative;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  padding: 8px 24px 26px;
+}
+.sp-load {
+  width: 220px;
+  text-align: center;
+  animation: sp-fade 600ms ease 500ms;
+}
+.sp-track {
+  height: 5px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: rgba(14, 27, 44, 0.08);
+}
+.sp-fill {
+  height: 100%;
+  width: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #0b7a6b, #3bb3a1);
+  transform-origin: left;
+  animation: sp-fill 3000ms cubic-bezier(0.45, 0.05, 0.25, 1) 400ms;
+}
+.sp-status {
+  position: relative;
+  height: 20px;
+  margin-top: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #5b6b7f;
+}
+.sp-status span {
+  position: absolute;
+  inset: 0;
+}
+.sp-status .one {
+  animation: sp-swap-out 400ms ease 1800ms;
+}
+.sp-status .two {
+  opacity: 0;
+  animation: sp-swap-in 500ms ease 2200ms;
+}
+.sp-foot {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: #8592a6;
+  animation: sp-fade 800ms ease 900ms;
+}
+
+@keyframes sp-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes sp-glow-in {
+  from { opacity: 0; transform: scale(0.4); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes sp-breathe {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.8; }
+}
+@keyframes sp-float {
+  0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+  12% { opacity: var(--op); }
+  85% { opacity: var(--op); }
+  100% { transform: translateY(-105vh) rotate(var(--rot)); opacity: 0; }
+}
+@keyframes sp-ring {
+  0% { transform: scale(0.35); opacity: 0; }
+  12% { opacity: 0.6; }
+  100% { transform: scale(2.3); opacity: 0; }
+}
+@keyframes sp-folder-in {
+  0% { opacity: 0; transform: translateY(40px) scale(0.55) rotate(-6deg); }
+  100% { opacity: 1; transform: translateY(0) scale(1) rotate(0deg); }
+}
+@keyframes sp-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-7px); }
+}
+@keyframes sp-shadow-in {
+  from { opacity: 0; transform: scaleX(0.4); }
+  to { opacity: 1; transform: scaleX(1); }
+}
+@keyframes sp-shadow-bob {
+  0%, 100% { transform: scaleX(1); opacity: 1; }
+  50% { transform: scaleX(0.9); opacity: 0.7; }
+}
+@keyframes sp-fly {
+  0% { opacity: 0; transform: translate(var(--fx), var(--fy)) rotate(var(--fr)) scale(0.55); }
+  35% { opacity: 1; }
+  78% { transform: translate(0, 6px) rotate(var(--r)) scale(1.03); }
+  100% { opacity: 1; transform: translate(0, 0) rotate(var(--r)) scale(1); }
+}
+@keyframes sp-nudge {
+  0% { transform: translateY(0) scaleY(1); }
+  35% { transform: translateY(4px) scaleY(0.97); }
+  100% { transform: translateY(0) scaleY(1); }
+}
+@keyframes sp-draw {
+  from { stroke-dashoffset: var(--len); }
+  to { stroke-dashoffset: 0; }
+}
+@keyframes sp-pop {
+  0% { opacity: 0; transform: scale(0.2) rotate(-30deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+@keyframes sp-rise {
+  0% { opacity: 0; transform: translateY(30px); filter: blur(8px); }
+  100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+@keyframes sp-rise-soft {
+  0% { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes sp-line {
+  0% { opacity: 0; transform: scaleX(0); }
+  100% { opacity: 1; transform: scaleX(1); }
+}
+@keyframes sp-fill {
+  0% { transform: scaleX(0); }
+  100% { transform: scaleX(1); }
+}
+@keyframes sp-swap-out {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-8px); }
+}
+@keyframes sp-swap-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* People who prefer less motion get the finished picture, with a plain fade */
+@media (prefers-reduced-motion: reduce) {
+  .sp *,
+  .sp *::before,
+  .sp *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+  }
+  .sp-bit,
+  .sp-ring {
+    display: none;
+  }
+}
