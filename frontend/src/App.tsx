@@ -20,7 +20,10 @@ import SignedOut from './pages/SignedOut'
 import Templates from './pages/Templates'
 
 // The splash plays once when the app opens. Not on a client's upload page, and not after signing out.
+// It plays once per page load, not again when the demo is reset from the logo.
+let splashPlayed = false
 const wantsSplash = () => {
+  if (splashPlayed) return false
   try {
     if (localStorage.getItem('skip-splash') === '1') return false
   } catch {
@@ -34,7 +37,10 @@ export default function App() {
   const [splash, setSplash] = useState(wantsSplash)
   return (
     <>
-    {splash && <Splash onDone={() => setSplash(false)} />}
+    {splash && <Splash onDone={() => {
+      splashPlayed = true
+      setSplash(false)
+    }} />}
     <Routes>
       {/* What a client sees from the WhatsApp link. No sidebar, no login. */}
       <Route path="u/:requestId/:clientId" element={<ClientUpload />} />

@@ -22,3 +22,7 @@ export function useSessionState<T>(key: string, initial: T) {
   }, [full, value])
   return [value, setValue] as const
 }
+
+// Puts the demo back to its sample data (see ResetBoundary).
+export const RESET_EVENT = 'doccollect:reset'
+export const resetDemo = () => window.dispatchEvent(new Event(RESET_EVENT))
