@@ -25,11 +25,11 @@ const SENT_BACK: Record<string, 'blurry' | 'wrongdoc' | 'pages' | 'wrongyear'> =
 
 export function useMessenger() {
   const { firm } = useSetup()
-  const { getRequest, remind } = useRequests()
+  const { getRequest, remind, newLink } = useRequests()
   const { postToClient } = useInbox()
 
   const build = useCallback(
-    (r: DocRequest, rc: RequestClient, id: 'request' | 'update' | 'rejected' | 'blurry' | 'wrongdoc' | 'pages' | 'wrongyear', extra: Record<string, string> = {}): string => {
+    (r: DocRequest, rc: RequestClient, id: 'request' | 'update' | 'rejected' | 'newlink' | 'blurry' | 'wrongdoc' | 'pages' | 'wrongyear', extra: Record<string, string> = {}): string => {
       const client = getClient(rc.clientId)
       if (!client) return ''
       const counted = rc.docs.filter((d) => d.status !== 'na')
@@ -75,6 +75,19 @@ export function useMessenger() {
     [getRequest, build, postToClient, remind],
   )
 
+  // The old link stops working and the client gets a fresh one.
+  const sendNewLink = useCallback(
+    (requestId: string, clientId: string) => {
+      const r = getRequest(requestId)
+      const rc = r?.clients.find((c) => c.clientId === clientId)
+      const client = getClient(clientId)
+      if (!r || !rc || !client) return
+      postToClient(client, build(r, { ...rc, linkVersion: (rc.linkVersion ?? 1) + 1 }, 'newlink'))
+      newLink(requestId, clientId)
+    },
+    [getRequest, build, postToClient, newLink],
+  )
+
   // A document was sent back: the client is told which one and why. (Approving one document sends nothing.)
   const sendRejected = useCallback(
     (requestId: string, clientId: string, docName: string, reason: string, remark: string) => {
@@ -100,5 +113,5 @@ export function useMessenger() {
     [getRequest, build],
   )
 
-  return { sendRequest, sendUpdate, sendRejected, preview }
+  return { sendRequest, sendUpdate, sendNewLink, sendRejected, preview }
 }

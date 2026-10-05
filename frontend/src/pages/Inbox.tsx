@@ -342,7 +342,7 @@ export default function Inbox() {
   const [params] = useSearchParams()
   const wanted = params.get('client')
   const wantedChat = params.get('chat')
-  const [activeId, setActiveId] = useState(() => allConversations.find((c) => c.id === wantedChat)?.id ?? allConversations.find((c) => wanted && c.clientIds.includes(wanted))?.id ?? 'c-ramesh')
+  const [activeId, setActiveId] = useState(() => allConversations.find((c) => c.id === wantedChat)?.id ?? allConversations.find((c) => wanted && c.clientIds.includes(wanted))?.id ?? allConversations[0]?.id ?? '')
   const [filter, setFilter] = useState<Filter>('all')
   const [query, setQuery] = useState('')
   const [text, setText] = useState('')

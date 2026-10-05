@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { formatList, fillTemplate } from '../lib/template'
 import { seedMessages } from './messageTemplates'
 import { useSetup } from './setup'
+import { useSessionState } from '../lib/session'
 import { LINK_DOMAIN } from '../lib/brand'
 
 export interface Msg {
@@ -260,7 +261,7 @@ const Ctx = createContext<Store | null>(null)
 
 export function InboxProvider({ children }: { children: ReactNode }) {
   const { readReplies } = useSetup()
-  const [conversations, setConversations] = useState<Conversation[]>(seed)
+  const [conversations, setConversations] = useSessionState<Conversation[]>('inbox', seed)
   // 'own': CA connected their own WhatsApp, so client replies are read here.
   // 'kdk': messages go from the shared number; clients reply through the upload link, so nothing is read here.
   const [mode, setMode] = useState<'own' | 'kdk'>('own')

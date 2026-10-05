@@ -107,7 +107,7 @@ export default function RequestDetail() {
 
 function RequestView({ request }: { request: DocRequest }) {
   const [params] = useSearchParams()
-  const { setDocStatus, simulateReply, changeDue, newLink, unsorted, useUnsorted } = useRequests()
+  const { setDocStatus, simulateReply, changeDue, unsorted, useUnsorted } = useRequests()
   const { graceDays } = useSetup()
 
   const [openDoc, setOpenDoc] = useState<{ clientId: string; docId: string } | null>(() => {
@@ -137,7 +137,7 @@ function RequestView({ request }: { request: DocRequest }) {
     return () => clearTimeout(t)
   }, [toast])
 
-  const { sendUpdate, sendRejected, preview } = useMessenger()
+  const { sendUpdate, sendNewLink, sendRejected, preview } = useMessenger()
   const p = progress(request)
   const pct = p.total ? Math.round((p.received / p.total) * 100) : 0
   const approved = request.clients.flatMap((c) => c.docs).filter((d) => d.status === 'approved').length
@@ -620,7 +620,7 @@ function RequestView({ request }: { request: DocRequest }) {
               <button
                 type="button"
                 onClick={() => {
-                  newLink(request.id, linkFor)
+                  sendNewLink(request.id, linkFor)
                   setToast(`New link sent to ${getClient(linkFor)?.name} on WhatsApp`)
                   setLinkFor(null)
                 }}

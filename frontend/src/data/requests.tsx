@@ -1,4 +1,5 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useMemo } from 'react'
+import { useSessionState } from '../lib/session'
 import type { ReactNode } from 'react'
 import { bulkRequest, moreRequests, rameshGst, seedUnsorted } from './seedRequests'
 import type { Status } from './types'
@@ -178,8 +179,8 @@ interface Store {
 const Ctx = createContext<Store | null>(null)
 
 export function RequestsProvider({ children }: { children: ReactNode }) {
-  const [requests, setRequests] = useState<DocRequest[]>(seed)
-  const [unsorted, setUnsorted] = useState<UnsortedFile[]>(seedUnsorted)
+  const [requests, setRequests] = useSessionState<DocRequest[]>('requests', seed)
+  const [unsorted, setUnsorted] = useSessionState<UnsortedFile[]>('unsorted', seedUnsorted)
 
   const getRequest = useCallback((id: string) => requests.find((r) => r.id === id), [requests])
 
