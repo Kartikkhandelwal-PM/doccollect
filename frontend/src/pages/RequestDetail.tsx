@@ -4,12 +4,13 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
 import DocPreviewDrawer from '../components/DocPreviewDrawer'
 import Pagination, { usePaging } from '../components/Pagination'
+import MoveDocDialog from '../components/MoveDocDialog'
 import ReminderDialog from '../components/ReminderDialog'
 import FileTypeIcon from '../components/FileTypeIcon'
 import StatusBadge from '../components/StatusBadge'
 import DueDatePicker from '../components/DueDatePicker'
 import { getClient } from '../data/mock'
-import type { DocRequest } from '../data/requests'
+import type { DocRef, DocRequest } from '../data/requests'
 import { fmtDate, progress, useRequests } from '../data/requests'
 import type { Status } from '../data/types'
 import { useSetup } from '../data/setup'
@@ -105,7 +106,7 @@ export default function RequestDetail() {
 
 function RequestView({ request }: { request: DocRequest }) {
   const [params] = useSearchParams()
-  const { setDocStatus, remind, simulateReply, changeDue, newLink } = useRequests()
+  const { setDocStatus, remind, simulateReply, changeDue, newLink, moveDoc } = useRequests()
   const { graceDays } = useSetup()
 
   const [openDoc, setOpenDoc] = useState<{ clientId: string; docId: string } | null>(() => {
@@ -122,6 +123,7 @@ function RequestView({ request }: { request: DocRequest }) {
   const [filter, setFilter] = useState<Filter>('all')
   const [query, setQuery] = useState('')
   const [asking, setAsking] = useState(false)
+  const [moving, setMoving] = useState<DocRef | null>(null)
   // Clients whose documents are showing. One client can be opened straight from the Dashboard (?client=).
   const [open, setOpen] = useState<Set<string>>(() => {
     const c = params.get('client') ?? (params.get('doc') ?? '').split(':')[0]
@@ -156,10 +158,11 @@ function RequestView({ request }: { request: DocRequest }) {
         const counted = rc.docs.filter((d) => d.status !== 'na')
         const missing = counted.filter((d) => d.status === 'pending' || d.status === 'rejected').length
         const toReview = counted.filter((d) => d.status === 'to_review').length
+        const toCheck = counted.filter((d) => d.status === 'to_review' && d.check).length
         const got = counted.filter((d) => d.status !== 'pending' && d.status !== 'rejected').length
         const late = missing > 0 && request.due < today
         const state: Filter = toReview > 0 ? 'review' : missing > 0 ? 'waiting' : 'done'
-        return [{ rc, c, missing, toReview, got, total: counted.length, late, state }]
+        return [{ rc, c, missing, toReview, toCheck, got, total: counted.length, late, state }]
       }),
     [request, today],
   )
@@ -195,6 +198,14 @@ function RequestView({ request }: { request: DocRequest }) {
       setOpen((o) => new Set(o).add(x.clientId))
       setOpenDoc({ clientId: x.clientId, docId: x.doc.id })
     }
+  }
+  const confirmMove = (to: DocRef) => {
+    if (!moving) return
+    const name = getClient(to.clientId)?.name
+    moveDoc(moving, to)
+    setMoving(null)
+    setOpenDoc(null)
+    setToast(`Moved to ${name}. The old place is empty again.`)
   }
   const sendReminders = () => {
     toRemind.forEach((r) => remind(request.id, r.rc.clientId))
@@ -356,7 +367,7 @@ function RequestView({ request }: { request: DocRequest }) {
         </div>
 
         {paging.rows.length === 0 && <p className="p-8 text-sm text-muted">No clients match.</p>}
-        {paging.rows.map(({ rc, c, missing, toReview, got, total, late, state }) => {
+        {paging.rows.map(({ rc, c, missing, toReview, toCheck, got, total, late, state }) => {
           const isOpen = open.has(rc.clientId)
           const chip =
             state === 'review'
@@ -392,7 +403,7 @@ function RequestView({ request }: { request: DocRequest }) {
                 </div>
                 <div>
                   <span className={`inline-block rounded-md px-2 py-1 text-[11px] font-bold uppercase tracking-wide ${chip.cls}`}>{chip.text}</span>
-                  {missing > 0 && state === 'review' && <div className="mt-1 text-xs text-muted">{missing} still missing</div>}
+                  {toCheck > 0 ? <div className="mt-1 text-xs font-semibold text-warn">{toCheck} to check</div> : missing > 0 && state === 'review' && <div className="mt-1 text-xs text-muted">{missing} still missing</div>}
                 </div>
                 <div onClick={(e) => e.stopPropagation()} className="flex justify-end">
                   {state === 'review' && firstReview ? (
@@ -460,9 +471,22 @@ function RequestView({ request }: { request: DocRequest }) {
                           <div className={`text-sm font-semibold ${gotIt ? '' : 'text-muted'}`}>{d.name}</div>
                           <div className="text-xs text-muted">
                             {gotIt ? `${d.receivedAt} · via ${d.source === 'Link' ? 'upload link' : 'WhatsApp'}` : d.status === 'na' ? 'Client says this does not apply to them' : 'Not received yet'}
+                            {d.check && <span className="ml-1.5 font-semibold text-warn">· Check: {d.check}</span>}
                             {d.status === 'rejected' && d.reason && <span className="ml-1.5 font-semibold text-danger">· {d.reason}</span>}
                           </div>
                         </div>
+                        {d.status === 'to_review' && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setMoving({ requestId: request.id, clientId: rc.clientId, docId: d.id })
+                            }}
+                            className="h-8 rounded-lg px-2.5 text-[13px] font-semibold text-brand hover:bg-brand-soft"
+                          >
+                            Move
+                          </button>
+                        )}
                         {gotIt ? <StatusBadge status={d.status} options={reviewOptions} onChange={(st) => changeStatus(rc.clientId, d.id, d.name, st)} /> : <StatusBadge status={d.status === 'na' ? 'na' : 'pending'} />}
                       </div>
                     )
@@ -486,8 +510,11 @@ function RequestView({ request }: { request: DocRequest }) {
           onNext={() => openAt(idx + 1)}
           onApprove={approveOpen}
           onReject={rejectOpen}
+          onMove={() => current && setMoving({ requestId: request.id, clientId: current.clientId, docId: current.doc.id })}
         />
       )}
+
+      {moving && <MoveDocDialog from={moving} onMove={confirmMove} onClose={() => setMoving(null)} />}
 
       {asking && <ReminderDialog targets={toRemind.map((r) => ({ requestId: request.id, clientId: r.rc.clientId }))} via={request.via} request={request.title} onSend={sendReminders} onClose={() => setAsking(false)} />}
 

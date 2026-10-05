@@ -14,19 +14,9 @@ export interface Msg {
   text?: string
   file?: { name: string; size: string }
   photo?: boolean
-  quoted?: string
-  buttons?: string[]
   matched?: string
   link?: { requestId: string; clientId: string; docId: string } // the request document this file became
   tick?: 'sent' | 'read'
-}
-
-interface Suggestion {
-  msgId: string
-  docName: string
-  clientId: string
-  requestId: string
-  docId: string
 }
 
 export interface Conversation {
@@ -37,7 +27,6 @@ export interface Conversation {
   unread: number
   msgs: Msg[]
   unassigned?: boolean
-  suggestion?: Suggestion
 }
 
 // The text a template produces for a client. The chat shows exactly this, never a hand-written copy.
@@ -53,7 +42,6 @@ const seed: Conversation[] = [
     phone: '+91 98111 22301',
     clientIds: ['ramesh-itr', 'ramesh-gst'],
     unread: 1,
-    suggestion: { msgId: 'm4', docName: 'Bank statement Apr–Mar', clientId: 'ramesh-itr', requestId: 'r1', docId: 'bank' },
     msgs: [
       {
         id: 'm1',
@@ -67,10 +55,9 @@ const seed: Conversation[] = [
           due_date: '5 Oct',
         }),
       },
-      { id: 'm2', from: 'client', time: '10:42', quoted: 'We need the following documents for your ITR salaried:', file: { name: 'Form16_PartAB.pdf', size: '2 pages · 412 KB' }, matched: 'Filed as Form 16 · To review', link: { requestId: 'r1', clientId: 'ramesh-itr', docId: 'form16' } },
-      { id: 'm3', from: 'client', time: '10:44', file: { name: 'Bank_statement_Apr-Mar.pdf', size: '3 pages · 1.1 MB' } },
+      { id: 'm2', from: 'client', time: '10:42', file: { name: 'Form16_PartAB.pdf', size: '2 pages · 412 KB' }, matched: 'Filed as Form 16 · To review', link: { requestId: 'r1', clientId: 'ramesh-itr', docId: 'form16' } },
+      { id: 'm3', from: 'client', time: '10:44', file: { name: 'Bank_statement_Apr-Mar.pdf', size: '3 pages · 1.1 MB' }, matched: 'Sorted as Bank statement · Please check', link: { requestId: 'r1', clientId: 'ramesh-itr', docId: 'bank' } },
       { id: 'm3s', from: 'system', time: '10:44', text: '2 photos were skipped because they did not look like documents. They were not saved.' },
-      { id: 'm4', from: 'ca', time: '10:44', tick: 'sent', text: 'Thank you, we received your file.\n\nWhich request is it for?', buttons: ['GST · GSTR-1', 'ITR · FY 2025-26'] },
     ],
   },
   {
@@ -236,7 +223,6 @@ interface Store {
   setMode: (m: 'own' | 'kdk') => void
   markRead: (id: string) => void
   send: (id: string, text: string) => void
-  confirmSuggestion: (id: string) => void
   assign: (id: string, clientId: string, requestId: string, docId: string, docName: string) => void
   notifyRejected: (convId: string, docName: string, reason: string) => void
 }
@@ -261,24 +247,6 @@ export function InboxProvider({ children }: { children: ReactNode }) {
     (id: string, text: string) =>
       patch(id, (c) => ({ ...c, msgs: [...c.msgs, { id: `s${Date.now()}`, from: 'ca', time: nowTime(), tick: 'sent', text }] })),
     [patch],
-  )
-
-  const confirmSuggestion = useCallback(
-    (id: string) => {
-      const conv = conversations.find((c) => c.id === id)
-      const s = conv?.suggestion
-      if (!conv || !s) return
-      setDocStatus(s.requestId, s.clientId, s.docId, 'to_review')
-      patch(id, (c) => ({
-        ...c,
-        suggestion: undefined,
-        msgs: [
-          ...c.msgs.map((m) => (m.id === 'm3' ? { ...m, matched: `Filed as ${s.docName} · To review` } : m)),
-          { id: `s${Date.now()}`, from: 'ca', time: nowTime(), tick: 'sent', text: say('received', { name: c.title.split(' ')[0], document: s.docName }) },
-        ],
-      }))
-    },
-    [conversations, patch, setDocStatus],
   )
 
   const assign = useCallback(
@@ -309,8 +277,8 @@ export function InboxProvider({ children }: { children: ReactNode }) {
 
   const unreadTotal = mode === 'kdk' || !readReplies ? 0 : conversations.reduce((n, c) => n + c.unread, 0)
   const value = useMemo(
-    () => ({ conversations, unreadTotal, mode, setMode, markRead, send, confirmSuggestion, assign, notifyRejected }),
-    [conversations, unreadTotal, mode, markRead, send, confirmSuggestion, assign, notifyRejected],
+    () => ({ conversations, unreadTotal, mode, setMode, markRead, send, assign, notifyRejected }),
+    [conversations, unreadTotal, mode, markRead, send, assign, notifyRejected],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

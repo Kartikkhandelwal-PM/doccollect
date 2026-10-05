@@ -56,13 +56,13 @@ const fileFor = (name: string) => {
 }
 
 // One client in a request. `codes` has a letter per document: A approved, R to review, X sent back, P still pending.
-function rc(clientId: string, defs: Def[], codes: string, n = 0, lastReminder?: string): RequestClient {
+function rc(clientId: string, defs: Def[], codes: string, n = 0, lastReminder?: string, checks: Record<string, string> = {}): RequestClient {
   const docs: RequestDoc[] = defs.map(([id, name], i) => {
     const status = CODE[codes[i] ?? 'P']
     if (status === 'pending') return { id, name, status }
     const source: 'WhatsApp' | 'Link' = (n + i) % 3 === 0 ? 'WhatsApp' : 'Link'
     const receivedAt = status === 'to_review' ? fresh[(n + i) % fresh.length] : earlier[(n + i) % earlier.length]
-    return { id, name, status, source, receivedAt, fileName: fileFor(name), reason: status === 'rejected' ? why[(n + i) % why.length] : undefined }
+    return { id, name, status, source, receivedAt, fileName: fileFor(name), reason: status === 'rejected' ? why[(n + i) % why.length] : undefined, check: status === 'to_review' ? checks[id] : undefined }
   })
   return { clientId, docs, lastReminder }
 }
@@ -76,7 +76,7 @@ export const moreRequests: DocRequest[] = [
     due: '2026-10-05',
     via: 'own',
     clients: [
-      rc('mehta-foods-pvt-ltd', GST, 'ARRA', 1),
+      rc('mehta-foods-pvt-ltd', GST, 'ARRA', 1, undefined, { purchase: 'Looks like a sales register, not a purchase register' }),
       rc('gupta-textiles', GST, 'AAAA', 2),
       rc('bhatia-brothers', GST, 'APPP', 3, 'Sep 30'),
       rc('rao-associates', GST, 'ARPP', 4),
@@ -95,7 +95,7 @@ export const moreRequests: DocRequest[] = [
       rc('arjun-mehta', ITR, 'AARPPPP', 1),
       rc('neha-kulkarni', ITR, 'AAAAAAA', 2),
       rc('rohit-bansal', ITR, 'APPPPPP', 3, 'Sep 30'),
-      rc('pooja-nair', ITR, 'AARRXPP', 4),
+      rc('pooja-nair', ITR, 'AARRXPP', 4, undefined, { form16: 'Looks like a Form 16 for the earlier year' }),
       rc('sanjay-gupta', ITR, 'PPPPPPP', 0, 'Sep 29'),
       rc('divya-reddy', ITR, 'AAAAPPP', 5),
       rc('sunita', ITR, 'AARPPPP', 6),
@@ -176,7 +176,7 @@ export const moreRequests: DocRequest[] = [
     createdAt: '2026-09-27',
     due: '2026-10-06',
     via: 'own',
-    clients: [rc('orchid-hospitality', GST, 'AXPP', 1, 'Sep 30'), rc('sagar-marine-exports', GST, 'RRAA', 2), rc('bharat-hardware', GST, 'APPX', 3)],
+    clients: [rc('orchid-hospitality', GST, 'AXPP', 1, 'Sep 30'), rc('sagar-marine-exports', GST, 'RRAA', 2, undefined, { sales: 'The name on it is a different firm' }), rc('bharat-hardware', GST, 'APPX', 3)],
   },
 ]
 

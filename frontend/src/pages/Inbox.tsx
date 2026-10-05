@@ -55,12 +55,6 @@ function Bubble({ m, onOpen }: { m: Msg; onOpen: (m: Msg) => void }) {
           mine ? 'rounded-tr-none bg-[#D9FDD3]' : 'rounded-tl-none bg-white'
         }`}
       >
-        {m.quoted && (
-          <div className="mb-1.5 rounded-md border-l-4 border-[#00A884] bg-slate-100 px-2.5 py-1.5">
-            <div className="text-xs font-bold text-[#008069]">You</div>
-            <div className="text-[13px] text-slate-600">{m.quoted}</div>
-          </div>
-        )}
         {m.file &&
           (m.photo ? (
             <button
@@ -97,11 +91,6 @@ function Bubble({ m, onOpen }: { m: Msg; onOpen: (m: Msg) => void }) {
           {mine && <Ticks tick={m.tick} />}
         </div>
       </div>
-      {m.buttons?.map((b) => (
-        <div key={b} className="w-64 rounded-[10px] bg-white py-2.5 text-center text-sm font-semibold text-[#027EB5] shadow-[0_1px_1px_rgba(17,27,33,0.13)]">
-          {b}
-        </div>
-      ))}
     </div>
   )
 }
@@ -175,7 +164,7 @@ function FileViewer({
 
 function RightPanel({ conv }: { conv: Conversation }) {
   const { requests, setDocStatus } = useRequests()
-  const { confirmSuggestion, assign, notifyRejected } = useInbox()
+  const { assign, notifyRejected } = useInbox()
   const [pickClient, setPickClient] = useState('')
   const [pickDoc, setPickDoc] = useState('')
 
@@ -251,22 +240,6 @@ function RightPanel({ conv }: { conv: Conversation }) {
 
   return (
     <div className="flex flex-col gap-4 p-5">
-      {conv.suggestion && (
-        <div className="rounded-xl bg-gradient-to-r from-[#E4F5EE] to-[#E8F1FD] p-3.5 text-[13.5px] leading-relaxed text-brand-dark">
-          <b>Suggestion</b>
-          <br />
-          <b>{conv.msgs.find((m) => m.id === conv.suggestion?.msgId)?.file?.name}</b> looks like a <b>{conv.suggestion.docName}</b> for ITR.
-          <div className="mt-2.5 flex gap-2">
-            <button type="button" onClick={() => confirmSuggestion(conv.id)} className="rounded-full bg-brand px-4 py-1.5 text-[13px] font-semibold text-white">
-              Confirm
-            </button>
-            <button type="button" className="rounded-full border border-[#BFDDD2] bg-white px-4 py-1.5 text-[13px] font-semibold">
-              Change
-            </button>
-          </div>
-        </div>
-      )}
-
       {mine.length === 0 && <p className="text-sm text-muted">No open requests for this client.</p>}
       {mine.map((r) => (
         <div key={r.id}>
@@ -301,7 +274,7 @@ function RightPanel({ conv }: { conv: Conversation }) {
 
       {conv.clientIds.length > 1 && (
         <div className="rounded-xl border border-[#F5DFA8] bg-[#FEF6E4] p-3 text-[12.5px] leading-relaxed text-[#7A3B00]">
-          This number belongs to {conv.clientIds.map((id) => getClient(id)?.service).join(' and ')} clients. Replies are matched using the message the client replies to.
+          This number belongs to {conv.clientIds.map((id) => getClient(id)?.service).join(' and ')} clients. We sort the files for you by what they are, for example a Form 16 goes to ITR. If one lands in the wrong place, you can move it when you review.
         </div>
       )}
     </div>
@@ -347,7 +320,7 @@ export default function Inbox() {
         .filter((c) => reading || !c.unassigned)
         .map((c) => {
           const msgs = c.msgs.filter((m) => isWork(m) && (reading || m.from === 'ca'))
-          return reading ? { ...c, msgs } : { ...c, msgs, unread: 0, suggestion: undefined }
+          return reading ? { ...c, msgs } : { ...c, msgs, unread: 0 }
         })
         .filter((c) => c.msgs.length > 0),
     [reading, allConversations],

@@ -16,9 +16,10 @@ interface Props {
   onNext: () => void
   onApprove: () => void
   onReject: () => void
+  onMove: () => void
 }
 
-export default function DocPreviewDrawer({ client, doc, position, total, onClose, onPrev, onNext, onApprove, onReject }: Props) {
+export default function DocPreviewDrawer({ client, doc, position, total, onClose, onPrev, onNext, onApprove, onReject, onMove }: Props) {
   // Esc closes; arrow keys move between documents. Ignored while typing in a field.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -79,6 +80,11 @@ export default function DocPreviewDrawer({ client, doc, position, total, onClose
       </div>
 
       <div className="border-t border-line bg-white px-5 py-4">
+        {doc.check && (
+          <div className="mb-3 rounded-lg bg-warn-soft px-3 py-2 text-[13px] font-medium text-warn">
+            <b>Please check:</b> {doc.check}
+          </div>
+        )}
         {doc.status === 'rejected' && doc.reason && (
           <div className="mb-3 rounded-lg bg-danger-soft px-3 py-2 text-[13px] font-medium text-danger">Sent back: {doc.reason}</div>
         )}
@@ -101,6 +107,14 @@ export default function DocPreviewDrawer({ client, doc, position, total, onClose
             {doc.status === 'rejected' ? 'Reject again' : 'Reject'}
           </button>
         </div>
+        {!decided && (
+          <p className="mt-3 text-center text-[13px] text-muted">
+            In the wrong place?{' '}
+            <button type="button" onClick={onMove} className="font-semibold text-brand hover:underline">
+              Move it
+            </button>
+          </p>
+        )}
         <p className="mt-2.5 text-center text-xs text-muted">
           {decided ? 'You can change your decision any time.' : 'After you decide, the next document opens by itself. Use ← → to move around, Esc to close.'}
         </p>

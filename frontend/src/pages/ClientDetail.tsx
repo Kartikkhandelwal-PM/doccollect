@@ -250,7 +250,7 @@ export default function ClientDetail() {
               <section className="rounded-2xl border border-[#F5DFA8] bg-[#FEF6E4] px-4 py-4 text-[13px] leading-relaxed text-[#7A3B00]">
                 <b>Shares this number with another client</b>
                 <br />
-                {other.name} ({other.service}) uses the same WhatsApp number. Requests to both go out as one message.
+                {other.name} ({other.service}) uses the same WhatsApp number. Each request goes out as its own message with its own link, so their files do not get mixed up.
                 <Link to={`/clients/${other.id}`} className="mt-3 flex items-center gap-2 rounded-[10px] bg-white px-2.5 py-2 font-semibold text-ink">
                   <Avatar name={other.name} size={26} />
                   {other.name} · {other.service}

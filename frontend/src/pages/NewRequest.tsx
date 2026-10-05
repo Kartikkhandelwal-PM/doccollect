@@ -113,7 +113,6 @@ export default function NewRequest() {
   const [via, setVia] = useState<'own' | 'kdk'>('own')
   const [due, setDue] = useState('')
   const [dueTouched, setDueTouched] = useState(false)
-  const [combine, setCombine] = useState(true)
   const [created, setCreated] = useState<DocRequest | null>(null)
   const [messageCount, setMessageCount] = useState(0)
 
@@ -121,14 +120,8 @@ export default function NewRequest() {
   const chosenDocs = docIds.map((id) => allDocs.find((d) => d.id === id)).filter((d): d is CatalogDoc => !!d)
   const chosenClients = selected.map((id) => getClient(id)).filter((c) => c !== undefined)
 
-  // Clients that share a WhatsApp number can get one combined message.
-  const phoneGroups = useMemo(() => {
-    const map = new Map<string, typeof chosenClients>()
-    for (const c of chosenClients) map.set(c.phone, [...(map.get(c.phone) ?? []), c])
-    return [...map.values()]
-  }, [chosenClients])
-  const sharedGroups = phoneGroups.filter((g) => g.length > 1)
-  const messages = combine ? phoneGroups.length : chosenClients.length
+  // Every client gets their own message and their own link, even when two of them use the same number.
+  const sharedCount = chosenClients.filter((c) => chosenClients.some((o) => o.id !== c.id && o.phone === c.phone)).length
 
   const list = clients.filter(
     (c) =>
@@ -158,7 +151,6 @@ export default function NewRequest() {
   }
 
   const first = chosenClients[0]
-  const firstGroup = phoneGroups[0] ?? []
   const title = templates.find((t) => t.id === templateId)?.name ?? 'Custom'
 
   // The words come from Message templates, so editing that page changes what clients receive.
@@ -167,7 +159,7 @@ export default function NewRequest() {
   const message = fillTemplate(
     requestTemplate,
     {
-      name: ((combine ? firstGroup[0] : first)?.name ?? 'there').split(' ')[0],
+      name: (first?.name ?? 'there').split(' ')[0],
       firm: firm.name,
       documents: formatList(chosenDocs.map((d) => d.name)),
       request: templateId === 'custom' ? 'your request' : title,
@@ -183,7 +175,7 @@ export default function NewRequest() {
       clientIds: selected,
       docs: chosenDocs,
     })
-    setMessageCount(messages)
+    setMessageCount(chosenClients.length)
     setCreated(r)
     setStep(4)
   }
@@ -359,11 +351,11 @@ export default function NewRequest() {
                 </ul>
               )}
             </div>
-            {sharedGroups.length > 0 && (
+            {sharedCount > 0 && (
               <div className="rounded-2xl border border-[#F5DFA8] bg-[#FEF6E4] p-4 text-[13px] leading-relaxed text-[#7A3B00]">
-                <b>{sharedGroups.reduce((n, g) => n + g.length, 0)} of these clients use the same WhatsApp number.</b>
+                <b>{sharedCount} of these clients use the same WhatsApp number.</b>
                 <br />
-                They will get one combined message, not several.
+                Each one still gets their own message and their own upload link.
               </div>
             )}
             <div className="rounded-2xl border border-[#D3E9E4] bg-gradient-to-r from-[#E4F5EE] to-[#E8F1FD] p-4 text-[13px] leading-relaxed text-slate-600">
@@ -512,12 +504,6 @@ export default function NewRequest() {
                   }}
                 />
               </div>
-              <button type="button" role="switch" aria-checked={combine} onClick={() => setCombine((v) => !v)} className="mt-4 flex items-center gap-3 text-sm font-medium">
-                <span className={`relative h-[22px] w-[38px] rounded-full ${combine ? 'bg-brand' : 'bg-slate-300'}`}>
-                  <span className={`absolute top-0.5 h-[18px] w-[18px] rounded-full bg-white transition-all ${combine ? 'left-[18px]' : 'left-0.5'}`} />
-                </span>
-                Combine messages for clients with the same number
-              </button>
             </section>
           </div>
 
@@ -525,7 +511,7 @@ export default function NewRequest() {
             <section className="rounded-[18px] border border-line bg-white px-6 py-5">
               <div className="flex items-baseline justify-between">
                 <h2 className="text-base font-bold tracking-tight">Message preview</h2>
-                <span className="text-xs font-medium text-muted">to {(combine ? firstGroup[0] : first)?.name}</span>
+                <span className="text-xs font-medium text-muted">to {first?.name}</span>
               </div>
               <div className="mt-3 rounded-2xl bg-[#EFEAE2] p-3.5">
                 <div className="rounded-[10px] rounded-tr-none bg-[#D9FDD3] px-3 py-2.5 text-[13.5px] leading-relaxed shadow-sm">
@@ -537,7 +523,7 @@ export default function NewRequest() {
               <h2 className="text-base font-bold tracking-tight">Summary</h2>
               <dl className="mt-3 flex flex-col gap-2.5">
                 <div className="flex justify-between"><dt className="text-muted">Clients</dt><dd className="font-semibold">{chosenClients.length}</dd></div>
-                <div className="flex justify-between"><dt className="text-muted">WhatsApp messages</dt><dd className="font-semibold">{messages}{messages < chosenClients.length ? ' (combined)' : ''}</dd></div>
+                <div className="flex justify-between"><dt className="text-muted">WhatsApp messages</dt><dd className="font-semibold">{chosenClients.length}</dd></div>
                 <div className="flex justify-between"><dt className="text-muted">Documents each</dt><dd className="font-semibold">{chosenDocs.length}</dd></div>
                 <div className="flex justify-between"><dt className="text-muted">Due</dt><dd className="font-semibold">{fmtDate(due)}</dd></div>
               </dl>
@@ -556,7 +542,7 @@ export default function NewRequest() {
           }} nextLabel="Continue to review →" note={`${docIds.length} documents`} disabled={docIds.length === 0} />
       )}
       {step === 3 && (
-        <Footer onBack={() => setStep(2)} backLabel="← Back" onNext={send} nextLabel={`Send ${messages} ${messages === 1 ? 'message' : 'messages'}`} note="Nothing is sent until you press this" disabled={!due} />
+        <Footer onBack={() => setStep(2)} backLabel="← Back" onNext={send} nextLabel={`Send ${chosenClients.length} ${chosenClients.length === 1 ? 'message' : 'messages'}`} note="Nothing is sent until you press this" disabled={!due} />
       )}
     </div>
   )
