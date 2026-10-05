@@ -22,3 +22,15 @@ export function useSessionState<T>(key: string, initial: T) {
   }, [full, value])
   return [value, setValue] as const
 }
+
+// Puts the demo back to its sample data: saved values are cleared and the whole page loads again from the start page.
+export function resetDemo() {
+  try {
+    Object.keys(sessionStorage)
+      .filter((k) => k.startsWith('doccollect:'))
+      .forEach((k) => sessionStorage.removeItem(k))
+  } catch {
+    /* nothing saved */
+  }
+  window.location.assign(import.meta.env.BASE_URL)
+}

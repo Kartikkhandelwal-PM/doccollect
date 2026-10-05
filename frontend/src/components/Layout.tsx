@@ -15,6 +15,7 @@ import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useInbox } from '../data/inbox'
 import { APP_NAME } from '../lib/brand'
+import { resetDemo } from '../lib/session'
 import GlobalHeader from './GlobalHeader'
 import UserMenu from './UserMenu'
 
@@ -102,10 +103,12 @@ export default function Layout() {
     <div className="flex h-full">
       <aside className={`flex shrink-0 flex-col gap-6 border-r border-line bg-white py-5 transition-[width] duration-200 ${collapsed ? 'w-[76px] px-3' : 'w-64 px-4'}`}>
         <div className={collapsed ? 'flex flex-col items-center gap-3' : 'flex items-center gap-2.5 px-2.5'}>
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-brand text-white">
-            <FolderOpen size={19} strokeWidth={2.1} />
-          </span>
-          {!collapsed && <span className="min-w-0 flex-1 truncate text-xl font-bold tracking-tight">{APP_NAME}</span>}
+          <button type="button" onClick={resetDemo} title="Reload and start the demo again from the sample data" className={`flex items-center gap-2.5 ${collapsed ? '' : 'min-w-0 flex-1'}`}>
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-brand text-white">
+              <FolderOpen size={19} strokeWidth={2.1} />
+            </span>
+            {!collapsed && <span className="min-w-0 flex-1 truncate text-left text-xl font-bold tracking-tight">{APP_NAME}</span>}
+          </button>
           <button
             type="button"
             onClick={toggle}
