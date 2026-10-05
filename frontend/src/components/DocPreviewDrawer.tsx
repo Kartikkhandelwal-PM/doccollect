@@ -74,7 +74,11 @@ export default function DocPreviewDrawer({ client, doc, position, total, onClose
           </button>
         </div>
         <div className="flex items-center gap-3">
-          <StatusBadge status={doc.status} />
+          {place ? (
+            <span className="rounded-md bg-warn-soft px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-warn">Not placed</span>
+          ) : (
+            <StatusBadge status={doc.status} />
+          )}
           <button type="button" aria-label="Download" className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-white">
             <Download size={17} />
           </button>
