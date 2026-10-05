@@ -199,6 +199,9 @@ function RequestView({ request }: { request: DocRequest }) {
       setOpenDoc({ clientId: x.clientId, docId: x.doc.id })
     }
   }
+  // Moving only makes sense when there is somewhere to go: the file is flagged, or this client still has something missing.
+  const canMove = (clientId: string, d: { status: string; check?: string }) =>
+    d.status === 'to_review' && (!!d.check || !!request.clients.find((c) => c.clientId === clientId)?.docs.some((x) => x.status === 'pending' || x.status === 'rejected'))
   const confirmMove = (to: DocRef) => {
     if (!moving) return
     const name = getClient(to.clientId)?.name
@@ -477,7 +480,7 @@ function RequestView({ request }: { request: DocRequest }) {
                             {d.status === 'rejected' && d.reason && <span className="ml-1.5 font-semibold text-danger">· {d.reason}</span>}
                           </div>
                         </div>
-                        {d.status === 'to_review' && d.check && (
+                        {d.status === 'to_review' && canMove(rc.clientId, d) && d.check && (
                           <button
                             type="button"
                             onClick={(e) => {
@@ -513,7 +516,7 @@ function RequestView({ request }: { request: DocRequest }) {
           onNext={() => openAt(idx + 1)}
           onApprove={approveOpen}
           onReject={rejectOpen}
-          onMove={() => current && setMoving({ requestId: request.id, clientId: current.clientId, docId: current.doc.id })}
+          onMove={canMove(current.clientId, current.doc) ? () => setMoving({ requestId: request.id, clientId: current.clientId, docId: current.doc.id }) : undefined}
         />
       )}
 

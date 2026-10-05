@@ -16,7 +16,7 @@ interface Props {
   onNext: () => void
   onApprove: () => void
   onReject: () => void
-  onMove: () => void
+  onMove?: () => void // left out when there is nowhere to move the file
 }
 
 export default function DocPreviewDrawer({ client, doc, position, total, onClose, onPrev, onNext, onApprove, onReject, onMove }: Props) {
@@ -83,7 +83,7 @@ export default function DocPreviewDrawer({ client, doc, position, total, onClose
       </div>
 
       <div className="border-t border-line bg-white px-5 py-4">
-        {doc.check && (
+        {doc.check && onMove && (
           <div className="mb-3 flex items-center gap-3 rounded-lg bg-warn-soft px-3 py-2 text-[13px] font-medium text-warn">
             <span className="flex-1">
               <b>Please check:</b> {doc.check}
@@ -116,7 +116,7 @@ export default function DocPreviewDrawer({ client, doc, position, total, onClose
             {doc.status === 'rejected' ? 'Reject again' : 'Reject'}
           </button>
         </div>
-        {doc.status === 'to_review' && (
+        {doc.status === 'to_review' && onMove && (
           <button
             type="button"
             onClick={onMove}
