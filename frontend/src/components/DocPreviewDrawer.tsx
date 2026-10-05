@@ -4,7 +4,9 @@ import type { RequestDoc } from '../data/requests'
 import type { Client } from '../data/types'
 import FileTypeIcon from './FileTypeIcon'
 import PaperPreview from './PaperPreview'
+import OpenInTab from './OpenInTab'
 import StatusBadge from './StatusBadge'
+import { fileLink } from '../lib/fileLink'
 
 interface Props {
   client: Client
@@ -79,6 +81,7 @@ export default function DocPreviewDrawer({ client, doc, position, total, onClose
           ) : (
             <StatusBadge status={doc.status} />
           )}
+          <OpenInTab iconOnly href={fileLink({ name: doc.name, fileName: doc.fileName, client: client.name, pan: client.pan, from: doc.receivedAt, moreFiles: doc.moreFiles })} />
           <button type="button" aria-label="Download" className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-white">
             <Download size={17} />
           </button>

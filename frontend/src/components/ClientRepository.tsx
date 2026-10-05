@@ -7,7 +7,9 @@ import { useMasterStore } from '../data/masterStore'
 import { getClient } from '../data/mock'
 import { useRequests } from '../data/requests'
 import FileTypeIcon from './FileTypeIcon'
+import OpenInTab from './OpenInTab'
 import PaperPreview from './PaperPreview'
+import { fileLink } from '../lib/fileLink'
 
 interface Node {
   id: string
@@ -141,6 +143,7 @@ export default function ClientRepository({ clientId }: { clientId: string }) {
                   {client?.name} · {open.size} · from {open.from}
                 </div>
               </div>
+              <OpenInTab iconOnly href={fileLink({ name: open.name, fileName: open.fileName, client: client?.name ?? '', pan: client?.pan ?? '', from: open.date })} />
               <button type="button" aria-label="Close" onClick={() => setOpen(null)} className="flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-canvas">
                 <X size={20} />
               </button>

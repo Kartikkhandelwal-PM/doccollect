@@ -7,17 +7,22 @@ import { fmtDate, useRequests } from '../data/requests'
 import type { RequestDoc } from '../data/requests'
 import { useSetup } from '../data/setup'
 import { expiresOn, isExpired } from '../lib/dates'
+import { parseToken } from '../lib/links'
 
 // The page a client opens from the WhatsApp link. It has one job: collect the documents.
 export default function ClientUpload() {
-  const { requestId, clientId } = useParams()
+  const { requestId: rid, clientId: cid, token: tok } = useParams()
   const [params] = useSearchParams()
   const preview = params.get('preview') === '1'
-  const { getRequest, clientUpload, clientAddFile, markNotApplicable, resetClient, clientRemove } = useRequests()
+  const { requests, getRequest, clientUpload, clientAddFile, markNotApplicable, resetClient, clientRemove } = useRequests()
   const { firm, graceDays } = useSetup()
   const [sent, setSent] = useState(false)
   const [confirmId, setConfirmId] = useState<string | null>(null)
 
+  // The link is either doccollect.in/u/<request>-<client>-v<n>, or the older /u/<request id>/<client id> used for previews.
+  const parsed = tok ? parseToken(tok) : null
+  const requestId = parsed ? requests.find((r) => r.ref.toLowerCase() === parsed.ref)?.id : rid
+  const clientId = parsed ? parsed.clientId : cid
   const request = requestId ? getRequest(requestId) : undefined
   const rc = request?.clients.find((c) => c.clientId === clientId)
   const client = clientId ? getClient(clientId) : undefined
@@ -85,7 +90,7 @@ export default function ClientUpload() {
   )
 
   // An old link (replaced by a new one), or one past its last date plus the extra days, no longer works.
-  const token = params.get('t')
+  const token = parsed ? `v${parsed.version}` : params.get('t')
   const oldLink = token !== null && token !== `v${rc.linkVersion ?? 1}`
   if (oldLink || isExpired(request.due, graceDays)) {
     return (

@@ -26,7 +26,7 @@ export const sample: Record<string, string> = {
   reason: 'page 3 is missing',
   year: '2025-26',
   due_date: '5 Oct',
-  link: `${LINK_DOMAIN}/u/a8x3k`,
+  link: `${LINK_DOMAIN}/u/r-1042-ramesh-itr-v1`,
 }
 
 // A list of documents as numbered lines. Very long lists show the first few and point to the link.

@@ -6,6 +6,7 @@ import ClientDetail from './pages/ClientDetail'
 import ClientUpload from './pages/ClientUpload'
 import Clients from './pages/Clients'
 import Dashboard from './pages/Dashboard'
+import FileView from './pages/FileView'
 import Inbox from './pages/Inbox'
 import Compliances from './pages/Compliances'
 import Documents from './pages/Documents'
@@ -26,7 +27,7 @@ const wantsSplash = () => {
     /* no storage, play it */
   }
   const path = window.location.pathname.slice(import.meta.env.BASE_URL.length - 1)
-  return !/^\/(u\/|signed-out)/.test(path)
+  return !/^\/(u\/|signed-out|file)/.test(path)
 }
 
 export default function App() {
@@ -37,7 +38,9 @@ export default function App() {
     <Routes>
       {/* What a client sees from the WhatsApp link. No sidebar, no login. */}
       <Route path="u/:requestId/:clientId" element={<ClientUpload />} />
+      <Route path="u/:token" element={<ClientUpload />} />
       <Route path="signed-out" element={<SignedOut />} />
+      <Route path="file" element={<FileView />} />
       <Route element={<Layout />}>
         <Route index element={<Dashboard />} />
         <Route path="clients" element={<Clients />} />

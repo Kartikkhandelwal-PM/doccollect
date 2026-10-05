@@ -29,7 +29,7 @@ export interface Conversation {
 
 // The text a template produces for a client. The chat shows exactly this, never a hand-written copy.
 const say = (id: string, values: Record<string, string>) =>
-  fillTemplate(seedMessages.find((m) => m.id === id)?.text ?? '', { firm: 'Kartik Khandelwal & Associates', link: `${LINK_DOMAIN}/u/a8x3k`, ...values })
+  fillTemplate(seedMessages.find((m) => m.id === id)?.text ?? '', { firm: 'Kartik Khandelwal & Associates', link: `${LINK_DOMAIN}/u/r-1042-ramesh-itr-v1`, ...values })
 
 const nowTime = () => new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false })
 
@@ -103,7 +103,7 @@ const seed: Conversation[] = [
     phone: '+91 90555 66663',
     clientIds: ['kapoor'],
     unread: 0,
-    msgs: [{ id: 'k1', from: 'ca', time: 'Mon', tick: 'read', text: say('request', { name: 'Kapoor', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '3 Oct', link: `${LINK_DOMAIN}/u/k92pq` }) }],
+    msgs: [{ id: 'k1', from: 'ca', time: 'Mon', tick: 'read', text: say('request', { name: 'Kapoor', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '3 Oct', link: `${LINK_DOMAIN}/u/r-1043-kapoor-v1` }) }],
   },
   {
     id: 'c-mehta',
@@ -177,7 +177,7 @@ const seed: Conversation[] = [
     clientIds: ['lotus-interiors'],
     unread: 0,
     msgs: [
-      { id: 'lo1', from: 'ca', time: 'Tue', tick: 'sent', text: say('request', { name: 'Lotus', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '8 Oct', link: `${LINK_DOMAIN}/u/l7wmz` }) },
+      { id: 'lo1', from: 'ca', time: 'Tue', tick: 'sent', text: say('request', { name: 'Lotus', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '8 Oct', link: `${LINK_DOMAIN}/u/r-1035-lotus-interiors-v1` }) },
     ],
   },
   {

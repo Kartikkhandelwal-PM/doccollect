@@ -3,7 +3,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import Avatar from '../components/Avatar'
 import FileTypeIcon from '../components/FileTypeIcon'
+import OpenInTab from '../components/OpenInTab'
 import PaperPreview from '../components/PaperPreview'
+import { fileLink } from '../lib/fileLink'
 import Pagination, { usePaging } from '../components/Pagination'
 import { buildMaster } from '../data/master'
 import type { MasterFile } from '../data/master'
@@ -650,6 +652,7 @@ export default function Master() {
               <button type="button" onClick={() => setOpen(null)} className="h-11 rounded-xl border border-line px-5 text-sm font-semibold">
                 Close
               </button>
+              <OpenInTab href={fileLink({ name: open.name, fileName: open.fileName, client: clientForPreview?.name ?? 'Kartik Khandelwal & Associates', pan: clientForPreview?.pan ?? '—', from: open.date })} />
               <button type="button" onClick={() => setToast(`Downloading ${open.fileName}`)} className="flex h-11 shrink-0 items-center whitespace-nowrap gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white">
                 <Download size={16} />
                 Download

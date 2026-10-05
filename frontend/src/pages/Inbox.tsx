@@ -2,7 +2,9 @@ import { Check, CheckCheck, ChevronDown, Image as ImageIcon, Info, Lock, PanelRi
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
+import OpenInTab from '../components/OpenInTab'
 import PaperPreview from '../components/PaperPreview'
+import { fileLink } from '../lib/fileLink'
 import WaText from '../components/WaText'
 import WhatsAppIcon from '../components/WhatsAppIcon'
 import FileTypeIcon from '../components/FileTypeIcon'
@@ -126,6 +128,7 @@ function FileViewer({
               {who} · {file.size} · {msg.time}
             </div>
           </div>
+          <OpenInTab iconOnly href={fileLink({ name: doc?.name ?? file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' '), fileName: file.name, client: who, pan, from: msg.time })} />
           <button type="button" aria-label="Close" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-canvas">
             <X size={20} />
           </button>
