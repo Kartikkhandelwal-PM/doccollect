@@ -263,7 +263,7 @@ function RequestView({ request }: { request: DocRequest }) {
   }
 
   return (
-    <div className={`flex min-h-full flex-col gap-5 px-8 py-6 transition-[padding] ${current ? 'pr-[552px]' : ''}`}>
+    <div className="flex min-h-full flex-col gap-5 px-8 py-6">
       <div className="sticky top-0 z-10 -mx-8 -mt-6 flex flex-col gap-4 bg-canvas px-8 pb-3 pt-6">
       <nav className="text-[13px] text-muted">
         <Link to="/requests" className="font-semibold text-brand">

@@ -36,9 +36,12 @@ export default function DocPreviewDrawer({ client, doc, position, total, onClose
   const decided = doc.status === 'approved' || doc.status === 'rejected'
 
   return (
+    <>
+      <button type="button" aria-label="Close preview" onClick={onClose} className="fixed inset-0 z-[24] cursor-default bg-ink/40 animate-[dc-fade_200ms_ease-out]" />
     <aside
-      className="fixed right-0 top-0 z-20 flex h-full w-[520px] flex-col border-l border-line bg-white shadow-[-12px_0_40px_rgba(14,27,44,0.12)]"
+      className="fixed right-0 top-0 z-[25] flex h-full w-[520px] max-w-full flex-col border-l border-line bg-white shadow-[-16px_0_48px_rgba(14,27,44,0.22)] animate-[dc-slide_240ms_cubic-bezier(0.2,0.8,0.2,1)]"
       role="dialog"
+      aria-modal="true"
       aria-label={`Preview of ${doc.name}`}
     >
       <div className="flex items-center gap-3 border-b border-line px-5 py-4">
@@ -120,5 +123,6 @@ export default function DocPreviewDrawer({ client, doc, position, total, onClose
         </p>
       </div>
     </aside>
+    </>
   )
 }
