@@ -3,6 +3,7 @@ import Page from '../components/Page'
 import { useEffect, useState } from 'react'
 import Avatar from '../components/Avatar'
 import ConnectWhatsApp from '../components/ConnectWhatsApp'
+import PhoneInput from '../components/PhoneInput'
 import FirmLogo from '../components/FirmLogo'
 import WhatsAppIcon from '../components/WhatsAppIcon'
 import { useInbox } from '../data/inbox'
@@ -11,6 +12,7 @@ import { expiresOn } from '../lib/dates'
 import { useSetup } from '../data/setup'
 import type { Firm, TeamMember } from '../data/setup'
 import { SHARED_NUMBER_NAME } from '../lib/brand'
+import { formatMobile, isMobile, mobileDigits } from '../lib/phone'
 
 type Tab = 'firm' | 'whatsapp' | 'links' | 'team' | 'usage'
 const tabs: { key: Tab; label: string }[] = [
@@ -104,7 +106,7 @@ export default function Settings() {
               <Field label="Firm name" value={draft.name} onChange={(v) => setDraft({ ...draft, name: v })} />
             </div>
             <Field label="Email" value={draft.email} onChange={(v) => setDraft({ ...draft, email: v })} />
-            <Field label="Phone" value={draft.phone} onChange={(v) => setDraft({ ...draft, phone: v })} />
+            <PhoneInput label="Phone" value={draft.phone} onChange={(d) => setDraft({ ...draft, phone: formatMobile(d) })} />
             <div className="col-span-2">
               <Field label="Address" value={draft.address} onChange={(v) => setDraft({ ...draft, address: v })} />
             </div>
@@ -116,7 +118,7 @@ export default function Settings() {
             </button>
             <button
               type="button"
-              disabled={!dirty || !draft.name.trim()}
+              disabled={!dirty || !draft.name.trim() || !isMobile(mobileDigits(draft.phone))}
               onClick={() => {
                 saveFirm(draft)
                 setToast('Firm details saved')

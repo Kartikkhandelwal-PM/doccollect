@@ -1,10 +1,12 @@
 import { AlertTriangle, ArrowLeft, Check, Copy, Eye, EyeOff, Loader2, X } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useEffect, useMemo, useState } from 'react'
+import PhoneInput from './PhoneInput'
 import WhatsAppIcon from './WhatsAppIcon'
 import { useSetup } from '../data/setup'
 import type { WhatsAppLink } from '../data/setup'
 import { APP_NAME, LINK_DOMAIN } from '../lib/brand'
+import { formatMobile, isMobile } from '../lib/phone'
 
 type Have = 'business-app' | 'normal' | 'none' | 'provider'
 type Step = 'have' | 'switch' | 'number' | 'otp' | 'channel' | 'test' | 'provider' | 'webhook'
@@ -113,7 +115,6 @@ export default function ConnectWhatsApp({ onClose, onConnected }: { onClose: () 
 
   const viaProvider = have === 'provider'
   const providerLabel = provider === 'Another provider' ? otherName.trim() || 'Your provider' : provider
-  const senderNumber = number
   const first = (firm.name || 'there').split(' ')[0]
 
   useEffect(() => {
@@ -156,7 +157,7 @@ export default function ConnectWhatsApp({ onClose, onConnected }: { onClose: () 
 
   const finish = () => {
     onConnected({
-      number: senderNumber.trim(),
+      number: formatMobile(number),
       displayName: viaProvider ? firm.name : displayName.trim(),
       provider: viaProvider ? providerLabel : 'Ramwin',
       route: viaProvider ? 'provider' : 'ramwin',
@@ -164,9 +165,9 @@ export default function ConnectWhatsApp({ onClose, onConnected }: { onClose: () 
     })
   }
 
-  const numberOk = digits(number).length >= 10
+  const numberOk = isMobile(number)
   const providerOk = numberOk && senderId.trim().length >= 4 && apiKey.trim().length >= 8 && /^[a-z0-9_]+$/.test(templateName.trim()) && (provider !== 'Another provider' || otherName.trim().length >= 2)
-  const testOk = digits(testTo).length >= 10 && digits(testTo) !== digits(senderNumber)
+  const testOk = isMobile(testTo) && testTo !== number
   const templateText = `Hello ${first}, this is a test message from ${viaProvider ? firm.name : displayName.trim() || firm.name}. Your WhatsApp is now connected to ${APP_NAME}. You do not need to reply.`
 
   const back: Partial<Record<Step, Step>> = {
@@ -284,9 +285,7 @@ export default function ConnectWhatsApp({ onClose, onConnected }: { onClose: () 
                   </ul>
                 </Note>
               )}
-              <Field label="WhatsApp number">
-                <input value={number} onChange={(e) => setNumber(e.target.value)} placeholder="+91 98765 43210" inputMode="tel" className={input} />
-              </Field>
+              <PhoneInput label="WhatsApp number" value={number} onChange={setNumber} autoFocus />
               <Field label="Name clients see on WhatsApp" hint="It must match your business name or website. WhatsApp reviews it, usually within a day.">
                 <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} className={input} />
               </Field>
@@ -305,9 +304,9 @@ export default function ConnectWhatsApp({ onClose, onConnected }: { onClose: () 
             <>
               <p className="text-sm leading-relaxed text-slate-600">
                 {have === 'business-app' ? (
-                  <>Open the WhatsApp Business app on <b>{number}</b>. WhatsApp shows a 6-digit code. Type it here.</>
+                  <>Open the WhatsApp Business app on <b>{formatMobile(number)}</b>. WhatsApp shows a 6-digit code. Type it here.</>
                 ) : (
-                  <>Ramwin sent a 6-digit code to <b>{number}</b> by SMS. Type it here.</>
+                  <>Ramwin sent a 6-digit code to <b>{formatMobile(number)}</b> by SMS. Type it here.</>
                 )}
               </p>
               <Field label="6-digit code">
@@ -332,7 +331,7 @@ export default function ConnectWhatsApp({ onClose, onConnected }: { onClose: () 
                 {[
                   'Connecting your Facebook business account',
                   'Creating your WhatsApp Business account',
-                  `Adding ${number}`,
+                  `Adding ${formatMobile(number)}`,
                   `Sending the name “${displayName.trim()}” for review`,
                   'Creating your channel',
                 ].map((label, i) => (
@@ -376,9 +375,7 @@ export default function ConnectWhatsApp({ onClose, onConnected }: { onClose: () 
                 </Field>
               )}
               <div className="grid grid-cols-2 gap-4">
-                <Field label="WhatsApp number">
-                  <input value={number} onChange={(e) => setNumber(e.target.value)} placeholder="+91 98765 43210" inputMode="tel" className={input} />
-                </Field>
+                <PhoneInput label="WhatsApp number" value={number} onChange={setNumber} />
                 <Field label="Channel / sender ID" hint="Your provider may call it Channel ID, Sender ID or Phone Number ID.">
                   <input value={senderId} onChange={(e) => setSenderId(e.target.value)} className={input} />
                 </Field>
@@ -442,9 +439,7 @@ export default function ConnectWhatsApp({ onClose, onConnected }: { onClose: () 
           {step === 'test' && (
             <>
               <p className="text-sm leading-relaxed text-slate-600">We send one message to a phone you choose, so you see it work before any client gets a message.</p>
-              <Field label="Send the test to" hint="Your own mobile number. Use a different number from the one you just connected.">
-                <input value={testTo} onChange={(e) => setTestTo(e.target.value)} placeholder="+91 98XXX XXXXX" inputMode="tel" className={input} />
-              </Field>
+              <PhoneInput label="Send the test to" hint="Your own mobile number. Use a different number from the one you just connected." value={testTo} onChange={setTestTo} error={testTo === number ? 'Use a different number from the one you connected.' : ''} />
               <div>
                 <div className="flex items-baseline justify-between text-[13px]">
                   <span className="font-semibold text-muted">What they will get</span>
@@ -475,13 +470,13 @@ export default function ConnectWhatsApp({ onClose, onConnected }: { onClose: () 
               )}
               {sent === 'sending' && (
                 <span className="flex items-center gap-2 text-sm text-muted">
-                  <Loader2 size={16} className="animate-spin" /> Sending to {testTo}…
+                  <Loader2 size={16} className="animate-spin" /> Sending to {formatMobile(testTo)}…
                 </span>
               )}
               {sent === 'delivered' && (
                 <div className="flex flex-col gap-2">
                   <span className="flex items-center gap-2 text-sm font-semibold text-ok">
-                    <Check size={16} strokeWidth={3} /> Delivered to {testTo}. Check your phone.
+                    <Check size={16} strokeWidth={3} /> Delivered to {formatMobile(testTo)}. Check your phone.
                   </span>
                   <button type="button" onClick={() => setNotArrived((v) => !v)} className="self-start text-[13px] font-semibold text-brand hover:underline">
                     It did not arrive
