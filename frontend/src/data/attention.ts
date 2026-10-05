@@ -80,7 +80,7 @@ export function useAttention() {
               activity: c.msgs[c.msgs.length - 1].time,
               activitySub: 'via WhatsApp',
               status: 'unassigned' as const,
-              href: '/inbox',
+              href: `/inbox?chat=${c.id}`,
             }))
 
     return { items: [...review, ...silent, ...unassigned], stats }

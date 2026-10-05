@@ -202,10 +202,12 @@ function RequestView({ request }: { request: DocRequest }) {
   const confirmMove = (to: DocRef) => {
     if (!moving) return
     const name = getClient(to.clientId)?.name
+    const target = request.clients.find((c) => c.clientId === to.clientId)?.docs.find((d) => d.id === to.docId)
+    const swapped = request.id === to.requestId && target?.status === 'to_review'
     moveDoc(moving, to)
     setMoving(null)
     setOpenDoc(null)
-    setToast(`Moved to ${name}. The old place is empty again.`)
+    setToast(swapped ? `Swapped with ${target?.name}. Both are still to be reviewed.` : `Moved to ${name}. The old place is empty again.`)
   }
   const sendReminders = () => {
     toRemind.forEach((r) => remind(request.id, r.rc.clientId))
@@ -515,7 +517,17 @@ function RequestView({ request }: { request: DocRequest }) {
         />
       )}
 
-      {moving && <MoveDocDialog from={moving} onMove={confirmMove} onClose={() => setMoving(null)} />}
+      {moving && <MoveDocDialog
+          from={moving}
+          onMove={confirmMove}
+          onSendBack={() => {
+            const m = moving
+            const d = request.clients.find((c) => c.clientId === m.clientId)?.docs.find((x) => x.id === m.docId)
+            setMoving(null)
+            if (d) changeStatus(m.clientId, m.docId, d.name, 'rejected')
+          }}
+          onClose={() => setMoving(null)}
+        />}
 
       {asking && <ReminderDialog targets={toRemind.map((r) => ({ requestId: request.id, clientId: r.rc.clientId }))} via={request.via} request={request.title} onSend={sendReminders} onClose={() => setAsking(false)} />}
 

@@ -2,7 +2,7 @@ import type { DocRequest } from './requests'
 import { clients, getClient } from './mock'
 import type { Service } from './types'
 
-const folderIdOf = (clientId: string, fy: string, compliance: string) => `c:${clientId}/${fy}/${compliance}`
+export const folderIdOf = (clientId: string, fy: string, compliance: string) => `c:${clientId}/${fy}/${compliance}`
 
 export interface MasterFile {
   id: string

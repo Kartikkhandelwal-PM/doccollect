@@ -2,8 +2,6 @@ import { createContext, useCallback, useContext, useMemo, useState } from 'react
 import type { ReactNode } from 'react'
 import { formatList, fillTemplate } from '../lib/template'
 import { seedMessages } from './messageTemplates'
-import { getClient } from './mock'
-import { useRequests } from './requests'
 import { useSetup } from './setup'
 import { LINK_DOMAIN } from '../lib/brand'
 
@@ -223,14 +221,13 @@ interface Store {
   setMode: (m: 'own' | 'kdk') => void
   markRead: (id: string) => void
   send: (id: string, text: string) => void
-  assign: (id: string, clientId: string, requestId: string, docId: string, docName: string) => void
+  settle: (id: string, note: string, keep: boolean) => void
   notifyRejected: (convId: string, docName: string, reason: string) => void
 }
 
 const Ctx = createContext<Store | null>(null)
 
 export function InboxProvider({ children }: { children: ReactNode }) {
-  const { setDocStatus } = useRequests()
   const { readReplies } = useSetup()
   const [conversations, setConversations] = useState<Conversation[]>(seed)
   // 'own': CA connected their own WhatsApp, so client replies are read here.
@@ -249,21 +246,11 @@ export function InboxProvider({ children }: { children: ReactNode }) {
     [patch],
   )
 
-  const assign = useCallback(
-    (id: string, clientId: string, requestId: string, docId: string, docName: string) => {
-      const client = getClient(clientId)
-      if (!client) return
-      setDocStatus(requestId, clientId, docId, 'to_review')
-      patch(id, (c) => ({
-        ...c,
-        unassigned: false,
-        clientIds: [clientId],
-        title: client.name,
-        unread: 0,
-        msgs: c.msgs.map((m, i) => (i === 0 ? { ...m, matched: `Filed as ${docName} · To review` } : m)),
-      }))
-    },
-    [patch, setDocStatus],
+  // The files were put in Document Master, or dropped. Either way they are no longer waiting for a place.
+  const settle = useCallback(
+    (id: string, note: string, keep: boolean) =>
+      setConversations((prev) => (keep ? prev.map((c) => (c.id === id ? { ...c, unassigned: false, unread: 0, msgs: c.msgs.map((m) => (m.file ? { ...m, matched: note } : m)) } : c)) : prev.filter((c) => c.id !== id))),
+    [],
   )
 
   const notifyRejected = useCallback(
@@ -277,8 +264,8 @@ export function InboxProvider({ children }: { children: ReactNode }) {
 
   const unreadTotal = mode === 'kdk' || !readReplies ? 0 : conversations.reduce((n, c) => n + c.unread, 0)
   const value = useMemo(
-    () => ({ conversations, unreadTotal, mode, setMode, markRead, send, assign, notifyRejected }),
-    [conversations, unreadTotal, mode, markRead, send, assign, notifyRejected],
+    () => ({ conversations, unreadTotal, mode, setMode, markRead, send, settle, notifyRejected }),
+    [conversations, unreadTotal, mode, markRead, send, settle, notifyRejected],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

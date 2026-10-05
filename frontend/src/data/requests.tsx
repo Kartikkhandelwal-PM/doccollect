@@ -273,17 +273,20 @@ export function RequestsProvider({ children }: { children: ReactNode }) {
   const moveDoc = useCallback(
     (from: DocRef, to: DocRef) =>
       setRequests((prev) => {
-        const src = prev.find((r) => r.id === from.requestId)?.clients.find((c) => c.clientId === from.clientId)?.docs.find((d) => d.id === from.docId)
-        if (!src) return prev
+        const find = (ref: DocRef) => prev.find((r) => r.id === ref.requestId)?.clients.find((c) => c.clientId === ref.clientId)?.docs.find((d) => d.id === ref.docId)
+        const src = find(from)
+        const dst = find(to)
+        if (!src || !dst) return prev
+        // The file that was there (if any) goes to the place this one leaves: the two swap.
+        const file = (d: RequestDoc) => ({ status: 'to_review' as Status, source: d.source, receivedAt: d.receivedAt, fileName: d.fileName, reason: undefined, check: undefined })
+        const swap = dst.status === 'to_review'
         return prev.map((r) => ({
           ...r,
           clients: r.clients.map((c) => ({
             ...c,
             docs: c.docs.map((d) => {
-              if (r.id === to.requestId && c.clientId === to.clientId && d.id === to.docId) {
-                return { ...d, status: 'to_review' as Status, source: src.source, receivedAt: src.receivedAt, fileName: src.fileName, reason: undefined, check: undefined }
-              }
-              if (r.id === from.requestId && c.clientId === from.clientId && d.id === from.docId) return { id: d.id, name: d.name, status: 'pending' as Status }
+              if (r.id === to.requestId && c.clientId === to.clientId && d.id === to.docId) return { ...d, ...file(src) }
+              if (r.id === from.requestId && c.clientId === from.clientId && d.id === from.docId) return swap ? { ...d, ...file(dst) } : { id: d.id, name: d.name, status: 'pending' as Status }
               return d
             }),
           })),

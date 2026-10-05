@@ -7,7 +7,7 @@ import type { DocRef } from '../data/requests'
 import { serviceColor } from '../lib/status'
 
 // The CA puts a file where it belongs. We sorted it first, so this is only for the ones we got wrong.
-export default function MoveDocDialog({ from, onMove, onClose }: { from: DocRef; onMove: (to: DocRef) => void; onClose: () => void }) {
+export default function MoveDocDialog({ from, onMove, onSendBack, onClose }: { from: DocRef; onMove: (to: DocRef) => void; onSendBack: () => void; onClose: () => void }) {
   const { requests } = useRequests()
   const source = getClient(from.clientId)
   const sourceDoc = requests.find((r) => r.id === from.requestId)?.clients.find((c) => c.clientId === from.clientId)?.docs.find((d) => d.id === from.docId)
@@ -31,7 +31,10 @@ export default function MoveDocDialog({ from, onMove, onClose }: { from: DocRef;
   const clientRequests = requests.filter((r) => r.clients.some((c) => c.clientId === clientId))
   const request = clientRequests.find((r) => r.id === requestId) ?? clientRequests[0]
   const slots = request?.clients.find((c) => c.clientId === clientId)?.docs ?? []
-  const free = (id: string, status: string) => (status === 'pending' || status === 'rejected') && !(request?.id === from.requestId && clientId === from.clientId && id === from.docId)
+  const isSelf = (id: string) => request?.id === from.requestId && clientId === from.clientId && id === from.docId
+  // A free slot takes the file. A slot with another file that is still to be reviewed swaps places with it. Approved ones stay locked.
+  const kind = (id: string, status: string): 'self' | 'free' | 'swap' | 'locked' =>
+    isSelf(id) ? 'self' : status === 'pending' || status === 'rejected' ? 'free' : status === 'to_review' ? 'swap' : 'locked'
 
   const pickClient = (id: string) => {
     setClientId(id)
@@ -41,8 +44,12 @@ export default function MoveDocDialog({ from, onMove, onClose }: { from: DocRef;
   }
 
   // Offer the slot with the same name first, so the common case is one click.
-  const suggested = slots.find((d) => free(d.id, d.status) && d.name === sourceDoc?.name)?.id
+  const suggested = slots.find((d) => kind(d.id, d.status) === 'free' && d.name === sourceDoc?.name)?.id
   const chosen = docId || suggested || ''
+  const chosenKind = (() => {
+    const d = slots.find((x) => x.id === chosen)
+    return d ? kind(d.id, d.status) : null
+  })()
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="Move document">
@@ -118,7 +125,9 @@ export default function MoveDocDialog({ from, onMove, onClose }: { from: DocRef;
               <h3 className="text-[13px] font-bold uppercase tracking-wider text-faint">Which document?</h3>
               <div className="mt-2 flex flex-col gap-1.5">
                 {slots.map((d) => {
-                  const open = free(d.id, d.status)
+                  const k = kind(d.id, d.status)
+                  const open = k === 'free' || k === 'swap'
+                  const note = k === 'self' ? 'This file is here now' : k === 'free' ? (d.status === 'rejected' ? 'Sent back, waiting' : 'Not received') : k === 'swap' ? 'Has another file: swap' : d.status === 'na' ? 'Does not apply' : 'Approved, locked'
                   return (
                     <button
                       key={d.id}
@@ -130,11 +139,23 @@ export default function MoveDocDialog({ from, onMove, onClose }: { from: DocRef;
                       className={`flex items-center justify-between rounded-xl border px-3 py-2 text-left text-sm ${chosen === d.id ? 'border-brand bg-brand-soft' : 'border-line'} ${open ? 'hover:bg-canvas' : 'cursor-not-allowed opacity-50'}`}
                     >
                       <span className="font-semibold">{d.name}</span>
-                      <span className="text-xs text-muted">{open ? (d.status === 'rejected' ? 'Sent back, waiting' : 'Not received') : d.status === 'na' ? 'Does not apply' : 'Already has a file'}</span>
+                      <span className={`text-xs ${k === 'swap' ? 'font-semibold text-brand-dark' : 'text-muted'}`}>{note}</span>
                     </button>
                   )
                 })}
               </div>
+              {sourceDoc && slots.some((d) => d.name === sourceDoc.name && kind(d.id, d.status) === 'locked') && clientId === from.clientId && (
+                <div className="mt-3 flex items-center gap-3 rounded-xl border border-[#F5DFA8] bg-[#FEF6E4] px-3.5 py-3 text-[13px] leading-snug text-[#7A3B00]">
+                  <span className="flex-1">
+                    <b>{sourceDoc.name}</b> is already approved for this client, so this file is probably a wrong or repeated one. Send it back to the client instead.
+                  </span>
+                  <button type="button" onClick={onSendBack} className="h-9 shrink-0 rounded-lg bg-white px-3 text-[13px] font-semibold text-danger shadow-sm hover:bg-danger-soft">
+                    Send it back
+                  </button>
+                </div>
+              )}
+              {chosenKind === 'swap' && <p className="mt-2 text-xs text-muted">The two files change places. Both stay to be reviewed.</p>}
+              {chosen === '' && slots.every((d) => kind(d.id, d.status) !== 'free' && kind(d.id, d.status) !== 'swap') && <p className="mt-2 text-xs text-warn">Every document here is approved or has no place free. Choose another client or request.</p>}
             </section>
           )}
         </div>
@@ -149,7 +170,7 @@ export default function MoveDocDialog({ from, onMove, onClose }: { from: DocRef;
             onClick={() => request && onMove({ requestId: request.id, clientId, docId: chosen })}
             className="h-11 rounded-xl bg-brand px-6 text-sm font-semibold text-white hover:bg-brand-dark disabled:opacity-40"
           >
-            Move here
+            {chosenKind === 'swap' ? 'Swap them' : 'Move here'}
           </button>
         </div>
       </div>

@@ -10,6 +10,8 @@ import StatusBadge from '../components/StatusBadge'
 import { useInbox } from '../data/inbox'
 import type { Conversation, Msg } from '../data/inbox'
 import { clients, getClient } from '../data/mock'
+import { folderIdOf } from '../data/master'
+import { useMasterStore } from '../data/masterStore'
 import { useRequests } from '../data/requests'
 import type { RequestDoc } from '../data/requests'
 import { useSetup } from '../data/setup'
@@ -160,63 +162,53 @@ function FileViewer({
 
 function RightPanel({ conv }: { conv: Conversation }) {
   const { requests, setDocStatus } = useRequests()
-  const { assign, notifyRejected } = useInbox()
+  const { settle, notifyRejected } = useInbox()
+  const { folders, addUploads } = useMasterStore()
+  const [pickFolder, setPickFolder] = useState('')
   const [pickClient, setPickClient] = useState('')
-  const [pickDoc, setPickDoc] = useState('')
 
   const mine = conv.clientIds.length
     ? requests.filter((r) => r.clients.some((c) => conv.clientIds.includes(c.clientId)))
     : []
 
-  // For the unassigned chat: which documents is the chosen client still missing?
-  const missing = useMemo(() => {
-    if (!pickClient) return []
-    return requests.flatMap((r) =>
-      r.clients
-        .filter((c) => c.clientId === pickClient)
-        .flatMap((c) => c.docs.filter((d) => d.status === 'pending' || d.status === 'rejected').map((d) => ({ requestId: r.id, ref: r.ref, doc: d }))),
-    )
-  }, [pickClient, requests])
-
   if (conv.unassigned) {
-    const chosen = missing.find((x) => `${x.requestId}:${x.doc.id}` === pickDoc)
+    const files = conv.msgs.filter((m) => m.file)
+    const client = pickClient ? getClient(pickClient) : undefined
+    const firmFolders = folders.map((f) => ({ id: f.id, label: f.parentId ? `${folders.find((x) => x.id === f.parentId)?.name} / ${f.name}` : f.name }))
+    const masterTo = pickFolder === 'client' ? (client ? folderIdOf(client.id, 'FY 2025-26', client.service) : '') : pickFolder
+    const field = 'mt-1 block h-11 w-full rounded-xl border border-line bg-white px-3 text-sm font-medium text-ink outline-none focus:border-brand'
     return (
       <div className="flex flex-col gap-4 p-5">
         <div className="rounded-xl bg-[#FEF1DC] p-3.5 text-[13.5px] leading-relaxed text-warn">
-          <b>We could not tell who sent these files.</b>
+          <b>
+            {files.length} {files.length === 1 ? 'file is' : 'files are'} not saved anywhere yet.
+          </b>
           <br />
-          Pick the client and the document they are for.
+          Open {files.length === 1 ? 'it' : 'them'} in the chat, then choose where to save.
         </div>
+
         <label className="text-[13px] font-semibold text-muted">
-          Client
-          <select
-            value={pickClient}
-            onChange={(e) => {
-              setPickClient(e.target.value)
-              setPickDoc('')
-            }}
-            className="mt-1 block h-11 w-full rounded-xl border border-line bg-white px-3 text-sm font-medium text-ink outline-none focus:border-brand"
-          >
-            <option value="">Choose a client</option>
-            {clients.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name} · {c.service}
-              </option>
-            ))}
+          Save in
+          <select value={pickFolder} onChange={(e) => setPickFolder(e.target.value)} className={field}>
+            <option value="">Choose a folder</option>
+            <optgroup label="Firm documents">
+              {firmFolders.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.label}
+                </option>
+              ))}
+            </optgroup>
+            <option value="client">A client&apos;s folder</option>
           </select>
         </label>
-        {pickClient && (
+        {pickFolder === 'client' && (
           <label className="text-[13px] font-semibold text-muted">
-            Document
-            <select
-              value={pickDoc}
-              onChange={(e) => setPickDoc(e.target.value)}
-              className="mt-1 block h-11 w-full rounded-xl border border-line bg-white px-3 text-sm font-medium text-ink outline-none focus:border-brand"
-            >
-              <option value="">{missing.length ? 'Choose a document' : 'Nothing is pending for this client'}</option>
-              {missing.map((x) => (
-                <option key={`${x.requestId}:${x.doc.id}`} value={`${x.requestId}:${x.doc.id}`}>
-                  {x.doc.name} ({x.ref})
+            Client
+            <select value={pickClient} onChange={(e) => setPickClient(e.target.value)} className={field}>
+              <option value="">Choose a client</option>
+              {clients.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} · {c.service}
                 </option>
               ))}
             </select>
@@ -224,11 +216,29 @@ function RightPanel({ conv }: { conv: Conversation }) {
         )}
         <button
           type="button"
-          disabled={!chosen}
-          onClick={() => chosen && assign(conv.id, pickClient, chosen.requestId, chosen.doc.id, chosen.doc.name)}
+          disabled={!masterTo}
+          onClick={() => {
+            addUploads(
+              files.map((m, i) => ({
+                id: `un-${Date.now()}-${i}`,
+                folderId: masterTo,
+                name: m.file!.name.replace(/\.[^.]+$/, ''),
+                fileName: m.file!.name,
+                size: m.file!.size.split(' · ').pop() ?? m.file!.size,
+                date: 'Just now',
+                from: 'WhatsApp',
+              })),
+            )
+            settle(conv.id, 'Saved in Document Master', true)
+            setPickFolder('')
+            setPickClient('')
+          }}
           className="h-11 rounded-xl bg-brand text-sm font-semibold text-white disabled:opacity-40"
         >
-          Assign files
+          Save in Document Master
+        </button>
+        <button type="button" onClick={() => settle(conv.id, 'Removed', false)} className="self-center text-[13px] font-semibold text-danger hover:underline">
+          Not a document, remove {files.length === 1 ? 'it' : 'them'}
         </button>
       </div>
     )
@@ -287,7 +297,8 @@ export default function Inbox() {
   // ?client=... opens that client's chat (from the client page). Without it, the first chat.
   const [params] = useSearchParams()
   const wanted = params.get('client')
-  const [activeId, setActiveId] = useState(() => allConversations.find((c) => wanted && c.clientIds.includes(wanted))?.id ?? 'c-ramesh')
+  const wantedChat = params.get('chat')
+  const [activeId, setActiveId] = useState(() => allConversations.find((c) => c.id === wantedChat)?.id ?? allConversations.find((c) => wanted && c.clientIds.includes(wanted))?.id ?? 'c-ramesh')
   const [filter, setFilter] = useState<Filter>('all')
   const [query, setQuery] = useState('')
   const [text, setText] = useState('')
@@ -608,7 +619,7 @@ export default function Inbox() {
           <button type="button" onClick={() => setShowPanel(false)} aria-label="Close panel" title="Close panel" className="flex h-8 w-8 items-center justify-center rounded-full text-[#54656F] hover:bg-black/5">
             <X size={18} />
           </button>
-          {active.unassigned ? 'Match these files' : 'Requests and documents'}
+          {active.unassigned ? 'Save these files' : 'Requests and documents'}
         </div>
         <div className="flex-1 overflow-y-auto">
           <RightPanel key={active.id} conv={active} />

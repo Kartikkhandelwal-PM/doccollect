@@ -39,7 +39,7 @@ export function useNotifications(): Notice[] {
     // WhatsApp files that could not be matched to a client.
     if (mode === 'own' && readReplies) {
       const files = conversations.filter((c) => c.unassigned).reduce((n, c) => n + c.msgs.filter((m) => m.file).length, 0)
-      if (files > 0) out.push({ id: `u:${files}`, kind: 'unmatched', title: `${files} ${files === 1 ? 'file' : 'files'} could not be matched`, sub: 'Choose which client they belong to', href: '/inbox' })
+      if (files > 0) out.push({ id: `u:${files}`, kind: 'unmatched', title: `${files} ${files === 1 ? 'file' : 'files'} could not be matched`, sub: 'Choose which client they belong to', href: `/inbox?chat=${conversations.find((c) => c.unassigned)?.id ?? ''}` })
     }
 
     // Documents that arrived today and are waiting for a decision.

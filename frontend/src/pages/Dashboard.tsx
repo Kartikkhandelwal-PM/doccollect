@@ -366,7 +366,7 @@ export default function Dashboard() {
                       onClick={() => navigate(i.href)}
                       className="flex h-9 items-center rounded-lg bg-brand px-3.5 text-[13px] font-semibold text-white hover:bg-brand-dark"
                     >
-                      {i.kind === 'received' ? 'Review' : 'Assign'}
+                      Review
                     </button>
                   )}
                 </div>
