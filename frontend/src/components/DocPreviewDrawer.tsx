@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, Check, Download, X } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import type { RequestDoc } from '../data/requests'
 import type { Client } from '../data/types'
 import FileTypeIcon from './FileTypeIcon'
@@ -16,9 +16,12 @@ interface Props {
   onNext: () => void
   onApprove: () => void
   onReject: () => void
+  // For a file we could not match: the documents it can be, and what to do when the CA picks one.
+  place?: { options: { id: string; label: string; group: string }[]; onPlace: (docId: string) => void }
 }
 
-export default function DocPreviewDrawer({ client, doc, position, total, onClose, onPrev, onNext, onApprove, onReject }: Props) {
+export default function DocPreviewDrawer({ client, doc, position, total, onClose, onPrev, onNext, onApprove, onReject, place }: Props) {
+  const [picked, setPicked] = useState('')
   // Esc closes; arrow keys move between documents. Ignored while typing in a field.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -92,6 +95,47 @@ export default function DocPreviewDrawer({ client, doc, position, total, onClose
         <p className="mt-5 text-center text-xs text-muted">Sample preview. The client's real file shows here.</p>
       </div>
 
+      {place ? (
+        <div className="max-h-[46%] overflow-y-auto border-t border-line bg-white px-5 py-4">
+          <div className="text-sm font-bold">Which document is this?</div>
+          <p className="text-xs text-muted">Look at the file above, then pick where it goes.</p>
+          {['Not received yet', 'Add as another file of'].map((g) => {
+            const list = place.options.filter((o) => o.group === g)
+            if (list.length === 0) return null
+            return (
+              <div key={g} className="mt-3">
+                <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-faint">{g}</div>
+                <div className="flex flex-col gap-1.5" role="radiogroup" aria-label={g}>
+                  {list.map((o) => (
+                    <button
+                      key={o.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={picked === o.id}
+                      onClick={() => setPicked(o.id)}
+                      className={`flex h-11 items-center justify-between rounded-xl border px-3.5 text-left text-sm font-semibold ${picked === o.id ? 'border-brand bg-brand-soft text-brand-dark' : 'border-line hover:bg-canvas'}`}
+                    >
+                      {o.label}
+                      {picked === o.id && <Check size={16} strokeWidth={3} />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+          <button
+            type="button"
+            disabled={!picked}
+            onClick={() => {
+              place.onPlace(picked)
+              setPicked('')
+            }}
+            className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand text-[15px] font-semibold text-white shadow-[0_6px_16px_rgba(11,122,107,0.25)] disabled:opacity-40 disabled:shadow-none"
+          >
+            Save here
+          </button>
+        </div>
+      ) : (
       <div className="border-t border-line bg-white px-5 py-4">
         {doc.status === 'rejected' && doc.reason && (
           <div className="mb-3 rounded-lg bg-danger-soft px-3 py-2 text-[13px] font-medium text-danger">Sent back: {doc.reason}</div>
@@ -119,6 +163,7 @@ export default function DocPreviewDrawer({ client, doc, position, total, onClose
           {decided ? 'You can change your decision any time.' : 'After you decide, the next document opens by itself. Use ← → to move around, Esc to close.'}
         </p>
       </div>
+      )}
     </aside>
     </>
   )

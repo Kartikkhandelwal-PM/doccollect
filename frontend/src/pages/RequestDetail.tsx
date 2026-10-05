@@ -122,6 +122,7 @@ function RequestView({ request }: { request: DocRequest }) {
   const [filter, setFilter] = useState<Filter>('all')
   const [query, setQuery] = useState('')
   const [asking, setAsking] = useState(false)
+  const [openFile, setOpenFile] = useState<{ fileId: string; clientId: string } | null>(null) // a file we could not match, open in the preview
   // Clients whose documents are showing. One client can be opened straight from the Dashboard (?client=).
   const [open, setOpen] = useState<Set<string>>(() => {
     const c = params.get('client') ?? (params.get('doc') ?? '').split(':')[0]
@@ -449,10 +450,17 @@ function RequestView({ request }: { request: DocRequest }) {
                     <>
                       <div className="border-t border-line px-6 pb-1 pt-3 pl-[72px]">
                         <div className="text-[11px] font-bold uppercase tracking-wider text-faint">Files we could not match ({waiting.length})</div>
-                        <p className="text-xs text-muted">Choose the document each file is for. The rest wait for the next request.</p>
+                        <p className="text-xs text-muted">Open a file to see it, then choose the document it is for. The rest wait for the next request.</p>
                       </div>
                       {waiting.map((f) => (
-                        <div key={f.id} className="flex items-center gap-4 border-t border-line px-6 py-3 pl-[72px]">
+                        <div
+                          key={f.id}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => setOpenFile({ fileId: f.id, clientId: rc.clientId })}
+                          onKeyDown={(e) => e.key === 'Enter' && setOpenFile({ fileId: f.id, clientId: rc.clientId })}
+                          className="flex cursor-pointer items-center gap-4 border-t border-line px-6 py-3 pl-[72px] hover:bg-white"
+                        >
                           <FileTypeIcon file={f.fileName} size={34} />
                           <div className="min-w-0 flex-1">
                             <div className="text-sm font-semibold">{f.fileName}</div>
@@ -460,35 +468,7 @@ function RequestView({ request }: { request: DocRequest }) {
                               {f.receivedAt} · via {f.source === 'Link' ? 'upload link' : 'WhatsApp'}
                             </div>
                           </div>
-                          <select
-                            aria-label={`Document for ${f.fileName}`}
-                            value=""
-                            onChange={(e) => {
-                              if (!e.target.value) return
-                              const name = rc.docs.find((d) => d.id === e.target.value)?.name
-                              useUnsorted(f.id, request.id, rc.clientId, e.target.value)
-                              setToast(`${f.fileName} added to ${name}.`)
-                            }}
-                            className="h-9 w-64 rounded-lg border border-line bg-white px-2.5 text-[13px] font-semibold text-slate-700 outline-none hover:border-brand focus:border-brand"
-                          >
-                            <option value="">Choose a document…</option>
-                            <optgroup label="Not received yet">
-                              {rc.docs.filter((d) => d.status === 'pending' || d.status === 'rejected').map((d) => (
-                                <option key={d.id} value={d.id}>
-                                  {d.name}
-                                </option>
-                              ))}
-                            </optgroup>
-                            {rc.docs.some((d) => d.status === 'to_review') && (
-                              <optgroup label="Add as another file of">
-                                {rc.docs.filter((d) => d.status === 'to_review').map((d) => (
-                                  <option key={d.id} value={d.id}>
-                                    {d.name}
-                                  </option>
-                                ))}
-                              </optgroup>
-                            )}
-                          </select>
+                          <span className="rounded-md bg-warn-soft px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-warn">Not placed</span>
                         </div>
                       ))}
                     </>
@@ -538,6 +518,45 @@ function RequestView({ request }: { request: DocRequest }) {
           onReject={rejectOpen}
         />
       )}
+
+      {openFile && (() => {
+        const rc = request.clients.find((c) => c.clientId === openFile.clientId)
+        const client = getClient(openFile.clientId)
+        const list = unsorted.filter((f) => f.phone === client?.phone)
+        const at = list.findIndex((f) => f.id === openFile.fileId)
+        const f = list[at]
+        if (!rc || !client || !f) return null
+        const go = (i: number) => setOpenFile({ fileId: list[(i + list.length) % list.length].id, clientId: openFile.clientId })
+        const options = [
+          ...rc.docs.filter((d) => d.status === 'pending' || d.status === 'rejected').map((d) => ({ id: d.id, label: d.name, group: 'Not received yet' })),
+          ...rc.docs.filter((d) => d.status === 'to_review').map((d) => ({ id: d.id, label: d.name, group: 'Add as another file of' })),
+        ]
+        return (
+          <DocPreviewDrawer
+            key={f.id}
+            client={client}
+            doc={{ id: f.id, name: f.fileName, status: 'to_review', source: f.source, receivedAt: f.receivedAt, fileName: f.fileName }}
+            position={at + 1}
+            total={list.length}
+            onClose={() => setOpenFile(null)}
+            onPrev={() => go(at - 1)}
+            onNext={() => go(at + 1)}
+            onApprove={() => undefined}
+            onReject={() => undefined}
+            place={{
+              options,
+              onPlace: (docId) => {
+                const name = rc.docs.find((d) => d.id === docId)?.name
+                useUnsorted(f.id, request.id, rc.clientId, docId)
+                setToast(`${f.fileName} added to ${name}.`)
+                const next = list.filter((x) => x.id !== f.id)
+                if (next.length > 0 && options.length > 1) setOpenFile({ fileId: next[Math.min(at, next.length - 1)].id, clientId: openFile.clientId })
+                else setOpenFile(null)
+              },
+            }}
+          />
+        )
+      })()}
 
       {asking && <ReminderDialog targets={toRemind.map((r) => ({ requestId: request.id, clientId: r.rc.clientId }))} via={request.via} request={request.title} onSend={sendReminders} onClose={() => setAsking(false)} />}
 
