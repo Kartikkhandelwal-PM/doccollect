@@ -35,7 +35,7 @@ export default function ReminderDialog({ targets, text, update, onSend, onClose 
           </button>
         </div>
 
-        <div className="mx-6 mt-4 rounded-2xl wa-wallpaper p-4">
+        <div className="mx-6 mt-4 rounded-2xl bg-[#EFEAE2] p-4">
           <div className="ml-auto w-fit max-w-[94%] rounded-[10px] rounded-tr-none bg-[#D9FDD3] px-3 py-2 text-[14px] leading-snug shadow-[0_1px_1px_rgba(17,27,33,0.13)]">
             <WaText text={text} />
           </div>

@@ -516,7 +516,7 @@ export default function NewRequest() {
                 <h2 className="text-base font-bold tracking-tight">Message preview</h2>
                 <span className="text-xs font-medium text-muted">to {first?.name}</span>
               </div>
-              <div className="mt-3 rounded-2xl wa-wallpaper p-3.5">
+              <div className="mt-3 rounded-2xl bg-[#EFEAE2] p-3.5">
                 <div className="rounded-[10px] rounded-tr-none bg-[#D9FDD3] px-3 py-2.5 text-[13.5px] leading-relaxed shadow-sm">
                   <WaText text={message} />
                 </div>

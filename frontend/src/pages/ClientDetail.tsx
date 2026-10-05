@@ -421,7 +421,7 @@ function MessagesTab({ clientId, conversations, reading }: { clientId: string; c
           Open in Inbox
         </Link>
       </div>
-      <div className="flex flex-col gap-2.5 rounded-2xl wa-wallpaper p-4">
+      <div className="flex flex-col gap-2.5 rounded-2xl bg-[#EFEAE2] p-4">
         {msgs.map((m) => {
           const mine = m.from === 'ca'
           return (

@@ -445,7 +445,7 @@ export default function ConnectWhatsApp({ onClose, onConnected }: { onClose: () 
                   <span className="font-semibold text-muted">What they will get</span>
                   <span className="text-xs text-muted">Template: {viaProvider ? `${templateName} (${language})` : 'doccollect_test (approved)'}</span>
                 </div>
-                <div className="mt-1.5 rounded-2xl wa-wallpaper p-3.5">
+                <div className="mt-1.5 rounded-2xl bg-[#EFEAE2] p-3.5">
                   <div className="ml-auto w-fit max-w-[92%] rounded-[10px] rounded-tr-none bg-[#D9FDD3] px-3 py-2 text-[14px] leading-snug shadow-[0_1px_1px_rgba(17,27,33,0.13)]">
                     {templateText}
                     <div className="pt-0.5 text-right text-[11px] text-slate-500">
