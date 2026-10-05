@@ -1,4 +1,4 @@
-import { Check, CheckCheck, ChevronDown, Image as ImageIcon, Info, Lock, PanelRightOpen, Search, Send, X } from 'lucide-react'
+import { Check, CheckCheck, ChevronDown, Image as ImageIcon, Info, Lock, PanelRightOpen, Paperclip, Search, Send, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
@@ -163,8 +163,78 @@ function FileViewer({
   )
 }
 
-function RightPanel({ conv, onOpenFile }: { conv: Conversation; onOpenFile: (fileName: string) => void }) {
-  const { requests, setDocStatus, unsorted } = useRequests()
+// Pick one of the files waiting in this chat for a document that is still pending, look at it, and add it.
+function AddFromChat({
+  docName,
+  client,
+  files,
+  onAdd,
+  onClose,
+}: {
+  docName: string
+  client: { name: string; pan: string }
+  files: { id: string; fileName: string; receivedAt: string }[]
+  onAdd: (fileId: string) => void
+  onClose: () => void
+}) {
+  const [picked, setPicked] = useState(files[0]?.id ?? '')
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+  const f = files.find((x) => x.id === picked)
+  return (
+    <div className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label={`Add a file to ${docName}`}>
+      <div className="flex max-h-full w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div className="flex items-start gap-3 border-b border-line px-5 py-4">
+          <div className="min-w-0 flex-1">
+            <div className="text-base font-bold">Add a file to {docName}</div>
+            <div className="text-[13px] text-muted">{files.length > 0 ? 'Files from this chat that are not placed yet. Tap one to see it.' : ''}</div>
+          </div>
+          <button type="button" aria-label="Close" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-canvas">
+            <X size={20} />
+          </button>
+        </div>
+        {files.length === 0 ? (
+          <p className="px-5 py-8 text-sm text-muted">No files are waiting in this chat. When the client sends one, you can add it here.</p>
+        ) : (
+          <>
+            <div className="border-b border-line">
+              {files.map((x) => (
+                <button
+                  key={x.id}
+                  type="button"
+                  onClick={() => setPicked(x.id)}
+                  className={`flex w-full items-center gap-3 px-5 py-2.5 text-left text-sm ${picked === x.id ? 'bg-brand-soft font-semibold' : 'hover:bg-canvas'}`}
+                >
+                  <FileTypeIcon file={x.fileName} size={26} />
+                  <span className="min-w-0 flex-1 truncate">{x.fileName}</span>
+                  <span className="shrink-0 text-xs font-normal text-muted">{x.receivedAt.replace('Today, ', '')}</span>
+                </button>
+              ))}
+            </div>
+            <div className="min-h-0 overflow-y-auto bg-[#EDF0F5] px-6 py-6">
+              <PaperPreview doc={{ name: f ? f.fileName.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ') : docName }} client={client} />
+            </div>
+          </>
+        )}
+        <div className="flex justify-end gap-3 border-t border-line px-5 py-3.5">
+          <button type="button" onClick={onClose} className="h-11 rounded-xl border border-line px-5 text-sm font-semibold hover:bg-canvas">
+            Cancel
+          </button>
+          <button type="button" disabled={!f} onClick={() => f && onAdd(f.id)} className="h-11 rounded-xl bg-brand px-5 text-sm font-semibold text-white disabled:opacity-40">
+            Add to {docName}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function RightPanel({ conv, onOpenFile, onPlaced }: { conv: Conversation; onOpenFile: (fileName: string) => void; onPlaced: (fileName: string, docName: string, link: { requestId: string; clientId: string; docId: string }) => void }) {
+  const { requests, setDocStatus, unsorted, useUnsorted } = useRequests()
+  const [adding, setAdding] = useState<{ requestId: string; clientId: string; docId: string; name: string } | null>(null)
   const { settle, notifyRejected } = useInbox()
   const { folders, addUploads } = useMasterStore()
   const [pickFolder, setPickFolder] = useState('')
@@ -264,7 +334,15 @@ function RightPanel({ conv, onOpenFile }: { conv: Conversation; onOpenFile: (fil
               <div key={`${c.clientId}-${d.id}`} className="flex items-center gap-3 border-b border-line py-2.5 text-sm last:border-b-0">
                 <span className={`flex-1 ${d.status === 'pending' ? 'text-muted' : ''}`}>{d.name}</span>
                 {d.status === 'pending' ? (
-                  <StatusBadge status="pending" />
+                  <button
+                    type="button"
+                    onClick={() => setAdding({ requestId: r.id, clientId: c.clientId, docId: d.id, name: d.name })}
+                    className="flex h-7 items-center gap-1 rounded-lg border border-line px-2 text-xs font-semibold text-muted hover:border-brand hover:text-brand-dark"
+                    title="Add a file from this chat"
+                  >
+                    <Paperclip size={12} />
+                    Add file
+                  </button>
                 ) : (
                   <StatusBadge
                     status={d.status}
@@ -281,6 +359,22 @@ function RightPanel({ conv, onOpenFile }: { conv: Conversation; onOpenFile: (fil
             ))}
         </div>
       ))}
+
+      {adding && (
+        <AddFromChat
+          docName={adding.name}
+          client={{ name: conv.title, pan: getClient(adding.clientId)?.pan ?? '—' }}
+          files={waiting}
+          onClose={() => setAdding(null)}
+          onAdd={(fileId) => {
+            const f = waiting.find((x) => x.id === fileId)
+            if (!f) return
+            useUnsorted(fileId, adding.requestId, adding.clientId, adding.docId)
+            onPlaced(f.fileName, adding.name, { requestId: adding.requestId, clientId: adding.clientId, docId: adding.docId })
+            setAdding(null)
+          }}
+        />
+      )}
 
       {waiting.length > 0 && (
         <div>
@@ -678,7 +772,15 @@ export default function Inbox() {
           {active.unassigned ? 'Save these files' : 'Requests and documents'}
         </div>
         <div className="flex-1 overflow-y-auto">
-          <RightPanel key={active.id} conv={active} onOpenFile={(name) => setViewing(active.msgs.find((m) => m.file?.name === name) ?? null)} />
+          <RightPanel
+            key={active.id}
+            conv={active}
+            onOpenFile={(name) => setViewing(active.msgs.find((m) => m.file?.name === name) ?? null)}
+            onPlaced={(fileName, docName, link) => {
+              markPlaced(active.id, fileName, `Filed as ${docName} · To review`, link)
+              setToast(`${fileName} added to ${docName}`)
+            }}
+          />
         </div>
       </div>
       )}
