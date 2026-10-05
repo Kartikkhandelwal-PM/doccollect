@@ -154,16 +154,13 @@ export default function ConnectWhatsApp({ onClose, onConnected }: { onClose: () 
     }, 1300)
   }
 
-  const finish = (tested: boolean) => {
+  const finish = () => {
     onConnected({
       number: senderNumber.trim(),
       displayName: viaProvider ? firm.name : displayName.trim(),
       provider: viaProvider ? providerLabel : 'Ramwin',
       route: viaProvider ? 'provider' : 'ramwin',
       channelId: viaProvider ? senderId.trim() : channelId,
-      displayNameStatus: viaProvider ? 'approved' : 'review',
-      testedAt: tested ? sentAt || clock() : undefined,
-      limit: 250,
     })
   }
 
@@ -520,7 +517,7 @@ export default function ConnectWhatsApp({ onClose, onConnected }: { onClose: () 
           </div>
           <div className="flex items-center gap-3">
             {step === 'test' && sent !== 'delivered' && (
-              <button type="button" onClick={() => finish(false)} className="h-11 rounded-xl px-4 text-sm font-semibold text-muted hover:bg-white">
+              <button type="button" onClick={() => finish()} className="h-11 rounded-xl px-4 text-sm font-semibold text-muted hover:bg-white">
                 Skip for now
               </button>
             )}
@@ -560,7 +557,7 @@ export default function ConnectWhatsApp({ onClose, onConnected }: { onClose: () 
               </button>
             )}
             {step === 'test' && sent === 'delivered' && (
-              <button type="button" onClick={() => finish(true)} className="h-11 rounded-xl bg-brand px-6 text-sm font-semibold text-white">
+              <button type="button" onClick={() => finish()} className="h-11 rounded-xl bg-brand px-6 text-sm font-semibold text-white">
                 Finish
               </button>
             )}

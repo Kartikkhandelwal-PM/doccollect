@@ -155,7 +155,7 @@ export default function Settings() {
                       <span className="text-[15px] font-semibold">Your own WhatsApp</span>
                       <span className={`rounded-md px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide ${whatsapp ? 'bg-ok-soft text-ok' : 'bg-canvas text-muted'}`}>{whatsapp ? 'Connected' : 'Not connected'}</span>
                     </span>
-                    <span className="block text-[13px] text-muted">{whatsapp ? `${whatsapp.number} · through ${whatsapp.provider}` : 'Use your own number. You connect it once.'}</span>
+                    <span className="block text-[13px] text-muted">{whatsapp ? `Connected through ${whatsapp.provider}` : 'Use your own number. You connect it once.'}</span>
                   </span>
                   <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${mode === 'own' && whatsapp ? 'bg-brand text-white' : 'border-2 border-slate-300'}`} aria-hidden="true">
                     {mode === 'own' && whatsapp && <Check size={12} strokeWidth={3.5} />}
@@ -173,32 +173,19 @@ export default function Settings() {
 
                 {whatsapp && mode === 'own' && (
                   <div className="border-t border-line bg-slate-50/70 px-4 py-4">
-                    <dl className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm">
-                      <div>
+                    <dl className="grid grid-cols-3 gap-x-6 text-sm">
+                      <div className="min-w-0">
+                        <dt className="text-xs font-semibold uppercase tracking-wide text-faint">WhatsApp number</dt>
+                        <dd className="mt-0.5 truncate font-medium">{whatsapp.number}</dd>
+                      </div>
+                      <div className="min-w-0">
                         <dt className="text-xs font-semibold uppercase tracking-wide text-faint">Name clients see</dt>
-                        <dd className="mt-0.5 font-medium">
-                          {whatsapp.displayName}
-                          <span className={`ml-2 rounded-md px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide ${whatsapp.displayNameStatus === 'approved' ? 'bg-ok-soft text-ok' : 'bg-warn-soft text-warn'}`}>
-                            {whatsapp.displayNameStatus === 'approved' ? 'Approved' : 'In review'}
-                          </span>
-                        </dd>
+                        <dd className="mt-0.5 truncate font-medium">{whatsapp.displayName}</dd>
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <dt className="text-xs font-semibold uppercase tracking-wide text-faint">Channel ID</dt>
-                        <dd className="mt-0.5 font-mono text-[13px] font-medium">{whatsapp.channelId}</dd>
+                        <dd className="mt-0.5 truncate font-mono text-[13px] font-medium">{whatsapp.channelId}</dd>
                       </div>
-                      <div>
-                        <dt className="text-xs font-semibold uppercase tracking-wide text-faint">Test message</dt>
-                        <dd className="mt-0.5 font-medium">{whatsapp.testedAt ? `Delivered ${whatsapp.testedAt}` : <span className="text-warn">Not tested yet</span>}</dd>
-                      </div>
-                      {whatsapp.route === 'ramwin' && (
-                        <div>
-                          <dt className="text-xs font-semibold uppercase tracking-wide text-faint">New clients a day</dt>
-                          <dd className="mt-0.5 font-medium">
-                            {whatsapp.limit} <span className="text-[13px] font-normal text-muted">· verify your business with Meta to send to more</span>
-                          </dd>
-                        </div>
-                      )}
                     </dl>
                     <div className="mt-4 flex items-center gap-2 border-t border-line pt-3.5">
                       <button type="button" onClick={() => setConnecting(true)} className="h-9 rounded-lg border border-line bg-white px-3.5 text-[13px] font-semibold hover:bg-canvas">

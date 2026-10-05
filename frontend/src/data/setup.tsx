@@ -12,9 +12,6 @@ export interface WhatsAppLink {
   provider: string // Ramwin, or the provider the firm already uses
   route: 'ramwin' | 'provider'
   channelId: string // the channel (sender / phone number) ID
-  displayNameStatus: 'review' | 'approved'
-  testedAt?: string
-  limit: number // new clients we can message in 24 hours. 250 until the business is verified with Meta
 }
 
 interface DocItem {
@@ -108,9 +105,6 @@ export function SetupProvider({ children }: { children: ReactNode }) {
     provider: 'Ramwin',
     route: 'ramwin',
     channelId: 'ch_7q2m9xk4',
-    displayNameStatus: 'approved',
-    testedAt: 'Sep 26, 10:12',
-    limit: 250,
   })
   const [graceDays, setGraceDays] = useState(7)
   const [readReplies, setReadReplies] = useState(true)
