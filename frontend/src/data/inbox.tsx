@@ -252,6 +252,7 @@ interface Store {
   send: (id: string, text: string) => void
   postToClient: (client: { id: string; name: string; phone: string }, text: string) => void
   settle: (id: string, note: string, keep: boolean) => void
+  markPlaced: (id: string, fileName: string, note: string, link: NonNullable<Msg['link']>) => void
   notifyRejected: (convId: string, docName: string, reason: string) => void
 }
 
@@ -273,6 +274,13 @@ export function InboxProvider({ children }: { children: ReactNode }) {
   const send = useCallback(
     (id: string, text: string) =>
       patch(id, (c) => ({ ...c, msgs: [...c.msgs, { id: `s${Date.now()}`, from: 'ca', time: nowTime(), tick: 'sent', text }] })),
+    [patch],
+  )
+
+  // A file that was waiting got a place in a request: the chat now says where it went.
+  const markPlaced = useCallback(
+    (id: string, fileName: string, note: string, link: NonNullable<Msg['link']>) =>
+      patch(id, (c) => ({ ...c, msgs: c.msgs.map((m) => (m.file?.name === fileName && !m.link ? { ...m, matched: note, link } : m)) })),
     [patch],
   )
 
@@ -307,8 +315,8 @@ export function InboxProvider({ children }: { children: ReactNode }) {
 
   const unreadTotal = mode === 'kdk' || !readReplies ? 0 : conversations.reduce((n, c) => n + c.unread, 0)
   const value = useMemo(
-    () => ({ conversations, unreadTotal, mode, setMode, markRead, send, postToClient, settle, notifyRejected }),
-    [conversations, unreadTotal, mode, markRead, send, postToClient, settle, notifyRejected],
+    () => ({ conversations, unreadTotal, mode, setMode, markRead, send, postToClient, settle, markPlaced, notifyRejected }),
+    [conversations, unreadTotal, mode, markRead, send, postToClient, settle, markPlaced, notifyRejected],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

@@ -2,6 +2,7 @@ import { Check, CheckCheck, ChevronDown, Image as ImageIcon, Info, Lock, PanelRi
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
+import DocPreviewDrawer from '../components/DocPreviewDrawer'
 import OpenInTab from '../components/OpenInTab'
 import PaperPreview from '../components/PaperPreview'
 import { fileLink } from '../lib/fileLink'
@@ -162,7 +163,7 @@ function FileViewer({
   )
 }
 
-function RightPanel({ conv }: { conv: Conversation }) {
+function RightPanel({ conv, onOpenFile }: { conv: Conversation; onOpenFile: (fileName: string) => void }) {
   const { requests, setDocStatus, unsorted } = useRequests()
   const { settle, notifyRejected } = useInbox()
   const { folders, addUploads } = useMasterStore()
@@ -287,7 +288,9 @@ function RightPanel({ conv }: { conv: Conversation }) {
           {waiting.map((u) => (
             <div key={u.id} className="flex items-center gap-3 border-b border-line py-2.5 text-sm last:border-b-0">
               <span className="min-w-0 flex-1 truncate">{u.fileName}</span>
-              <span className="text-[13px] text-muted">Open a request to place</span>
+              <button type="button" onClick={() => onOpenFile(u.fileName)} className="shrink-0 text-[13px] font-semibold text-brand-dark hover:underline">
+                Place
+              </button>
             </div>
           ))}
         </div>
@@ -303,10 +306,10 @@ function RightPanel({ conv }: { conv: Conversation }) {
 }
 
 export default function Inbox() {
-  const { conversations: allConversations, mode, setMode, markRead, send } = useInbox()
+  const { conversations: allConversations, mode, setMode, markRead, send, markPlaced } = useInbox()
   const { messageTemplates, firm, readReplies, ownNumber } = useSetup()
   const accounts = { own: ownNumber ?? 'Your WhatsApp', kdk: SHARED_NUMBER_NAME } as const
-  const { requests, setDocStatus } = useRequests()
+  const { requests, setDocStatus, unsorted, useUnsorted } = useRequests()
   // Everything except the first-request message can be dropped into a chat.
   const templates = messageTemplates.filter((m) => m.id !== 'request')
   // ?client=... opens that client's chat (from the client page). Without it, the first chat.
@@ -382,6 +385,18 @@ export default function Inbox() {
   }
 
   const client = active.clientIds[0] ? getClient(active.clientIds[0]) : undefined
+
+  // A file in this chat that no document claimed yet, and the places it can go: every open slot of this number's requests.
+  const waitingFile = viewing?.file ? unsorted.find((u) => u.phone === active.phone && u.fileName === viewing.file!.name) : undefined
+  const viewClient = client
+  const placeable = requests.flatMap((r) => r.clients.filter((c) => active.clientIds.includes(c.clientId)).map((c) => ({ r, c })))
+  const placeOptions = placeable.flatMap(({ r, c }) => {
+    const tag = placeable.length > 1 ? ` · ${r.title}` : ''
+    return [
+      ...c.docs.filter((d) => d.status === 'pending' || d.status === 'rejected').map((d) => ({ id: `${r.id}|${c.clientId}|${d.id}`, label: d.name + tag, group: 'Not received yet' })),
+      ...c.docs.filter((d) => d.status === 'to_review').map((d) => ({ id: `${r.id}|${c.clientId}|${d.id}`, label: d.name + tag, group: 'Add as another file of' })),
+    ]
+  })
 
   return (
     <div className="flex h-full min-h-[640px]">
@@ -604,7 +619,33 @@ export default function Inbox() {
         </div>
       </div>
 
-      {viewing?.file && (
+      {viewing?.file && !viewing.link && waitingFile && viewClient && (
+        <DocPreviewDrawer
+          client={viewClient}
+          doc={{ id: waitingFile.id, name: waitingFile.fileName, status: 'to_review', source: waitingFile.source, receivedAt: waitingFile.receivedAt, fileName: waitingFile.fileName }}
+          position={1}
+          total={1}
+          onClose={() => setViewing(null)}
+          onPrev={() => undefined}
+          onNext={() => undefined}
+          onApprove={() => undefined}
+          onReject={() => undefined}
+          place={{
+            options: placeOptions,
+            onPlace: (key) => {
+              const [requestId, clientId, docId] = key.split('|')
+              const r = requests.find((x) => x.id === requestId)
+              const name = r?.clients.find((c) => c.clientId === clientId)?.docs.find((d) => d.id === docId)?.name ?? 'the request'
+              useUnsorted(waitingFile.id, requestId, clientId, docId)
+              markPlaced(active.id, waitingFile.fileName, `Filed as ${name} · To review`, { requestId, clientId, docId })
+              setToast(`${waitingFile.fileName} added to ${name}`)
+              setViewing(null)
+            },
+          }}
+        />
+      )}
+
+      {viewing?.file && (viewing.link || !waitingFile) && (
         <FileViewer
           msg={viewing}
           who={active.title}
@@ -637,7 +678,7 @@ export default function Inbox() {
           {active.unassigned ? 'Save these files' : 'Requests and documents'}
         </div>
         <div className="flex-1 overflow-y-auto">
-          <RightPanel key={active.id} conv={active} />
+          <RightPanel key={active.id} conv={active} onOpenFile={(name) => setViewing(active.msgs.find((m) => m.file?.name === name) ?? null)} />
         </div>
       </div>
       )}
