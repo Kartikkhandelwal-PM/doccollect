@@ -95,7 +95,10 @@ const seed: Conversation[] = [
     clientIds: ['priya'],
     unread: 3,
     msgs: [
-      { id: 'p1', from: 'ca', time: 'Mon', tick: 'read', text: say('reminder', { name: 'Priya' }) },
+      { id: 'p0', from: 'ca', time: 'Sep 28', tick: 'read', text: say('request', { name: 'Priya', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '3 Oct', link: `${LINK_DOMAIN}/u/r-1043-priya-v1` }) },
+      { id: 'p0a', from: 'client', time: 'Sep 29', file: { name: 'GSTR2B_092026.pdf', size: '4 pages · 510 KB' }, matched: 'Filed as GSTR-2B · Approved', link: { requestId: 'r2', clientId: 'priya', docId: 'gstr2b' } },
+      { id: 'p0b', from: 'ca', time: 'Sep 29', tick: 'read', text: say('approved', { name: 'Priya', document: 'GSTR-2B', pending_count: '2' }) },
+      { id: 'p1', from: 'ca', time: 'Mon', tick: 'read', text: say('reminder', { name: 'Priya', link: `${LINK_DOMAIN}/u/r-1043-priya-v1` }) },
       { id: 'p2', from: 'client', time: '09:58', file: { name: 'Purchase register.xlsx', size: '240 KB' }, matched: 'Filed as Purchase register · To review', link: { requestId: 'r2', clientId: 'priya', docId: 'purchase' } },
     ],
   },
