@@ -19,7 +19,6 @@ import type { RequestDoc } from '../data/requests'
 import { useSetup } from '../data/setup'
 import { fillTemplate, sample } from '../lib/template'
 import type { Status } from '../data/types'
-import { serviceColor } from '../lib/status'
 import { SHARED_NUMBER_NAME } from '../lib/brand'
 
 type Filter = 'all' | 'unread' | 'unassigned'
@@ -640,11 +639,6 @@ export default function Inbox() {
         <div className="flex-1 overflow-y-auto">
           <RightPanel key={active.id} conv={active} />
         </div>
-        {client && !active.unassigned && (
-          <div className="shrink-0 border-t border-line px-5 py-3 text-xs text-muted">
-            <span className={`font-bold ${serviceColor[client.service]}`}>{client.service}</span> · {client.name}
-          </div>
-        )}
       </div>
       )}
     </div>
