@@ -96,7 +96,7 @@ const seed: DocRequest[] = [
           doc('form16', 'Form 16 (Part A & B)', 'to_review', 'WhatsApp', 'Today, 10:42'),
           doc('26as', 'Form 26AS / AIS', 'to_review', 'Link', 'Today, 09:15'),
           doc('bank', 'Bank statement Apr–Mar', 'to_review', 'WhatsApp', 'Today, 10:44'),
-          doc('homeloan', 'Home loan interest certificate', 'pending'),
+          { ...doc('homeloan', 'Home loan interest certificate', 'to_review', 'WhatsApp', 'Today, 10:47'), fileName: 'Home_loan_certificate.pdf' },
           doc('lic', 'LIC premium receipts', 'pending'),
         ],
       },

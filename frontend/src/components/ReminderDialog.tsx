@@ -10,7 +10,7 @@ export interface ReminderTarget {
 }
 
 // One place to chase many clients. It shows exactly what goes out, and who gets it, before anything is sent.
-export default function ReminderDialog({ targets, text, onSend, onClose }: { targets: ReminderTarget[]; text: string; onSend: () => void; onClose: () => void }) {
+export default function ReminderDialog({ targets, text, update, onSend, onClose }: { targets: ReminderTarget[]; text: string; update?: boolean; onSend: () => void; onClose: () => void }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
@@ -26,7 +26,7 @@ export default function ReminderDialog({ targets, text, onSend, onClose }: { tar
         <div className="flex items-start justify-between gap-4 px-6 pt-6">
           <div>
             <h2 className="text-lg font-bold">
-              Remind {n} {n === 1 ? 'client' : 'clients'}?
+              {update ? 'Send update to' : 'Remind'} {n} {n === 1 ? 'client' : 'clients'}?
             </h2>
             <p className="mt-1 text-sm leading-relaxed text-muted">Each client gets a WhatsApp message with their own approved and pending documents. It also appears in their Inbox chat.</p>
           </div>
@@ -62,7 +62,7 @@ export default function ReminderDialog({ targets, text, onSend, onClose }: { tar
           </button>
           <button type="button" onClick={onSend} className="flex h-11 items-center gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white hover:bg-brand-dark">
             <Bell size={16} />
-            Send {n} {n === 1 ? 'reminder' : 'reminders'}
+            Send {n} {n === 1 ? (update ? 'update' : 'reminder') : update ? 'updates' : 'reminders'}
           </button>
         </div>
       </div>

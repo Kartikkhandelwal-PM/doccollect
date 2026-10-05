@@ -176,6 +176,9 @@ function RequestView({ request }: { request: DocRequest }) {
   )
   const paging = usePaging(shown, `${filter}|${query}`)
   const toRemind = rows.filter((r) => r.missing > 0)
+  // One button for the whole request: chase whoever is missing something, or, when nobody is, tell everyone who is done.
+  const thanking = toRemind.length === 0
+  const toNotify = thanking ? rows.filter((r) => r.state === 'done') : toRemind
 
   // Coming from the Dashboard: show the page that holds that client.
   const wanted = params.get('client') ?? (params.get('doc') ?? '').split(':')[0]
@@ -202,8 +205,8 @@ function RequestView({ request }: { request: DocRequest }) {
     }
   }
   const sendReminders = () => {
-    toRemind.forEach((r) => sendUpdate(request.id, r.rc.clientId))
-    setToast(`Reminder sent to ${toRemind.length} ${toRemind.length === 1 ? 'client' : 'clients'} on WhatsApp`)
+    toNotify.forEach((r) => sendUpdate(request.id, r.rc.clientId))
+    setToast(`${thanking ? 'Update' : 'Reminder'} sent to ${toNotify.length} ${toNotify.length === 1 ? 'client' : 'clients'} on WhatsApp`)
     setAsking(false)
   }
 
@@ -292,10 +295,10 @@ function RequestView({ request }: { request: DocRequest }) {
           >
             Demo: simulate reply
           </button>
-          {toRemind.length > 0 && (
+          {toNotify.length > 0 && (
             <button type="button" onClick={() => setAsking(true)} className="flex h-11 items-center gap-2 rounded-xl border border-line bg-white px-4 text-sm font-semibold hover:border-brand hover:text-brand-dark">
               <Bell size={16} />
-              Remind {toRemind.length} {toRemind.length === 1 ? 'client' : 'clients'}
+              {thanking ? 'Send update to' : 'Remind'} {toNotify.length} {toNotify.length === 1 ? 'client' : 'clients'}
             </button>
           )}
           {p.toReview > 0 && (
@@ -573,7 +576,7 @@ function RequestView({ request }: { request: DocRequest }) {
         )
       })()}
 
-      {asking && <ReminderDialog targets={toRemind.map((r) => ({ requestId: request.id, clientId: r.rc.clientId }))} text={preview(request.id, toRemind[0].rc.clientId)} onSend={sendReminders} onClose={() => setAsking(false)} />}
+      {asking && <ReminderDialog targets={toNotify.map((r) => ({ requestId: request.id, clientId: r.rc.clientId }))} update={thanking} text={preview(request.id, toNotify[0].rc.clientId)} onSend={sendReminders} onClose={() => setAsking(false)} />}
 
       {dateOpen && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="Change last date">
