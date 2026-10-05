@@ -164,7 +164,7 @@ function FileViewer({
 }
 
 function RightPanel({ conv }: { conv: Conversation }) {
-  const { requests, setDocStatus } = useRequests()
+  const { requests, setDocStatus, unsorted } = useRequests()
   const { settle, notifyRejected } = useInbox()
   const { folders, addUploads } = useMasterStore()
   const [pickFolder, setPickFolder] = useState('')
@@ -173,6 +173,7 @@ function RightPanel({ conv }: { conv: Conversation }) {
   const mine = conv.clientIds.length
     ? requests.filter((r) => r.clients.some((c) => conv.clientIds.includes(c.clientId)))
     : []
+  const waiting = unsorted.filter((u) => u.phone === conv.phone)
 
   if (conv.unassigned) {
     const files = conv.msgs.filter((m) => m.file)
@@ -281,9 +282,21 @@ function RightPanel({ conv }: { conv: Conversation }) {
         </div>
       ))}
 
+      {waiting.length > 0 && (
+        <div>
+          <div className="mb-1 text-[15px] font-semibold">Not placed yet</div>
+          {waiting.map((u) => (
+            <div key={u.id} className="flex items-center gap-3 border-b border-line py-2.5 text-sm last:border-b-0">
+              <span className="min-w-0 flex-1 truncate">{u.fileName}</span>
+              <span className="text-[13px] text-muted">Open a request to place</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {conv.clientIds.length > 1 && (
         <div className="rounded-xl border border-[#F5DFA8] bg-[#FEF6E4] p-3 text-[12.5px] leading-relaxed text-[#7A3B00]">
-          This number belongs to {conv.clientIds.map((id) => getClient(id)?.service).join(' and ')} clients. We sort the files for you by what they are, for example a Form 16 goes to ITR. If one lands in the wrong place, you can move it when you review.
+          This number belongs to {conv.clientIds.map((id) => getClient(id)?.service).join(' and ')} clients. We sort the files for you by what they are, for example a Form 16 goes to ITR. Files we cannot match wait inside the request until you place them.
         </div>
       )}
     </div>
