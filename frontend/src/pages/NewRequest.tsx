@@ -9,6 +9,7 @@ import { fmtDate, useRequests } from '../data/requests'
 import { useSetup } from '../data/setup'
 import type { DocRequest } from '../data/requests'
 import type { Service } from '../data/types'
+import { useMessenger } from '../data/messenger'
 import { defaultDue } from '../lib/dates'
 import { serviceColor } from '../lib/status'
 import { fillTemplate, formatList } from '../lib/template'
@@ -95,6 +96,7 @@ function Footer({
 export default function NewRequest() {
   const navigate = useNavigate()
   const { create } = useRequests()
+  const { sendRequest } = useMessenger()
   const { groups, templates, messageTemplates, firm } = useSetup()
   const [params] = useSearchParams()
   const preselected = params.get('client')
@@ -175,6 +177,7 @@ export default function NewRequest() {
       clientIds: selected,
       docs: chosenDocs,
     })
+    sendRequest(r)
     setMessageCount(chosenClients.length)
     setCreated(r)
     setStep(4)

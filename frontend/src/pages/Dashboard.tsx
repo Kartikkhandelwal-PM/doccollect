@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Avatar from '../components/Avatar'
 import ReminderDialog from '../components/ReminderDialog'
+import { useMessenger } from '../data/messenger'
 import { useAttention } from '../data/attention'
 import { useSetup } from '../data/setup'
 import { getClient } from '../data/mock'
@@ -125,7 +126,7 @@ export default function Dashboard() {
   const { team } = useSetup()
   const firstName = team[0].name.split(' ')[0]
   const { items, stats } = useAttention()
-  const { remind } = useRequests()
+  const { sendUpdate, preview } = useMessenger()
   const [tab, setTab] = useState<Tab>('all')
   const { requests } = useRequests()
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -177,13 +178,13 @@ export default function Dashboard() {
   const toggleAll = () => setSelected(allShown ? new Set() : new Set(shown.map((i) => i.id)))
 
   const sendReminders = () => {
-    toRemind.forEach((i) => remind(i.requestId!, i.clientId!))
+    toRemind.forEach((i) => sendUpdate(i.requestId!, i.clientId!))
     setToast(`Reminder sent to ${toRemind.length} ${toRemind.length === 1 ? 'client' : 'clients'} on WhatsApp`)
     setSelected(new Set())
     setAsking(false)
   }
   const remindOne = (i: (typeof items)[number]) => {
-    remind(i.requestId!, i.clientId!)
+    sendUpdate(i.requestId!, i.clientId!)
     setToast(`Reminder sent to ${i.title} on WhatsApp`)
   }
 
@@ -431,7 +432,7 @@ export default function Dashboard() {
 
         </aside>
       </div>
-      {asking && toRemind.length > 0 && <ReminderDialog targets={toRemind.map((i) => ({ requestId: i.requestId!, clientId: i.clientId! }))} via="own" onSend={sendReminders} onClose={() => setAsking(false)} />}
+      {asking && toRemind.length > 0 && <ReminderDialog targets={toRemind.map((i) => ({ requestId: i.requestId!, clientId: i.clientId! }))} text={preview(toRemind[0].requestId!, toRemind[0].clientId!)} onSend={sendReminders} onClose={() => setAsking(false)} />}
 
       {toast && (
         <div className="fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-xl bg-ink px-5 py-3 text-sm font-medium text-white shadow-xl" role="status">

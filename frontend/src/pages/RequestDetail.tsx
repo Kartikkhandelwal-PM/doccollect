@@ -5,6 +5,7 @@ import Avatar from '../components/Avatar'
 import DocPreviewDrawer from '../components/DocPreviewDrawer'
 import Pagination, { usePaging } from '../components/Pagination'
 import ReminderDialog from '../components/ReminderDialog'
+import { useMessenger } from '../data/messenger'
 import FileTypeIcon from '../components/FileTypeIcon'
 import StatusBadge from '../components/StatusBadge'
 import DueDatePicker from '../components/DueDatePicker'
@@ -106,7 +107,7 @@ export default function RequestDetail() {
 
 function RequestView({ request }: { request: DocRequest }) {
   const [params] = useSearchParams()
-  const { setDocStatus, remind, simulateReply, changeDue, newLink, unsorted, useUnsorted } = useRequests()
+  const { setDocStatus, simulateReply, changeDue, newLink, unsorted, useUnsorted } = useRequests()
   const { graceDays } = useSetup()
 
   const [openDoc, setOpenDoc] = useState<{ clientId: string; docId: string } | null>(() => {
@@ -136,6 +137,7 @@ function RequestView({ request }: { request: DocRequest }) {
     return () => clearTimeout(t)
   }, [toast])
 
+  const { sendUpdate, preview } = useMessenger()
   const p = progress(request)
   const pct = p.total ? Math.round((p.received / p.total) * 100) : 0
   const approved = request.clients.flatMap((c) => c.docs).filter((d) => d.status === 'approved').length
@@ -200,7 +202,7 @@ function RequestView({ request }: { request: DocRequest }) {
     }
   }
   const sendReminders = () => {
-    toRemind.forEach((r) => remind(request.id, r.rc.clientId))
+    toRemind.forEach((r) => sendUpdate(request.id, r.rc.clientId))
     setToast(`Reminder sent to ${toRemind.length} ${toRemind.length === 1 ? 'client' : 'clients'} on WhatsApp`)
     setAsking(false)
   }
@@ -414,7 +416,7 @@ function RequestView({ request }: { request: DocRequest }) {
                     <button
                       type="button"
                       onClick={() => {
-                        remind(request.id, rc.clientId)
+                        sendUpdate(request.id, rc.clientId)
                         setToast(`Reminder sent to ${c.name} on WhatsApp`)
                       }}
                       className="flex h-9 items-center gap-1.5 rounded-lg border border-line bg-white px-3 text-[13px] font-semibold hover:border-brand hover:text-brand-dark"
@@ -422,7 +424,19 @@ function RequestView({ request }: { request: DocRequest }) {
                       <Bell size={14} />
                       Remind
                     </button>
-                  ) : null}
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        sendUpdate(request.id, rc.clientId)
+                        setToast(`Thank-you sent to ${c.name} on WhatsApp`)
+                      }}
+                      className="flex h-9 items-center gap-1.5 rounded-lg border border-line bg-white px-3 text-[13px] font-semibold hover:border-brand hover:text-brand-dark"
+                    >
+                      <Bell size={14} />
+                      Send update
+                    </button>
+                  )}
                 </div>
                 <ChevronRight size={18} className={`justify-self-end text-faint transition ${isOpen ? 'rotate-90' : ''}`} />
               </div>
@@ -559,7 +573,7 @@ function RequestView({ request }: { request: DocRequest }) {
         )
       })()}
 
-      {asking && <ReminderDialog targets={toRemind.map((r) => ({ requestId: request.id, clientId: r.rc.clientId }))} via={request.via} request={request.title} onSend={sendReminders} onClose={() => setAsking(false)} />}
+      {asking && <ReminderDialog targets={toRemind.map((r) => ({ requestId: request.id, clientId: r.rc.clientId }))} text={preview(request.id, toRemind[0].rc.clientId)} onSend={sendReminders} onClose={() => setAsking(false)} />}
 
       {dateOpen && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="Change last date">

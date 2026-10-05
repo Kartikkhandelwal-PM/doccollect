@@ -108,7 +108,12 @@ const seed: Conversation[] = [
     phone: '+91 99333 44418',
     clientIds: ['anand'],
     unread: 0,
-    msgs: [{ id: 'a1', from: 'ca', time: 'Yesterday', tick: 'read', text: say('pendinglist', { name: 'Anand', request: 'TDS quarterly', pending_count: '2', pending_documents: formatList(['Form 16A', 'Bank statement Apr–Mar']), due_date: '28 Sep' }) }],
+    msgs: [
+      { id: 'a0', from: 'ca', time: 'Sep 20', tick: 'read', text: say('request', { name: 'Anand', request: 'TDS quarterly', documents: formatList(['TDS challans', 'Deductee list', 'Form 16A', 'Bank statement Apr–Mar']), due_date: '28 Sep', link: `${LINK_DOMAIN}/u/r-1039-anand-v1` }) },
+      { id: 'a0a', from: 'client', time: 'Sep 22', file: { name: 'TDS_challans_Q2.pdf', size: '3 pages · 640 KB' }, matched: 'Filed as TDS challans · Approved', link: { requestId: 'r3', clientId: 'anand', docId: 'challans' } },
+      { id: 'a0b', from: 'client', time: 'Sep 22', file: { name: 'Deductee_list.xlsx', size: '96 KB' }, matched: 'Filed as Deductee list · Approved', link: { requestId: 'r3', clientId: 'anand', docId: 'deductees' } },
+      { id: 'a1', from: 'ca', time: 'Yesterday', tick: 'read', text: say('pendinglist', { name: 'Anand', request: 'TDS quarterly', pending_count: '2', pending_documents: formatList(['Form 16A', 'Bank statement Apr–Mar']), due_date: '28 Sep' }) },
+    ],
   },
   {
     id: 'c-meera',
@@ -124,7 +129,10 @@ const seed: Conversation[] = [
     phone: '+91 90555 66663',
     clientIds: ['kapoor'],
     unread: 0,
-    msgs: [{ id: 'k1', from: 'ca', time: 'Mon', tick: 'read', text: say('request', { name: 'Kapoor', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '3 Oct', link: `${LINK_DOMAIN}/u/r-1043-kapoor-v1` }) }],
+    msgs: [
+      { id: 'k1', from: 'ca', time: 'Sep 28', tick: 'read', text: say('request', { name: 'Kapoor', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '3 Oct', link: `${LINK_DOMAIN}/u/r-1043-kapoor-v1` }) },
+      { id: 'k2', from: 'ca', time: 'Sep 29', tick: 'read', text: say('pendinglist', { name: 'Kapoor', request: 'GST monthly', pending_count: '4', pending_documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '3 Oct', link: `${LINK_DOMAIN}/u/r-1043-kapoor-v1` }) },
+    ],
   },
   {
     id: 'c-mehta',
@@ -242,6 +250,7 @@ interface Store {
   setMode: (m: 'own' | 'kdk') => void
   markRead: (id: string) => void
   send: (id: string, text: string) => void
+  postToClient: (client: { id: string; name: string; phone: string }, text: string) => void
   settle: (id: string, note: string, keep: boolean) => void
   notifyRejected: (convId: string, docName: string, reason: string) => void
 }
@@ -267,6 +276,19 @@ export function InboxProvider({ children }: { children: ReactNode }) {
     [patch],
   )
 
+  // A message the app sends for a client (a request, a reminder, a thank-you). It lands in that client's chat,
+  // which is found by phone number so clients on a shared number stay in one chat. No chat yet? One is started.
+  const postToClient = useCallback((client: { id: string; name: string; phone: string }, text: string) => {
+    const msg: Msg = { id: `s${Date.now()}${Math.random().toString(36).slice(2, 6)}`, from: 'ca', time: nowTime(), tick: 'sent', text }
+    setConversations((prev) => {
+      const at = prev.findIndex((c) => !c.unassigned && (c.phone === client.phone || c.clientIds.includes(client.id)))
+      if (at < 0) return [{ id: `c-${client.id}`, title: client.name, phone: client.phone, clientIds: [client.id], unread: 0, msgs: [msg] }, ...prev]
+      const c = prev[at]
+      const next = { ...c, clientIds: c.clientIds.includes(client.id) ? c.clientIds : [...c.clientIds, client.id], msgs: [...c.msgs, msg] }
+      return [next, ...prev.slice(0, at), ...prev.slice(at + 1)]
+    })
+  }, [])
+
   // The files were put in Document Master, or dropped. Either way they are no longer waiting for a place.
   const settle = useCallback(
     (id: string, note: string, keep: boolean) =>
@@ -285,8 +307,8 @@ export function InboxProvider({ children }: { children: ReactNode }) {
 
   const unreadTotal = mode === 'kdk' || !readReplies ? 0 : conversations.reduce((n, c) => n + c.unread, 0)
   const value = useMemo(
-    () => ({ conversations, unreadTotal, mode, setMode, markRead, send, settle, notifyRejected }),
-    [conversations, unreadTotal, mode, markRead, send, settle, notifyRejected],
+    () => ({ conversations, unreadTotal, mode, setMode, markRead, send, postToClient, settle, notifyRejected }),
+    [conversations, unreadTotal, mode, markRead, send, postToClient, settle, notifyRejected],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

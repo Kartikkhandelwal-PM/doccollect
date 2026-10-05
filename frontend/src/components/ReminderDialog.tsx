@@ -3,8 +3,6 @@ import { useEffect } from 'react'
 import Avatar from './Avatar'
 import WaText from './WaText'
 import { getClient } from '../data/mock'
-import { seedMessages } from '../data/messageTemplates'
-import { fillTemplate } from '../lib/template'
 
 export interface ReminderTarget {
   requestId: string
@@ -12,15 +10,13 @@ export interface ReminderTarget {
 }
 
 // One place to chase many clients. It shows exactly what goes out, and who gets it, before anything is sent.
-export default function ReminderDialog({ targets, via, request, onSend, onClose }: { targets: ReminderTarget[]; via: 'own' | 'kdk'; request?: string; onSend: () => void; onClose: () => void }) {
+export default function ReminderDialog({ targets, text, onSend, onClose }: { targets: ReminderTarget[]; text: string; onSend: () => void; onClose: () => void }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const tpl = seedMessages.find((m) => m.id === 'pendinglist')
-  const text = tpl ? fillTemplate(via === 'kdk' ? tpl.onBehalf : tpl.text, request ? { request } : {}) : ''
   const names = targets.map((t) => getClient(t.clientId)?.name).filter(Boolean) as string[]
   const n = targets.length
 
@@ -32,7 +28,7 @@ export default function ReminderDialog({ targets, via, request, onSend, onClose 
             <h2 className="text-lg font-bold">
               Remind {n} {n === 1 ? 'client' : 'clients'}?
             </h2>
-            <p className="mt-1 text-sm leading-relaxed text-muted">Each client gets a WhatsApp message with only their own missing documents. Nobody sees anyone else.</p>
+            <p className="mt-1 text-sm leading-relaxed text-muted">Each client gets a WhatsApp message with their own approved and pending documents. It also appears in their Inbox chat.</p>
           </div>
           <button type="button" onClick={onClose} aria-label="Close" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-canvas">
             <X size={18} />
@@ -44,7 +40,7 @@ export default function ReminderDialog({ targets, via, request, onSend, onClose 
             <WaText text={text} />
           </div>
         </div>
-        <p className="mx-6 mt-2 text-xs text-muted">This is an example. Names, documents and dates are filled in for each client.</p>
+        <p className="mx-6 mt-2 text-xs text-muted">This is the message for {names[0] ?? 'the first client'}. Other clients get their own names, documents and link.</p>
 
         <div className="mx-6 mt-4 flex items-center gap-3">
           <div className="flex -space-x-2">
