@@ -1,4 +1,4 @@
-import { Check, CheckCheck, ChevronDown, Image as ImageIcon, Info, Lock, PanelRightOpen, Paperclip, Search, Send, X } from 'lucide-react'
+import { Check, CheckCheck, ChevronDown, Image as ImageIcon, Info, Lock, PanelRightOpen, Search, Send, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
@@ -19,11 +19,9 @@ import { useRequests } from '../data/requests'
 import type { RequestDoc } from '../data/requests'
 import { useSetup } from '../data/setup'
 import { fillTemplate, sample } from '../lib/template'
-import type { Status } from '../data/types'
 import { SHARED_NUMBER_NAME } from '../lib/brand'
 
 type Filter = 'all' | 'unread' | 'unassigned'
-const reviewOptions: Status[] = ['to_review', 'approved', 'rejected']
 
 // The one-line peek shown in the chat list: the first real sentence, not the greeting, and without the bold stars.
 function preview(c: Conversation) {
@@ -163,79 +161,54 @@ function FileViewer({
   )
 }
 
-// Pick one of the files waiting in this chat for a document that is still pending, look at it, and add it.
-function AddFromChat({
-  docName,
-  client,
-  files,
-  onAdd,
-  onClose,
-}: {
-  docName: string
-  client: { name: string; pan: string }
-  files: { id: string; fileName: string; receivedAt: string }[]
-  onAdd: (fileId: string) => void
-  onClose: () => void
-}) {
-  const [picked, setPicked] = useState(files[0]?.id ?? '')
+// Where a file goes when it is not part of the request: a folder in Document Master, or nowhere.
+function KeepFile({ fileName, clientName, onSave, onRemove, onClose }: { fileName: string; clientName: string; onSave: (folderId: string) => void; onRemove: () => void; onClose: () => void }) {
+  const { folders } = useMasterStore()
+  const [to, setTo] = useState('')
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
-  const f = files.find((x) => x.id === picked)
+  const label = (id: string) => {
+    const f = folders.find((x) => x.id === id)!
+    return f.parentId ? `${folders.find((x) => x.id === f.parentId)?.name} / ${f.name}` : f.name
+  }
   return (
-    <div className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label={`Add a file to ${docName}`}>
-      <div className="flex max-h-full w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-start gap-3 border-b border-line px-5 py-4">
-          <div className="min-w-0 flex-1">
-            <div className="text-base font-bold">Add a file to {docName}</div>
-            <div className="text-[13px] text-muted">{files.length > 0 ? 'Files from this chat that are not placed yet. Tap one to see it.' : ''}</div>
-          </div>
-          <button type="button" aria-label="Close" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-canvas">
-            <X size={20} />
-          </button>
-        </div>
-        {files.length === 0 ? (
-          <p className="px-5 py-8 text-sm text-muted">No files are waiting in this chat. When the client sends one, you can add it here.</p>
-        ) : (
-          <>
-            <div className="border-b border-line">
-              {files.map((x) => (
-                <button
-                  key={x.id}
-                  type="button"
-                  onClick={() => setPicked(x.id)}
-                  className={`flex w-full items-center gap-3 px-5 py-2.5 text-left text-sm ${picked === x.id ? 'bg-brand-soft font-semibold' : 'hover:bg-canvas'}`}
-                >
-                  <FileTypeIcon file={x.fileName} size={26} />
-                  <span className="min-w-0 flex-1 truncate">{x.fileName}</span>
-                  <span className="shrink-0 text-xs font-normal text-muted">{x.receivedAt.replace('Today, ', '')}</span>
-                </button>
-              ))}
-            </div>
-            <div className="min-h-0 overflow-y-auto bg-[#EDF0F5] px-6 py-6">
-              <PaperPreview doc={{ name: f ? f.fileName.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ') : docName }} client={client} />
-            </div>
-          </>
-        )}
-        <div className="flex justify-end gap-3 border-t border-line px-5 py-3.5">
-          <button type="button" onClick={onClose} className="h-11 rounded-xl border border-line px-5 text-sm font-semibold hover:bg-canvas">
-            Cancel
-          </button>
-          <button type="button" disabled={!f} onClick={() => f && onAdd(f.id)} className="h-11 rounded-xl bg-brand px-5 text-sm font-semibold text-white disabled:opacity-40">
-            Add to {docName}
-          </button>
-        </div>
+    <div className="fixed inset-0 z-[40] flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="Keep this file elsewhere">
+      <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+        <div className="text-base font-bold">Not for this request</div>
+        <p className="mt-1 text-[13px] leading-relaxed text-muted">
+          {fileName} stays out of {clientName}&apos;s documents. Keep it in a folder, or remove it.
+        </p>
+        <label className="mt-4 block text-[13px] font-semibold text-muted">
+          Save in
+          <select value={to} onChange={(e) => setTo(e.target.value)} className="mt-1 block h-11 w-full rounded-xl border border-line bg-white px-3 text-sm font-medium text-ink outline-none focus:border-brand">
+            <option value="">Choose a folder</option>
+            {folders.map((f) => (
+              <option key={f.id} value={f.id}>
+                {label(f.id)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button type="button" disabled={!to} onClick={() => onSave(to)} className="mt-4 h-11 w-full rounded-xl bg-brand text-sm font-semibold text-white disabled:opacity-40">
+          Save in Document Master
+        </button>
+        <button type="button" onClick={onRemove} className="mt-3 block w-full text-center text-[13px] font-semibold text-danger hover:underline">
+          Remove the file
+        </button>
+        <button type="button" onClick={onClose} className="mt-3 block w-full text-center text-[13px] font-semibold text-muted hover:underline">
+          Cancel
+        </button>
       </div>
     </div>
   )
 }
 
-function RightPanel({ conv, onOpenFile, onPlaced }: { conv: Conversation; onOpenFile: (fileName: string) => void; onPlaced: (fileName: string, docName: string, link: { requestId: string; clientId: string; docId: string }) => void }) {
-  const { requests, setDocStatus, unsorted, useUnsorted } = useRequests()
-  const [adding, setAdding] = useState<{ requestId: string; clientId: string; docId: string; name: string } | null>(null)
-  const { settle, notifyRejected } = useInbox()
+function RightPanel({ conv, onReview }: { conv: Conversation; onReview: () => void }) {
+  const { requests, unsorted } = useRequests()
+  const { settle } = useInbox()
   const { folders, addUploads } = useMasterStore()
   const [pickFolder, setPickFolder] = useState('')
   const [pickClient, setPickClient] = useState('')
@@ -319,80 +292,39 @@ function RightPanel({ conv, onOpenFile, onPlaced }: { conv: Conversation; onOpen
   }
 
   return (
-    <div className="flex flex-col gap-4 p-5">
+    <div className="flex flex-col gap-3 p-5">
       {mine.length === 0 && <p className="text-sm text-muted">No open requests for this client.</p>}
-      {mine.map((r) => (
-        <div key={r.id}>
-          <div className="mb-1 flex items-baseline justify-between">
-            <span className="text-[15px] font-semibold">{r.title}</span>
-            <span className="text-[13px] text-muted">{r.ref}</span>
-          </div>
-          {r.clients
-            .filter((c) => conv.clientIds.includes(c.clientId))
-            .flatMap((c) => c.docs.map((d) => ({ c, d })))
-            .map(({ c, d }) => (
-              <div key={`${c.clientId}-${d.id}`} className="flex items-center gap-3 border-b border-line py-2.5 text-sm last:border-b-0">
-                <span className={`flex-1 ${d.status === 'pending' ? 'text-muted' : ''}`}>{d.name}</span>
-                {d.status === 'pending' ? (
-                  <button
-                    type="button"
-                    onClick={() => setAdding({ requestId: r.id, clientId: c.clientId, docId: d.id, name: d.name })}
-                    className="flex h-7 items-center gap-1 rounded-lg border border-line px-2 text-xs font-semibold text-muted hover:border-brand hover:text-brand-dark"
-                    title="Add a file from this chat"
-                  >
-                    <Paperclip size={12} />
-                    Add file
-                  </button>
-                ) : (
-                  <StatusBadge
-                    status={d.status}
-                    options={reviewOptions}
-                    onChange={(s) => {
-                      if (s === 'rejected') {
-                        setDocStatus(r.id, c.clientId, d.id, 'rejected', 'Please send it again')
-                        notifyRejected(conv.id, d.name, 'please send it again')
-                      } else setDocStatus(r.id, c.clientId, d.id, s)
-                    }}
-                  />
-                )}
-              </div>
-            ))}
-        </div>
-      ))}
-
-      {adding && (
-        <AddFromChat
-          docName={adding.name}
-          client={{ name: conv.title, pan: getClient(adding.clientId)?.pan ?? '—' }}
-          files={waiting}
-          onClose={() => setAdding(null)}
-          onAdd={(fileId) => {
-            const f = waiting.find((x) => x.id === fileId)
-            if (!f) return
-            useUnsorted(fileId, adding.requestId, adding.clientId, adding.docId)
-            onPlaced(f.fileName, adding.name, { requestId: adding.requestId, clientId: adding.clientId, docId: adding.docId })
-            setAdding(null)
-          }}
-        />
-      )}
+      {mine.map((r) => {
+        const docs = r.clients.filter((c) => conv.clientIds.includes(c.clientId)).flatMap((c) => c.docs.filter((d) => d.status !== 'na'))
+        const got = docs.filter((d) => d.status !== 'pending' && d.status !== 'rejected').length
+        return (
+          <Link key={r.id} to={`/requests/${r.id}?client=${conv.clientIds.find((id) => r.clients.some((c) => c.clientId === id)) ?? ''}`} className="block rounded-xl border border-line p-3.5 hover:border-brand">
+            <div className="flex items-baseline justify-between">
+              <span className="text-[15px] font-semibold">{r.title}</span>
+              <span className="text-[13px] text-muted">{r.ref}</span>
+            </div>
+            <div className="mt-2 flex items-center gap-3">
+              <span className="block h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+                <span className="block h-full rounded-full bg-brand" style={{ width: `${docs.length ? (got / docs.length) * 100 : 0}%` }} />
+              </span>
+              <span className="text-[13px] font-semibold tabular-nums">
+                {got} <span className="font-medium text-muted">of {docs.length}</span>
+              </span>
+            </div>
+            <div className="mt-2 text-[13px] font-semibold text-brand-dark">Open request</div>
+          </Link>
+        )
+      })}
 
       {waiting.length > 0 && (
-        <div>
-          <div className="mb-1 text-[15px] font-semibold">Not placed yet</div>
-          {waiting.map((u) => (
-            <div key={u.id} className="flex items-center gap-3 border-b border-line py-2.5 text-sm last:border-b-0">
-              <span className="min-w-0 flex-1 truncate">{u.fileName}</span>
-              <button type="button" onClick={() => onOpenFile(u.fileName)} className="shrink-0 text-[13px] font-semibold text-brand-dark hover:underline">
-                Place
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {conv.clientIds.length > 1 && (
-        <div className="rounded-xl border border-[#F5DFA8] bg-[#FEF6E4] p-3 text-[12.5px] leading-relaxed text-[#7A3B00]">
-          This number belongs to {conv.clientIds.map((id) => getClient(id)?.service).join(' and ')} clients. We sort the files for you by what they are, for example a Form 16 goes to ITR. Files we cannot match wait inside the request until you place them.
+        <div className="rounded-xl border border-[#F5DFA8] bg-[#FEF6E4] p-3.5">
+          <div className="text-sm font-bold text-[#7A3B00]">
+            {waiting.length} {waiting.length === 1 ? 'file needs' : 'files need'} a place
+          </div>
+          <p className="mt-1 text-[12.5px] leading-relaxed text-[#7A3B00]">We could not tell which document {waiting.length === 1 ? 'it is' : 'they are'}. Look at {waiting.length === 1 ? 'it' : 'each one'} and choose where {waiting.length === 1 ? 'it goes' : 'they go'}.</p>
+          <button type="button" onClick={onReview} className="mt-3 h-10 w-full rounded-xl bg-brand text-sm font-semibold text-white hover:bg-brand-dark">
+            Review {waiting.length === 1 ? 'the file' : `${waiting.length} files`}
+          </button>
         </div>
       )}
     </div>
@@ -403,7 +335,7 @@ export default function Inbox() {
   const { conversations: allConversations, mode, setMode, markRead, send, markPlaced } = useInbox()
   const { messageTemplates, firm, readReplies, ownNumber } = useSetup()
   const accounts = { own: ownNumber ?? 'Your WhatsApp', kdk: SHARED_NUMBER_NAME } as const
-  const { requests, setDocStatus, unsorted, useUnsorted } = useRequests()
+  const { requests, setDocStatus, unsorted, useUnsorted, dropUnsorted } = useRequests()
   // Everything except the first-request message can be dropped into a chat.
   const templates = messageTemplates.filter((m) => m.id !== 'request')
   // ?client=... opens that client's chat (from the client page). Without it, the first chat.
@@ -417,6 +349,9 @@ export default function Inbox() {
   const [showTemplates, setShowTemplates] = useState(false)
   const [showAccounts, setShowAccounts] = useState(false)
   const [viewing, setViewing] = useState<Msg | null>(null)
+  const [reviewing, setReviewing] = useState<string | null>(null)
+  const { addUploads } = useMasterStore()
+  const [keeping, setKeeping] = useState(false)
   const [showInfo, setShowInfo] = useState(false)
   const [showPanel, setShowPanel] = useState(true)
   const [toast, setToast] = useState<string | null>(null)
@@ -480,9 +415,10 @@ export default function Inbox() {
 
   const client = active.clientIds[0] ? getClient(active.clientIds[0]) : undefined
 
-  // A file in this chat that no document claimed yet, and the places it can go: every open slot of this number's requests.
-  const waitingFile = viewing?.file ? unsorted.find((u) => u.phone === active.phone && u.fileName === viewing.file!.name) : undefined
-  const viewClient = client
+  // Files in this chat that no document claimed yet, one at a time. Open from the panel or by tapping the file in the chat.
+  const waitingList = unsorted.filter((u) => u.phone === active.phone)
+  const reviewIdx = waitingList.findIndex((u) => u.id === reviewing)
+  const reviewFile = reviewIdx >= 0 ? waitingList[reviewIdx] : undefined
   const placeable = requests.flatMap((r) => r.clients.filter((c) => active.clientIds.includes(c.clientId)).map((c) => ({ r, c })))
   const placeOptions = placeable.flatMap(({ r, c }) => {
     const tag = placeable.length > 1 ? ` · ${r.title}` : ''
@@ -491,6 +427,10 @@ export default function Inbox() {
       ...c.docs.filter((d) => d.status === 'to_review').map((d) => ({ id: `${r.id}|${c.clientId}|${d.id}`, label: d.name + tag, group: 'Add as another file of' })),
     ]
   })
+  const afterOne = (gone: string) => {
+    const rest = waitingList.filter((u) => u.id !== gone)
+    setReviewing(rest.length > 0 ? rest[Math.min(reviewIdx, rest.length - 1)].id : null)
+  }
 
   return (
     <div className="flex h-full min-h-[640px]">
@@ -648,7 +588,15 @@ export default function Inbox() {
         <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-5 py-5">
           <div className="mx-auto mb-2 rounded-lg bg-white px-3 py-1 text-xs font-semibold text-[#54656F] shadow-sm">TODAY</div>
           {active.msgs.map((m) => (
-            <Bubble key={m.id} m={m} onOpen={setViewing} />
+            <Bubble
+              key={m.id}
+              m={m}
+              onOpen={(x) => {
+                const u = x.link ? undefined : unsorted.find((f) => f.phone === active.phone && f.fileName === x.file?.name)
+                if (u) setReviewing(u.id)
+                else setViewing(x)
+              }}
+            />
           ))}
           <div ref={endRef} />
         </div>
@@ -713,33 +661,57 @@ export default function Inbox() {
         </div>
       </div>
 
-      {viewing?.file && !viewing.link && waitingFile && viewClient && (
+      {reviewFile && client && (
         <DocPreviewDrawer
-          client={viewClient}
-          doc={{ id: waitingFile.id, name: waitingFile.fileName, status: 'to_review', source: waitingFile.source, receivedAt: waitingFile.receivedAt, fileName: waitingFile.fileName }}
-          position={1}
-          total={1}
-          onClose={() => setViewing(null)}
-          onPrev={() => undefined}
-          onNext={() => undefined}
+          key={reviewFile.id}
+          client={client}
+          doc={{ id: reviewFile.id, name: reviewFile.fileName, status: 'to_review', source: reviewFile.source, receivedAt: reviewFile.receivedAt, fileName: reviewFile.fileName }}
+          position={reviewIdx + 1}
+          total={waitingList.length}
+          onClose={() => setReviewing(null)}
+          onPrev={() => setReviewing(waitingList[(reviewIdx - 1 + waitingList.length) % waitingList.length].id)}
+          onNext={() => setReviewing(waitingList[(reviewIdx + 1) % waitingList.length].id)}
           onApprove={() => undefined}
           onReject={() => undefined}
           place={{
             options: placeOptions,
+            onElse: () => setKeeping(true),
             onPlace: (key) => {
               const [requestId, clientId, docId] = key.split('|')
-              const r = requests.find((x) => x.id === requestId)
-              const name = r?.clients.find((c) => c.clientId === clientId)?.docs.find((d) => d.id === docId)?.name ?? 'the request'
-              useUnsorted(waitingFile.id, requestId, clientId, docId)
-              markPlaced(active.id, waitingFile.fileName, `Filed as ${name} · To review`, { requestId, clientId, docId })
-              setToast(`${waitingFile.fileName} added to ${name}`)
-              setViewing(null)
+              const name = requests.find((x) => x.id === requestId)?.clients.find((c) => c.clientId === clientId)?.docs.find((d) => d.id === docId)?.name ?? 'the request'
+              useUnsorted(reviewFile.id, requestId, clientId, docId)
+              markPlaced(active.id, reviewFile.fileName, `Filed as ${name} · To review`, { requestId, clientId, docId })
+              setToast(`${reviewFile.fileName} added to ${name}`)
+              afterOne(reviewFile.id)
             },
           }}
         />
       )}
 
-      {viewing?.file && (viewing.link || !waitingFile) && (
+      {keeping && reviewFile && (
+        <KeepFile
+          fileName={reviewFile.fileName}
+          clientName={active.title}
+          onClose={() => setKeeping(false)}
+          onSave={(folderId) => {
+            addUploads([{ id: `un-${Date.now()}`, folderId, name: reviewFile.fileName.replace(/\.[^.]+$/, ''), fileName: reviewFile.fileName, size: '—', date: 'Just now', from: 'WhatsApp' }])
+            dropUnsorted(reviewFile.id)
+            markPlaced(active.id, reviewFile.fileName, 'Saved in Document Master')
+            setToast(`${reviewFile.fileName} saved in Document Master`)
+            setKeeping(false)
+            afterOne(reviewFile.id)
+          }}
+          onRemove={() => {
+            dropUnsorted(reviewFile.id)
+            markPlaced(active.id, reviewFile.fileName, 'Removed')
+            setToast(`${reviewFile.fileName} removed`)
+            setKeeping(false)
+            afterOne(reviewFile.id)
+          }}
+        />
+      )}
+
+      {viewing?.file && (
         <FileViewer
           msg={viewing}
           who={active.title}
@@ -772,15 +744,7 @@ export default function Inbox() {
           {active.unassigned ? 'Save these files' : 'Requests and documents'}
         </div>
         <div className="flex-1 overflow-y-auto">
-          <RightPanel
-            key={active.id}
-            conv={active}
-            onOpenFile={(name) => setViewing(active.msgs.find((m) => m.file?.name === name) ?? null)}
-            onPlaced={(fileName, docName, link) => {
-              markPlaced(active.id, fileName, `Filed as ${docName} · To review`, link)
-              setToast(`${fileName} added to ${docName}`)
-            }}
-          />
+          <RightPanel key={active.id} conv={active} onReview={() => waitingList[0] && setReviewing(waitingList[0].id)} />
         </div>
       </div>
       )}

@@ -252,7 +252,7 @@ interface Store {
   send: (id: string, text: string) => void
   postToClient: (client: { id: string; name: string; phone: string }, text: string) => void
   settle: (id: string, note: string, keep: boolean) => void
-  markPlaced: (id: string, fileName: string, note: string, link: NonNullable<Msg['link']>) => void
+  markPlaced: (id: string, fileName: string, note: string, link?: NonNullable<Msg['link']>) => void
   notifyRejected: (convId: string, docName: string, reason: string) => void
 }
 
@@ -279,7 +279,7 @@ export function InboxProvider({ children }: { children: ReactNode }) {
 
   // A file that was waiting got a place in a request: the chat now says where it went.
   const markPlaced = useCallback(
-    (id: string, fileName: string, note: string, link: NonNullable<Msg['link']>) =>
+    (id: string, fileName: string, note: string, link?: NonNullable<Msg['link']>) =>
       patch(id, (c) => ({ ...c, msgs: c.msgs.map((m) => (m.file?.name === fileName && !m.link ? { ...m, matched: note, link } : m)) })),
     [patch],
   )

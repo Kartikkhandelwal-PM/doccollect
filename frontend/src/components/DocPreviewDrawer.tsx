@@ -19,7 +19,7 @@ interface Props {
   onApprove: () => void
   onReject: () => void
   // For a file we could not match: the documents it can be, and what to do when the CA picks one.
-  place?: { options: { id: string; label: string; group: string }[]; onPlace: (docId: string) => void }
+  place?: { options: { id: string; label: string; group: string }[]; onPlace: (docId: string) => void; onElse?: () => void }
 }
 
 export default function DocPreviewDrawer({ client, doc, position, total, onClose, onPrev, onNext, onApprove, onReject, place }: Props) {
@@ -169,6 +169,11 @@ export default function DocPreviewDrawer({ client, doc, position, total, onClose
           >
             Save here
           </button>
+          {place.onElse && (
+            <button type="button" onClick={place.onElse} className="mt-2.5 block w-full text-center text-[13px] font-semibold text-muted hover:text-ink hover:underline">
+              Not for this request
+            </button>
+          )}
         </div>
       ) : (
       <div className="border-t border-line bg-white px-5 py-4">

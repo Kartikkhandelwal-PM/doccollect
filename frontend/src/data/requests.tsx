@@ -170,6 +170,7 @@ interface Store {
   clientAddFile: (requestId: string, clientId: string, docId: string, fileName: string) => void
   unsorted: UnsortedFile[]
   useUnsorted: (fileId: string, requestId: string, clientId: string, docId: string) => void
+  dropUnsorted: (fileId: string) => void
   changeDue: (requestId: string, due: string) => void
   newLink: (requestId: string, clientId: string) => void
 }
@@ -281,6 +282,9 @@ export function RequestsProvider({ children }: { children: ReactNode }) {
   )
 
   // The CA puts a waiting file into one of this client's missing documents. It then goes to review like any other.
+  // Not a document for this request: it leaves the waiting list (the caller keeps it elsewhere or removes it).
+  const dropUnsorted = useCallback((fileId: string) => setUnsorted((u) => u.filter((x) => x.id !== fileId)), [])
+
   const useUnsorted = useCallback(
     (fileId: string, requestId: string, clientId: string, docId: string) => {
       const f = unsorted.find((x) => x.id === fileId)
@@ -345,8 +349,8 @@ export function RequestsProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo(
-    () => ({ requests, getRequest, create, setDocStatus, remind, simulateReply, clientUpload, markNotApplicable, resetClient, clientRemove, clientAddFile, unsorted, useUnsorted, changeDue, newLink }),
-    [requests, getRequest, create, setDocStatus, remind, simulateReply, clientUpload, markNotApplicable, resetClient, clientRemove, clientAddFile, unsorted, useUnsorted, changeDue, newLink],
+    () => ({ requests, getRequest, create, setDocStatus, remind, simulateReply, clientUpload, markNotApplicable, resetClient, clientRemove, clientAddFile, unsorted, useUnsorted, dropUnsorted, changeDue, newLink }),
+    [requests, getRequest, create, setDocStatus, remind, simulateReply, clientUpload, markNotApplicable, resetClient, clientRemove, clientAddFile, unsorted, useUnsorted, dropUnsorted, changeDue, newLink],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
