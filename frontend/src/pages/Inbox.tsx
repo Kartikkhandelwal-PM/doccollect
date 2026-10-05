@@ -19,10 +19,6 @@ import { serviceColor } from '../lib/status'
 import { SHARED_NUMBER_NAME } from '../lib/brand'
 
 type Filter = 'all' | 'unread' | 'unassigned'
-const accounts = {
-  own: { name: '+91 98765 43210' },
-  kdk: { name: SHARED_NUMBER_NAME },
-} as const
 const reviewOptions: Status[] = ['to_review', 'approved', 'rejected']
 
 // The one-line peek shown in the chat list: the first real sentence, not the greeting, and without the bold stars.
@@ -283,7 +279,8 @@ function RightPanel({ conv }: { conv: Conversation }) {
 
 export default function Inbox() {
   const { conversations: allConversations, mode, setMode, markRead, send } = useInbox()
-  const { messageTemplates, firm, readReplies } = useSetup()
+  const { messageTemplates, firm, readReplies, ownNumber } = useSetup()
+  const accounts = { own: ownNumber ?? 'Your WhatsApp', kdk: SHARED_NUMBER_NAME } as const
   const { requests, setDocStatus } = useRequests()
   // Everything except the first-request message can be dropped into a chat.
   const templates = messageTemplates.filter((m) => m.id !== 'request')
@@ -399,7 +396,7 @@ export default function Inbox() {
             >
               <WhatsAppIcon size={36} />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-semibold">{accounts[mode].name}</span>
+                <span className="block truncate text-sm font-semibold">{accounts[mode]}</span>
               </span>
               <ChevronDown size={16} className="shrink-0 text-[#54656F]" />
             </button>
@@ -421,7 +418,7 @@ export default function Inbox() {
                     >
                       <WhatsAppIcon size={36} />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-semibold">{accounts[k].name}</span>
+                        <span className="block truncate text-sm font-semibold">{accounts[k]}</span>
                       </span>
                       {mode === k && <Check size={16} className="shrink-0 text-brand" />}
                     </button>

@@ -2,6 +2,7 @@ import { Check, Trash2 } from 'lucide-react'
 import Page from '../components/Page'
 import { useEffect, useState } from 'react'
 import Avatar from '../components/Avatar'
+import ConnectWhatsApp from '../components/ConnectWhatsApp'
 import FirmLogo from '../components/FirmLogo'
 import WhatsAppIcon from '../components/WhatsAppIcon'
 import { useInbox } from '../data/inbox'
@@ -31,7 +32,7 @@ function Field({ label, value, onChange }: { label: string; value: string; onCha
 }
 
 export default function Settings() {
-  const { firm, saveFirm, team, invite, setRole, removeMember, ownNumber, connectNumber, graceDays, setGraceDays, readReplies, setReadReplies } = useSetup()
+  const { firm, saveFirm, team, invite, setRole, removeMember, whatsapp, connectWhatsApp, ownNumber, graceDays, setGraceDays, readReplies, setReadReplies } = useSetup()
   const { mode, setMode } = useInbox()
   const [tab, setTab] = useState<Tab>('firm')
   const [draft, setDraft] = useState<Firm>(firm)
@@ -39,8 +40,6 @@ export default function Settings() {
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState<TeamMember['role']>('Staff')
   const [connecting, setConnecting] = useState(false)
-  const [number, setNumber] = useState('')
-  const [workOnly, setWorkOnly] = useState(false)
 
   useEffect(() => {
     if (!toast) return
@@ -155,7 +154,7 @@ export default function Settings() {
               <span className="flex-1">
                 <span className="block text-[15px] font-semibold">Your own WhatsApp</span>
                 <span className="text-[13px] text-muted">
-                  {ownNumber ? `${ownNumber} · client replies are read in Inbox` : 'Not connected. Connect a number to use this.'}
+                  {whatsapp ? `${whatsapp.number} · through ${whatsapp.provider} · client replies are read in Inbox` : 'Not connected. Connect a number to use this.'}
                 </span>
               </span>
               {mode === 'own' && <Check size={20} className="text-brand" />}
@@ -199,51 +198,56 @@ export default function Settings() {
                 </span>
               </button>
             )}
-            {ownNumber ? (
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm font-semibold">Connected number</div>
-                  <div className="text-[13px] text-muted">{ownNumber}</div>
+            {whatsapp ? (
+              <div className="rounded-2xl border border-line p-4">
+                <div className="flex items-center gap-3">
+                  <WhatsAppIcon size={40} />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[15px] font-bold">Your WhatsApp is connected</div>
+                    <div className="text-[13px] text-muted">{whatsapp.number}</div>
+                  </div>
+                  <span className="rounded-md bg-ok-soft px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-ok">Connected</span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    connectNumber(null)
-                    setMode('kdk')
-                    setToast(`WhatsApp disconnected. Using the ${SHARED_NUMBER_NAME} number.`)
-                  }}
-                  className="h-10 rounded-xl border border-line px-4 text-sm font-semibold text-danger hover:bg-danger-soft"
-                >
-                  Disconnect
-                </button>
-              </div>
-            ) : connecting ? (
-              <div className="flex flex-wrap items-end gap-3">
-                <label className="flex-1 text-[13px] font-semibold text-muted">
-                  WhatsApp number
-                  <input value={number} onChange={(e) => setNumber(e.target.value)} placeholder="+91 98765 43210" className="mt-1 block h-11 w-full rounded-xl border border-line px-3.5 text-[15px] font-medium text-ink outline-none focus:border-brand" />
-                </label>
-                <label className="flex w-full items-start gap-2.5 text-[13px] leading-snug text-slate-700">
-                  <input type="checkbox" checked={workOnly} onChange={(e) => setWorkOnly(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[#0B7A6B]" />
-                  This is a number I use only for work. It is not my personal WhatsApp.
-                </label>
-                <button
-                  type="button"
-                  disabled={number.trim().length < 8 || !workOnly}
-                  onClick={() => {
-                    connectNumber(number.trim())
-                    setConnecting(false)
-                    setNumber('')
-                    setWorkOnly(false)
-                    setToast('WhatsApp connected')
-                  }}
-                  className="h-11 rounded-xl bg-brand px-5 text-sm font-semibold text-white disabled:opacity-40"
-                >
-                  Connect
-                </button>
-                <button type="button" onClick={() => setConnecting(false)} className="h-11 rounded-xl border border-line px-4 text-sm font-semibold">
-                  Cancel
-                </button>
+                <dl className="mt-4 grid grid-cols-[150px_1fr] gap-x-4 gap-y-2.5 text-sm">
+                  <dt className="text-muted">Name clients see</dt>
+                  <dd className="font-medium">
+                    {whatsapp.displayName}
+                    <span className={`ml-2 rounded-md px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide ${whatsapp.displayNameStatus === 'approved' ? 'bg-ok-soft text-ok' : 'bg-warn-soft text-warn'}`}>
+                      {whatsapp.displayNameStatus === 'approved' ? 'Approved' : 'In review'}
+                    </span>
+                  </dd>
+                  <dt className="text-muted">Connected through</dt>
+                  <dd className="font-medium">{whatsapp.provider}</dd>
+                  <dt className="text-muted">Channel ID</dt>
+                  <dd className="font-mono text-[13px] font-medium">{whatsapp.channelId}</dd>
+                  <dt className="text-muted">Test message</dt>
+                  <dd className="font-medium">{whatsapp.testedAt ? `Delivered ${whatsapp.testedAt}` : <span className="text-warn">Not tested yet</span>}</dd>
+                  {whatsapp.route === 'ramwin' && (
+                    <>
+                      <dt className="text-muted">New clients a day</dt>
+                      <dd className="font-medium">
+                        {whatsapp.limit}
+                        <span className="ml-2 text-[13px] font-normal text-muted">Verify your business with Meta to send to more.</span>
+                      </dd>
+                    </>
+                  )}
+                </dl>
+                <div className="mt-4 flex gap-3 border-t border-line pt-4">
+                  <button type="button" onClick={() => setConnecting(true)} className="h-10 rounded-xl border border-line px-4 text-sm font-semibold hover:bg-canvas">
+                    Connect a different number
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      connectWhatsApp(null)
+                      setMode('kdk')
+                      setToast(`WhatsApp disconnected. Using the ${SHARED_NUMBER_NAME} number.`)
+                    }}
+                    className="h-10 rounded-xl border border-line px-4 text-sm font-semibold text-danger hover:bg-danger-soft"
+                  >
+                    Disconnect
+                  </button>
+                </div>
               </div>
             ) : (
               <button type="button" onClick={() => setConnecting(true)} className="h-11 rounded-xl bg-brand px-5 text-sm font-semibold text-white">
@@ -378,6 +382,18 @@ export default function Settings() {
           </div>
           <p className="mt-3 text-xs text-muted">We keep a record of every message sent from your account.</p>
         </section>
+      )}
+
+      {connecting && (
+        <ConnectWhatsApp
+          onClose={() => setConnecting(false)}
+          onConnected={(link) => {
+            connectWhatsApp(link)
+            setMode('own')
+            setConnecting(false)
+            setToast(`WhatsApp connected through ${link.provider}`)
+          }}
+        />
       )}
 
       {toast && (

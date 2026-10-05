@@ -5,6 +5,18 @@ import { seedMessages } from './messageTemplates'
 import type { MsgTemplate } from './messageTemplates'
 
 
+// The firm's own WhatsApp: which number, through whom, and whether the test message arrived.
+export interface WhatsAppLink {
+  number: string
+  displayName: string // the business name clients see on WhatsApp
+  provider: string // Ramwin, or the provider the firm already uses
+  route: 'ramwin' | 'provider'
+  channelId: string // the channel (sender / phone number) ID
+  displayNameStatus: 'review' | 'approved'
+  testedAt?: string
+  limit: number // new clients we can message in 24 hours. 250 until the business is verified with Meta
+}
+
 interface DocItem {
   id: string
   name: string
@@ -65,8 +77,9 @@ interface Store {
   invite: (email: string, role: TeamMember['role']) => void
   setRole: (id: string, role: TeamMember['role']) => void
   removeMember: (id: string) => void
-  ownNumber: string | null
-  connectNumber: (n: string | null) => void
+  whatsapp: WhatsAppLink | null // the firm's own WhatsApp, once connected
+  connectWhatsApp: (link: WhatsAppLink | null) => void
+  ownNumber: string | null // the connected number, for the places that only need that
   graceDays: number // how many days after the last date an upload link keeps working
   setGraceDays: (n: number) => void
   readReplies: boolean // read client replies sent to the firm's own WhatsApp number
@@ -89,7 +102,16 @@ export function SetupProvider({ children }: { children: ReactNode }) {
     gstin: '07AAAFS1234K1Z9',
   })
   const [team, setTeam] = useState(seedTeam)
-  const [ownNumber, setOwnNumber] = useState<string | null>('+91 98765 43210')
+  const [whatsapp, connectWhatsApp] = useState<WhatsAppLink | null>({
+    number: '+91 98765 43210',
+    displayName: 'Kartik Khandelwal & Associates',
+    provider: 'Ramwin',
+    route: 'ramwin',
+    channelId: 'ch_7q2m9xk4',
+    displayNameStatus: 'approved',
+    testedAt: 'Sep 26, 10:12',
+    limit: 250,
+  })
   const [graceDays, setGraceDays] = useState(7)
   const [readReplies, setReadReplies] = useState(true)
 
@@ -144,9 +166,9 @@ export function SetupProvider({ children }: { children: ReactNode }) {
       compliances, templates, addCompliance, updateCompliance, removeCompliance,
       messageTemplates,
       firm, saveFirm: setFirm, team, invite, setRole, removeMember,
-      ownNumber, connectNumber: setOwnNumber, graceDays, setGraceDays, readReplies, setReadReplies,
+      whatsapp, connectWhatsApp, ownNumber: whatsapp?.number ?? null, graceDays, setGraceDays, readReplies, setReadReplies,
     }),
-    [documents, groups, categories, addDocument, renameDocument, moveDocument, removeDocument, addCategory, renameCategory, removeCategory, compliances, templates, addCompliance, updateCompliance, removeCompliance, messageTemplates, firm, team, invite, setRole, removeMember, ownNumber, graceDays, readReplies],
+    [documents, groups, categories, addDocument, renameDocument, moveDocument, removeDocument, addCategory, renameCategory, removeCategory, compliances, templates, addCompliance, updateCompliance, removeCompliance, messageTemplates, firm, team, invite, setRole, removeMember, whatsapp, graceDays, readReplies],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
