@@ -420,11 +420,12 @@ export default function Inbox() {
   const reviewIdx = waitingList.findIndex((u) => u.id === reviewing)
   const reviewFile = reviewIdx >= 0 ? waitingList[reviewIdx] : undefined
   const placeable = requests.flatMap((r) => r.clients.filter((c) => active.clientIds.includes(c.clientId)).map((c) => ({ r, c })))
+  // With more than one request on this number, the list is split by request: ITR on its own, GST on its own.
   const placeOptions = placeable.flatMap(({ r, c }) => {
-    const tag = placeable.length > 1 ? ` · ${r.title}` : ''
+    const group = (extra: boolean) => (placeable.length > 1 ? r.title : extra ? 'Add as another file of' : 'Not received yet')
     return [
-      ...c.docs.filter((d) => d.status === 'pending' || d.status === 'rejected').map((d) => ({ id: `${r.id}|${c.clientId}|${d.id}`, label: d.name + tag, group: 'Not received yet' })),
-      ...c.docs.filter((d) => d.status === 'to_review').map((d) => ({ id: `${r.id}|${c.clientId}|${d.id}`, label: d.name + tag, group: 'Add as another file of' })),
+      ...c.docs.filter((d) => d.status === 'pending' || d.status === 'rejected').map((d) => ({ id: `${r.id}|${c.clientId}|${d.id}`, label: d.name, group: group(false) })),
+      ...c.docs.filter((d) => d.status === 'to_review').map((d) => ({ id: `${r.id}|${c.clientId}|${d.id}`, label: d.name, group: group(true), extra: true })),
     ]
   })
   const afterOne = (gone: string) => {
@@ -741,7 +742,7 @@ export default function Inbox() {
           <button type="button" onClick={() => setShowPanel(false)} aria-label="Close panel" title="Close panel" className="flex h-8 w-8 items-center justify-center rounded-full text-[#54656F] hover:bg-black/5">
             <X size={18} />
           </button>
-          {active.unassigned ? 'Save these files' : 'Requests and documents'}
+          {active.unassigned ? 'Save these files' : 'Requests'}
         </div>
         <div className="flex-1 overflow-y-auto">
           <RightPanel key={active.id} conv={active} onReview={() => waitingList[0] && setReviewing(waitingList[0].id)} />

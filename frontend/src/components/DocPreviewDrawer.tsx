@@ -19,7 +19,7 @@ interface Props {
   onApprove: () => void
   onReject: () => void
   // For a file we could not match: the documents it can be, and what to do when the CA picks one.
-  place?: { options: { id: string; label: string; group: string }[]; onPlace: (docId: string) => void; onElse?: () => void }
+  place?: { options: { id: string; label: string; group: string; extra?: boolean }[]; onPlace: (docId: string) => void; onElse?: () => void }
 }
 
 export default function DocPreviewDrawer({ client, doc, position, total, onClose, onPrev, onNext, onApprove, onReject, place }: Props) {
@@ -116,7 +116,7 @@ export default function DocPreviewDrawer({ client, doc, position, total, onClose
                 </label>
               )}
               <div className="overflow-y-auto py-1">
-                {['Not received yet', 'Add as another file of'].map((g) => {
+                {[...new Set(place.options.map((o) => o.group))].map((g) => {
                   const list = place.options.filter((o) => o.group === g && o.label.toLowerCase().includes(q.trim().toLowerCase()))
                   if (list.length === 0) return null
                   return (
@@ -135,7 +135,10 @@ export default function DocPreviewDrawer({ client, doc, position, total, onClose
                           }}
                           className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm font-medium hover:bg-canvas ${picked === o.id ? 'bg-brand-soft text-brand-dark' : ''}`}
                         >
-                          {o.label}
+                          <span>
+                            {o.label}
+                            {o.extra && o.group !== 'Add as another file of' && <span className="ml-2 text-xs font-normal text-muted">add as another file</span>}
+                          </span>
                           {picked === o.id && <Check size={15} strokeWidth={3} />}
                         </button>
                       ))}
@@ -154,10 +157,10 @@ export default function DocPreviewDrawer({ client, doc, position, total, onClose
             onClick={() => setChoosing((v) => !v)}
             className={`relative z-[27] mt-2 flex h-11 w-full items-center justify-between rounded-xl border bg-white px-3.5 text-left text-sm font-semibold ${picked ? 'border-brand text-ink' : 'border-line text-muted'} hover:border-brand`}
           >
-            <span className="truncate">{picked ? (place.options.find((o) => o.id === picked)?.label ?? '') : 'Choose the document…'}</span>
+            <span className="truncate">{picked ? (() => { const o = place.options.find((x) => x.id === picked); return o ? (o.group === 'Not received yet' || o.group === 'Add as another file of' ? o.label : `${o.label} · ${o.group}`) : '' })() : 'Choose the document…'}</span>
             <ChevronDown size={16} className={choosing ? 'rotate-180' : ''} />
           </button>
-          {picked && place.options.find((o) => o.id === picked)?.group === 'Add as another file of' && <p className="mt-1.5 text-xs text-muted">It is added as another file of this document, for example the back of a card.</p>}
+          {picked && (() => { const o = place.options.find((x) => x.id === picked); return o?.extra ?? o?.group === 'Add as another file of' })() && <p className="mt-1.5 text-xs text-muted">It is added as another file of this document, for example the back of a card.</p>}
           <button
             type="button"
             disabled={!picked}
