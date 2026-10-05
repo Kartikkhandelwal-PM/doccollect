@@ -477,7 +477,7 @@ function RequestView({ request }: { request: DocRequest }) {
                             {d.status === 'rejected' && d.reason && <span className="ml-1.5 font-semibold text-danger">· {d.reason}</span>}
                           </div>
                         </div>
-                        {d.status === 'to_review' && (
+                        {d.status === 'to_review' && d.check && (
                           <button
                             type="button"
                             onClick={(e) => {

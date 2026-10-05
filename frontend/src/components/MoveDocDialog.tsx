@@ -46,6 +46,7 @@ export default function MoveDocDialog({ from, onMove, onSendBack, onClose }: { f
   // Offer the slot with the same name first, so the common case is one click.
   const suggested = slots.find((d) => kind(d.id, d.status) === 'free' && d.name === sourceDoc?.name)?.id
   const chosen = docId || suggested || ''
+  const noPlace = slots.length > 0 && slots.every((d) => kind(d.id, d.status) !== 'free' && kind(d.id, d.status) !== 'swap')
   const chosenKind = (() => {
     const d = slots.find((x) => x.id === chosen)
     return d ? kind(d.id, d.status) : null
@@ -144,23 +145,22 @@ export default function MoveDocDialog({ from, onMove, onSendBack, onClose }: { f
                   )
                 })}
               </div>
-              {sourceDoc && slots.some((d) => d.name === sourceDoc.name && kind(d.id, d.status) === 'locked') && clientId === from.clientId && (
-                <div className="mt-3 flex items-center gap-3 rounded-xl border border-[#F5DFA8] bg-[#FEF6E4] px-3.5 py-3 text-[13px] leading-snug text-[#7A3B00]">
-                  <span className="flex-1">
-                    <b>{sourceDoc.name}</b> is already approved for this client, so this file is probably a wrong or repeated one. Send it back to the client instead.
-                  </span>
-                  <button type="button" onClick={onSendBack} className="h-9 shrink-0 rounded-lg bg-white px-3 text-[13px] font-semibold text-danger shadow-sm hover:bg-danger-soft">
-                    Send it back
-                  </button>
-                </div>
-              )}
               {chosenKind === 'swap' && <p className="mt-2 text-xs text-muted">The two files change places. Both stay to be reviewed.</p>}
-              {chosen === '' && slots.every((d) => kind(d.id, d.status) !== 'free' && kind(d.id, d.status) !== 'swap') && <p className="mt-2 text-xs text-warn">Every document here is approved or has no place free. Choose another client or request.</p>}
+              {noPlace && (
+                <p className="mt-2 text-xs leading-relaxed text-muted">
+                  {clientId === from.clientId
+                    ? 'This file is already in the right place. Every other document of this client is approved. If it belongs to someone else, search for that client above.'
+                    : 'This client has no free place for it. Every document is approved.'}
+                </p>
+              )}
             </section>
           )}
         </div>
 
-        <div className="flex justify-end gap-3 border-t border-line bg-slate-50/70 px-6 py-4">
+        <div className="flex items-center gap-3 border-t border-line bg-slate-50/70 px-6 py-4">
+          <button type="button" onClick={onSendBack} className="mr-auto text-[13px] font-semibold text-danger hover:underline">
+            Send it back instead
+          </button>
           <button type="button" onClick={onClose} className="h-11 rounded-xl border border-line bg-white px-5 text-sm font-semibold">
             Cancel
           </button>
