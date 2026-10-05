@@ -10,7 +10,7 @@ import { fmtDate } from '../data/requests'
 import { expiresOn } from '../lib/dates'
 import { useSetup } from '../data/setup'
 import type { Firm, TeamMember } from '../data/setup'
-import { APP_NAME, SHARED_NUMBER_NAME } from '../lib/brand'
+import { SHARED_NUMBER_NAME } from '../lib/brand'
 
 type Tab = 'firm' | 'whatsapp' | 'links' | 'team' | 'usage'
 const tabs: { key: Tab; label: string }[] = [
@@ -32,7 +32,7 @@ function Field({ label, value, onChange }: { label: string; value: string; onCha
 }
 
 export default function Settings() {
-  const { firm, saveFirm, team, invite, setRole, removeMember, whatsapp, connectWhatsApp, ownNumber, graceDays, setGraceDays, readReplies, setReadReplies } = useSetup()
+  const { firm, saveFirm, team, invite, setRole, removeMember, whatsapp, connectWhatsApp, graceDays, setGraceDays, readReplies, setReadReplies } = useSetup()
   const { mode, setMode } = useInbox()
   const [tab, setTab] = useState<Tab>('firm')
   const [draft, setDraft] = useState<Firm>(firm)
@@ -130,132 +130,153 @@ export default function Settings() {
       )}
 
       {tab === 'whatsapp' && (
-        <section className="max-w-2xl rounded-[18px] border border-line bg-white p-6">
-          <h2 className="text-base font-bold tracking-tight">Send messages from</h2>
-          <p className="mt-0.5 text-sm text-muted">Choose which number your clients get messages from.</p>
+        <div className="flex max-w-3xl flex-col gap-8">
+          <section>
+            <h2 className="text-base font-bold tracking-tight">Send messages from</h2>
+            <p className="mt-0.5 text-sm text-muted">Choose the number your clients get messages from.</p>
 
-          <div className="mt-4 rounded-xl border border-[#F5DFA8] bg-[#FEF6E4] p-3.5 text-[13px] leading-relaxed text-[#7A3B00]">
-            <b>Use a number only for work. Do not connect your personal number.</b>
-            <br />
-            Everything sent to a connected number reaches {APP_NAME}. We check each file and keep only the ones that look like documents, for clients who have an open request. Chats and personal photos are skipped and never saved.
-          </div>
+            <div className="mt-4 flex flex-col gap-3" role="radiogroup" aria-label="Send messages from">
+              {/* Your own WhatsApp. Its details open inside the card once it is the one in use. */}
+              <div className={`overflow-hidden rounded-2xl bg-white ${mode === 'own' && whatsapp ? 'border-2 border-brand' : 'border border-line'}`}>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={mode === 'own' && !!whatsapp}
+                  onClick={() => {
+                    if (!whatsapp) return setConnecting(true)
+                    setMode('own')
+                    setToast('Now sending from your WhatsApp')
+                  }}
+                  className="flex w-full items-center gap-4 p-4 text-left hover:bg-canvas/60"
+                >
+                  <WhatsAppIcon size={44} />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-2">
+                      <span className="text-[15px] font-semibold">Your own WhatsApp</span>
+                      <span className={`rounded-md px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide ${whatsapp ? 'bg-ok-soft text-ok' : 'bg-canvas text-muted'}`}>{whatsapp ? 'Connected' : 'Not connected'}</span>
+                    </span>
+                    <span className="block text-[13px] text-muted">{whatsapp ? `${whatsapp.number} · through ${whatsapp.provider}` : 'Use your own number. You connect it once.'}</span>
+                  </span>
+                  <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${mode === 'own' && whatsapp ? 'bg-brand text-white' : 'border-2 border-slate-300'}`} aria-hidden="true">
+                    {mode === 'own' && whatsapp && <Check size={12} strokeWidth={3.5} />}
+                  </span>
+                </button>
 
-          <div className="mt-4 flex flex-col gap-3">
-            <button
-              type="button"
-              disabled={!ownNumber}
-              onClick={() => {
-                setMode('own')
-                setToast('Now sending from your WhatsApp')
-              }}
-              className={`flex items-center gap-4 rounded-2xl p-4 text-left disabled:opacity-60 ${mode === 'own' ? 'border-2 border-brand bg-[#EEF8F5]' : 'border border-line hover:bg-canvas'}`}
-            >
-              <WhatsAppIcon size={44} />
-              <span className="flex-1">
-                <span className="block text-[15px] font-semibold">Your own WhatsApp</span>
-                <span className="text-[13px] text-muted">
-                  {whatsapp ? `${whatsapp.number} · through ${whatsapp.provider} · client replies are read in Inbox` : 'Not connected. Connect a number to use this.'}
+                {!whatsapp && (
+                  <div className="flex items-center justify-between gap-4 border-t border-line bg-slate-50/70 px-4 py-3.5">
+                    <p className="text-[13px] leading-snug text-muted">Clients get the message from your own number, and their files come straight to you.</p>
+                    <button type="button" onClick={() => setConnecting(true)} className="h-10 shrink-0 rounded-xl bg-brand px-5 text-sm font-semibold text-white hover:bg-brand-dark">
+                      Connect your WhatsApp
+                    </button>
+                  </div>
+                )}
+
+                {whatsapp && mode === 'own' && (
+                  <div className="border-t border-line bg-slate-50/70 px-4 py-4">
+                    <dl className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm">
+                      <div>
+                        <dt className="text-xs font-semibold uppercase tracking-wide text-faint">Name clients see</dt>
+                        <dd className="mt-0.5 font-medium">
+                          {whatsapp.displayName}
+                          <span className={`ml-2 rounded-md px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide ${whatsapp.displayNameStatus === 'approved' ? 'bg-ok-soft text-ok' : 'bg-warn-soft text-warn'}`}>
+                            {whatsapp.displayNameStatus === 'approved' ? 'Approved' : 'In review'}
+                          </span>
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs font-semibold uppercase tracking-wide text-faint">Channel ID</dt>
+                        <dd className="mt-0.5 font-mono text-[13px] font-medium">{whatsapp.channelId}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs font-semibold uppercase tracking-wide text-faint">Test message</dt>
+                        <dd className="mt-0.5 font-medium">{whatsapp.testedAt ? `Delivered ${whatsapp.testedAt}` : <span className="text-warn">Not tested yet</span>}</dd>
+                      </div>
+                      {whatsapp.route === 'ramwin' && (
+                        <div>
+                          <dt className="text-xs font-semibold uppercase tracking-wide text-faint">New clients a day</dt>
+                          <dd className="mt-0.5 font-medium">
+                            {whatsapp.limit} <span className="text-[13px] font-normal text-muted">· verify your business with Meta to send to more</span>
+                          </dd>
+                        </div>
+                      )}
+                    </dl>
+                    <div className="mt-4 flex items-center gap-2 border-t border-line pt-3.5">
+                      <button type="button" onClick={() => setConnecting(true)} className="h-9 rounded-lg border border-line bg-white px-3.5 text-[13px] font-semibold hover:bg-canvas">
+                        Connect a different number
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          connectWhatsApp(null)
+                          setMode('kdk')
+                          setToast(`WhatsApp disconnected. Using the ${SHARED_NUMBER_NAME} number.`)
+                        }}
+                        className="h-9 rounded-lg px-3.5 text-[13px] font-semibold text-danger hover:bg-danger-soft"
+                      >
+                        Disconnect
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* The shared number. Nothing to set up. */}
+              <button
+                type="button"
+                role="radio"
+                aria-checked={mode === 'kdk'}
+                onClick={() => {
+                  setMode('kdk')
+                  setToast(`Now sending from the ${SHARED_NUMBER_NAME} number`)
+                }}
+                className={`flex w-full items-center gap-4 rounded-2xl bg-white p-4 text-left hover:bg-canvas/60 ${mode === 'kdk' ? 'border-2 border-brand' : 'border border-line'}`}
+              >
+                <WhatsAppIcon size={44} />
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-2">
+                    <span className="text-[15px] font-semibold">{SHARED_NUMBER_NAME} number</span>
+                    <span className="rounded-md bg-canvas px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-muted">No setup</span>
+                  </span>
+                  <span className="block text-[13px] text-muted">Shared number from KDK, sent in your firm’s name · clients upload through the link</span>
                 </span>
-              </span>
-              {mode === 'own' && <Check size={20} className="text-brand" />}
-            </button>
+                <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${mode === 'kdk' ? 'bg-brand text-white' : 'border-2 border-slate-300'}`} aria-hidden="true">
+                  {mode === 'kdk' && <Check size={12} strokeWidth={3.5} />}
+                </span>
+              </button>
+            </div>
+          </section>
 
-            <button
-              type="button"
-              onClick={() => {
-                setMode('kdk')
-                setToast(`Now sending from the ${SHARED_NUMBER_NAME} number`)
-              }}
-              className={`flex items-center gap-4 rounded-2xl p-4 text-left ${mode === 'kdk' ? 'border-2 border-brand bg-[#EEF8F5]' : 'border border-line hover:bg-canvas'}`}
-            >
-              <WhatsAppIcon size={44} />
-              <span className="flex-1">
-                <span className="block text-[15px] font-semibold">{SHARED_NUMBER_NAME} number</span>
-                <span className="text-[13px] text-muted">Shared number from KDK · clients reply through the upload link</span>
-              </span>
-              {mode === 'kdk' && <Check size={20} className="text-brand" />}
-            </button>
-          </div>
-
-          <div className="mt-5 border-t border-line pt-5">
-            {ownNumber && (
+          <section>
+            <h2 className="text-base font-bold tracking-tight">Client replies</h2>
+            <p className="mt-0.5 text-sm text-muted">What happens to the files clients send you on WhatsApp.</p>
+            <div className={`mt-4 rounded-2xl border border-line bg-white ${whatsapp && mode === 'own' ? '' : 'opacity-60'}`}>
               <button
                 type="button"
                 role="switch"
                 aria-checked={readReplies}
+                disabled={!whatsapp || mode !== 'own'}
                 onClick={() => {
                   setReadReplies(!readReplies)
                   setToast(readReplies ? 'Replies are off. Clients upload through the link.' : 'Now reading replies to your requests')
                 }}
-                className="mb-5 flex w-full items-center gap-4 rounded-2xl border border-line p-4 text-left hover:bg-canvas"
+                className="flex w-full items-center gap-4 p-4 text-left disabled:cursor-not-allowed"
               >
-                <span className={`relative h-[24px] w-[42px] shrink-0 rounded-full ${readReplies ? 'bg-brand' : 'bg-slate-300'}`}>
-                  <span className={`absolute top-[3px] h-[18px] w-[18px] rounded-full bg-white transition-all ${readReplies ? 'left-[21px]' : 'left-[3px]'}`} />
+                <span className={`relative h-[24px] w-[42px] shrink-0 rounded-full ${readReplies && whatsapp && mode === 'own' ? 'bg-brand' : 'bg-slate-300'}`}>
+                  <span className={`absolute top-[3px] h-[18px] w-[18px] rounded-full bg-white transition-all ${readReplies && whatsapp && mode === 'own' ? 'left-[21px]' : 'left-[3px]'}`} />
                 </span>
                 <span className="flex-1">
                   <span className="block text-sm font-semibold">Read client replies on WhatsApp</span>
-                  <span className="text-[13px] leading-snug text-muted">Only files that look like documents are kept. Turn this off and clients upload through the link only.</span>
+                  <span className="text-[13px] leading-snug text-muted">
+                    {whatsapp && mode === 'own' ? 'Turn this off and clients can only upload through the link.' : 'Only available when you send from your own WhatsApp.'}
+                  </span>
                 </span>
               </button>
-            )}
-            {whatsapp ? (
-              <div className="rounded-2xl border border-line p-4">
-                <div className="flex items-center gap-3">
-                  <WhatsAppIcon size={40} />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[15px] font-bold">Your WhatsApp is connected</div>
-                    <div className="text-[13px] text-muted">{whatsapp.number}</div>
-                  </div>
-                  <span className="rounded-md bg-ok-soft px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-ok">Connected</span>
-                </div>
-                <dl className="mt-4 grid grid-cols-[150px_1fr] gap-x-4 gap-y-2.5 text-sm">
-                  <dt className="text-muted">Name clients see</dt>
-                  <dd className="font-medium">
-                    {whatsapp.displayName}
-                    <span className={`ml-2 rounded-md px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide ${whatsapp.displayNameStatus === 'approved' ? 'bg-ok-soft text-ok' : 'bg-warn-soft text-warn'}`}>
-                      {whatsapp.displayNameStatus === 'approved' ? 'Approved' : 'In review'}
-                    </span>
-                  </dd>
-                  <dt className="text-muted">Connected through</dt>
-                  <dd className="font-medium">{whatsapp.provider}</dd>
-                  <dt className="text-muted">Channel ID</dt>
-                  <dd className="font-mono text-[13px] font-medium">{whatsapp.channelId}</dd>
-                  <dt className="text-muted">Test message</dt>
-                  <dd className="font-medium">{whatsapp.testedAt ? `Delivered ${whatsapp.testedAt}` : <span className="text-warn">Not tested yet</span>}</dd>
-                  {whatsapp.route === 'ramwin' && (
-                    <>
-                      <dt className="text-muted">New clients a day</dt>
-                      <dd className="font-medium">
-                        {whatsapp.limit}
-                        <span className="ml-2 text-[13px] font-normal text-muted">Verify your business with Meta to send to more.</span>
-                      </dd>
-                    </>
-                  )}
-                </dl>
-                <div className="mt-4 flex gap-3 border-t border-line pt-4">
-                  <button type="button" onClick={() => setConnecting(true)} className="h-10 rounded-xl border border-line px-4 text-sm font-semibold hover:bg-canvas">
-                    Connect a different number
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      connectWhatsApp(null)
-                      setMode('kdk')
-                      setToast(`WhatsApp disconnected. Using the ${SHARED_NUMBER_NAME} number.`)
-                    }}
-                    className="h-10 rounded-xl border border-line px-4 text-sm font-semibold text-danger hover:bg-danger-soft"
-                  >
-                    Disconnect
-                  </button>
-                </div>
+              <div className="border-t border-line bg-slate-50/70 px-4 py-3.5 text-[13px] leading-relaxed text-slate-600">
+                <b className="text-ink">Use a number only for work, never your personal number.</b> We check each file and keep only the ones that look like documents, for clients who have an open request. Chats and personal photos are skipped and never saved.
               </div>
-            ) : (
-              <button type="button" onClick={() => setConnecting(true)} className="h-11 rounded-xl bg-brand px-5 text-sm font-semibold text-white">
-                Connect your WhatsApp
-              </button>
-            )}
-          </div>
-        </section>
+            </div>
+          </section>
+        </div>
       )}
 
       {tab === 'links' && (
