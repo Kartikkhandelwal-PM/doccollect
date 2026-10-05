@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { bulkRequest, moreRequests } from './seedRequests'
+import { bulkRequest, moreRequests, rameshGst, seedUnsorted } from './seedRequests'
 import type { Status } from './types'
 
 export interface RequestDoc {
@@ -11,15 +11,16 @@ export interface RequestDoc {
   receivedAt?: string
   fileName?: string
   reason?: string
-  // We sorted this file ourselves and are not sure. The words say why, so the CA knows what to look at.
-  check?: string
 }
 
-// One document slot: this document, of this client, in this request.
-export interface DocRef {
-  requestId: string
-  clientId: string
-  docId: string
+// A file the client sent that we could not match to any document. It waits here until the CA puts it in the right one.
+// It belongs to a phone number, so it is seen from every request of every client on that number.
+export interface UnsortedFile {
+  id: string
+  phone: string
+  fileName: string
+  receivedAt: string
+  source: 'WhatsApp' | 'Link'
 }
 
 export interface RequestClient {
@@ -92,8 +93,8 @@ const seed: DocRequest[] = [
           doc('pan', 'PAN card', 'approved', 'Link', 'Sep 28, 11:02'),
           doc('aadhaar', 'Aadhaar card', 'approved', 'Link', 'Sep 28, 11:04'),
           doc('form16', 'Form 16 (Part A & B)', 'to_review', 'WhatsApp', 'Today, 10:42'),
-          { ...doc('26as', 'Form 26AS / AIS', 'to_review', 'Link', 'Today, 09:15'), check: 'Looks like an AIS statement for a different year' },
-          { ...doc('bank', 'Bank statement Apr–Mar', 'to_review', 'WhatsApp', 'Today, 10:44'), check: 'Ramesh also has a GST request. We put this in the ITR one' },
+          doc('26as', 'Form 26AS / AIS', 'to_review', 'Link', 'Today, 09:15'),
+          doc('bank', 'Bank statement Apr–Mar', 'to_review', 'WhatsApp', 'Today, 10:44'),
           doc('homeloan', 'Home loan interest certificate', 'pending'),
           doc('lic', 'LIC premium receipts', 'pending'),
         ],
@@ -151,6 +152,7 @@ const seed: DocRequest[] = [
   },
   ...moreRequests,
   bulkRequest,
+  rameshGst,
 ]
 
 interface Store {
@@ -164,7 +166,8 @@ interface Store {
   markNotApplicable: (requestId: string, clientId: string, docId: string, on: boolean) => void
   resetClient: (requestId: string, clientId: string) => void
   clientRemove: (requestId: string, clientId: string, docId: string) => void
-  moveDoc: (from: DocRef, to: DocRef) => void
+  unsorted: UnsortedFile[]
+  useUnsorted: (fileId: string, requestId: string, clientId: string, docId: string) => void
   changeDue: (requestId: string, due: string) => void
   newLink: (requestId: string, clientId: string) => void
 }
@@ -173,6 +176,7 @@ const Ctx = createContext<Store | null>(null)
 
 export function RequestsProvider({ children }: { children: ReactNode }) {
   const [requests, setRequests] = useState<DocRequest[]>(seed)
+  const [unsorted, setUnsorted] = useState<UnsortedFile[]>(seedUnsorted)
 
   const getRequest = useCallback((id: string) => requests.find((r) => r.id === id), [requests])
 
@@ -269,30 +273,15 @@ export function RequestsProvider({ children }: { children: ReactNode }) {
     [patchDoc],
   )
 
-  // The CA puts a file where it belongs: the file leaves its old slot (which is empty again) and fills the new one.
-  const moveDoc = useCallback(
-    (from: DocRef, to: DocRef) =>
-      setRequests((prev) => {
-        const find = (ref: DocRef) => prev.find((r) => r.id === ref.requestId)?.clients.find((c) => c.clientId === ref.clientId)?.docs.find((d) => d.id === ref.docId)
-        const src = find(from)
-        const dst = find(to)
-        if (!src || !dst) return prev
-        // The file that was there (if any) goes to the place this one leaves: the two swap.
-        const file = (d: RequestDoc) => ({ status: 'to_review' as Status, source: d.source, receivedAt: d.receivedAt, fileName: d.fileName, reason: undefined, check: undefined })
-        const swap = dst.status === 'to_review'
-        return prev.map((r) => ({
-          ...r,
-          clients: r.clients.map((c) => ({
-            ...c,
-            docs: c.docs.map((d) => {
-              if (r.id === to.requestId && c.clientId === to.clientId && d.id === to.docId) return { ...d, ...file(src) }
-              if (r.id === from.requestId && c.clientId === from.clientId && d.id === from.docId) return swap ? { ...d, ...file(dst) } : { id: d.id, name: d.name, status: 'pending' as Status }
-              return d
-            }),
-          })),
-        }))
-      }),
-    [],
+  // The CA puts a waiting file into one of this client's missing documents. It then goes to review like any other.
+  const useUnsorted = useCallback(
+    (fileId: string, requestId: string, clientId: string, docId: string) => {
+      const f = unsorted.find((x) => x.id === fileId)
+      if (!f) return
+      patchDoc(requestId, clientId, docId, { status: 'to_review', source: f.source, receivedAt: f.receivedAt, fileName: f.fileName, reason: undefined })
+      setUnsorted((u) => u.filter((x) => x.id !== fileId))
+    },
+    [unsorted, patchDoc],
   )
 
   const changeDue = useCallback((requestId: string, due: string) => setRequests((prev) => prev.map((r) => (r.id === requestId ? { ...r, due } : r))), [])
@@ -328,8 +317,8 @@ export function RequestsProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo(
-    () => ({ requests, getRequest, create, setDocStatus, remind, simulateReply, clientUpload, markNotApplicable, resetClient, clientRemove, moveDoc, changeDue, newLink }),
-    [requests, getRequest, create, setDocStatus, remind, simulateReply, clientUpload, markNotApplicable, resetClient, clientRemove, moveDoc, changeDue, newLink],
+    () => ({ requests, getRequest, create, setDocStatus, remind, simulateReply, clientUpload, markNotApplicable, resetClient, clientRemove, unsorted, useUnsorted, changeDue, newLink }),
+    [requests, getRequest, create, setDocStatus, remind, simulateReply, clientUpload, markNotApplicable, resetClient, clientRemove, unsorted, useUnsorted, changeDue, newLink],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

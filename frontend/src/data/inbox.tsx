@@ -54,7 +54,7 @@ const seed: Conversation[] = [
         }),
       },
       { id: 'm2', from: 'client', time: '10:42', file: { name: 'Form16_PartAB.pdf', size: '2 pages · 412 KB' }, matched: 'Filed as Form 16 · To review', link: { requestId: 'r1', clientId: 'ramesh-itr', docId: 'form16' } },
-      { id: 'm3', from: 'client', time: '10:44', file: { name: 'Bank_statement_Apr-Mar.pdf', size: '3 pages · 1.1 MB' }, matched: 'Sorted as Bank statement · Please check', link: { requestId: 'r1', clientId: 'ramesh-itr', docId: 'bank' } },
+      { id: 'm3', from: 'client', time: '10:44', file: { name: 'Bank_statement_Apr-Mar.pdf', size: '3 pages · 1.1 MB' }, matched: 'Filed as Bank statement · To review', link: { requestId: 'r1', clientId: 'ramesh-itr', docId: 'bank' } },
       { id: 'm3s', from: 'system', time: '10:44', text: '2 photos were skipped because they did not look like documents. They were not saved.' },
     ],
   },

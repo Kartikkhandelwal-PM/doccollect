@@ -91,15 +91,15 @@
 <path d="M1140 372 L1140 478" class="edge" marker-end="url(#arr)"/>
 <path d="M1020 500 L906 500" class="edge" marker-end="url(#arr)"/>
 <path d="M1140 522 L1140 599" class="edge" marker-end="url(#arr)"/>
-<path d="M991 650 L897 650" class="edge" marker-end="url(#arr)"/>
-<path d="M740 551 L740 599" class="edge" marker-end="url(#arr)"/>
-<path d="M740 701 L740 734 L340 734 L340 768" class="edge" marker-end="url(#arr)"/>
+<path d="M991 650 L914 650" class="edge" marker-end="url(#arr)"/>
+<path d="M740 551 L740 590" class="edge" marker-end="url(#arr)"/>
+<path d="M740 710 L740 739 L340 739 L340 768" class="edge" marker-end="url(#arr)"/>
 <path d="M456 800 L599 800" class="edge" marker-end="url(#arr)"/>
 <path d="M881 800 L1040 800" class="edge" marker-end="url(#arr)"/>
 <path d="M1140 778 L1140 701" class="edge" marker-end="url(#arr)"/>
 <path d="M340 832 L340 908" class="edge" marker-end="url(#arr)"/>
 <path d="M465 950 L574 950" class="edge" marker-end="url(#arr)"/>
-<path d="M224 800 L155 800 L155 1100 L195 1100" class="edge" marker-end="url(#arr)" marker-start="url(#arr)"/>
+<path d="M224 800 L155 800 L155 1100 L187 1100" class="edge" marker-end="url(#arr)" marker-start="url(#arr)"/>
 <path d="M740 992 L740 1218" class="edge dash" marker-end="url(#arr)"/>
 <path d="M595 1250 L493 1250" class="edge" marker-end="url(#arr)"/>
 <path d="M740 1282 L740 1349" class="edge" marker-end="url(#arr)"/>
@@ -111,16 +111,16 @@
 <text class="lbl" x="963" y="490" text-anchor="middle">Chat</text>
 <rect class="lbl-bg" x="1141" y="550" width="87" height="20" rx="5"/>
 <text class="lbl" x="1184" y="565" text-anchor="middle">Upload link</text>
-<rect class="lbl-bg" x="917" y="625" width="54" height="20" rx="5"/>
-<text class="lbl" x="944" y="640" text-anchor="middle">Submit</text>
+<rect class="lbl-bg" x="926" y="625" width="54" height="20" rx="5"/>
+<text class="lbl" x="952" y="640" text-anchor="middle">Submit</text>
 <rect class="lbl-bg" x="501" y="775" width="54" height="20" rx="5"/>
 <text class="lbl" x="528" y="790" text-anchor="middle">Reject</text>
 <rect class="lbl-bg" x="344" y="859" width="60" height="20" rx="5"/>
 <text class="lbl" x="374" y="874" text-anchor="middle">Approve</text>
 <rect class="lbl-bg" x="473" y="925" width="93" height="20" rx="5"/>
 <text class="lbl" x="520" y="940" text-anchor="middle">All approved</text>
-<rect class="lbl-bg" x="112" y="939" width="87" height="20" rx="5"/>
-<text class="lbl" x="155" y="954" text-anchor="middle">Wrong place</text>
+<rect class="lbl-bg" x="98" y="939" width="113" height="20" rx="5"/>
+<text class="lbl" x="155" y="954" text-anchor="middle">Unmatched files</text>
 <rect class="lbl-bg" x="739" y="1094" width="186" height="20" rx="5"/>
 <text class="lbl" x="832" y="1109" text-anchor="middle">If anyone is still missing</text>
 <rect class="lbl-bg" x="504" y="1225" width="80" height="20" rx="5"/>
@@ -163,11 +163,12 @@
 <text class="t" x="1140" y="646" text-anchor="middle">Upload, or "I don't have it".</text>
 <text class="t" x="1140" y="664" text-anchor="middle">Replace or remove until decided.</text>
 <text class="t" x="1140" y="684" text-anchor="middle">Press Submit</text>
-<rect class="node n-plain" x="583" y="599" width="315" height="102" rx="10"/>
-<text class="t bold" x="740" y="626" text-anchor="middle">File lands in a document slot</text>
-<text class="t" x="740" y="646" text-anchor="middle">Sure: To review</text>
-<text class="t" x="740" y="664" text-anchor="middle">Not sure: best guess, marked Check</text>
-<text class="t" x="740" y="684" text-anchor="middle">Unknown number: Unassigned</text>
+<rect class="node n-plain" x="566" y="590" width="348" height="121" rx="10"/>
+<text class="t bold" x="740" y="617" text-anchor="middle">File lands in its document slot</text>
+<text class="t" x="740" y="636" text-anchor="middle">Sure: To review</text>
+<text class="t" x="740" y="655" text-anchor="middle">Not sure: waits in "Files we could not</text>
+<text class="t" x="740" y="674" text-anchor="middle">match" until the CA places it</text>
+<text class="t" x="740" y="693" text-anchor="middle">Unknown number: Unassigned</text>
 <rect class="node n-ask" x="224" y="768" width="233" height="64" rx="14"/>
 <text class="t bold" x="340" y="796" text-anchor="middle">Review each file</text>
 <text class="t" x="340" y="814" text-anchor="middle">Opens over a dimmed page</text>
@@ -185,10 +186,11 @@
 <text class="t bold" x="740" y="936" text-anchor="middle">All of a client's documents approved</text>
 <text class="t" x="740" y="955" text-anchor="middle">Client row: Complete.</text>
 <text class="t" x="740" y="974" text-anchor="middle">Their link page shows "All done"</text>
-<rect class="node n-plain" x="195" y="1058" width="290" height="83" rx="10"/>
-<text class="t bold" x="340" y="1086" text-anchor="middle">Wrong place? Move it</text>
-<text class="t" x="340" y="1105" text-anchor="middle">Pick client, request, document.</text>
-<text class="t" x="340" y="1124" text-anchor="middle">The old slot is empty again</text>
+<rect class="node n-plain" x="187" y="1049" width="307" height="102" rx="10"/>
+<text class="t bold" x="340" y="1076" text-anchor="middle">Files we could not match</text>
+<text class="t" x="340" y="1096" text-anchor="middle">Open a request, pick the document</text>
+<text class="t" x="340" y="1114" text-anchor="middle">each file is for. The rest wait</text>
+<text class="t" x="340" y="1134" text-anchor="middle">for the next request</text>
 <rect class="node n-ask" x="595" y="1218" width="290" height="64" rx="14"/>
 <text class="t bold" x="740" y="1246" text-anchor="middle">Someone still missing documents</text>
 <text class="t" x="740" y="1264" text-anchor="middle">or past the last date?</text>
@@ -206,11 +208,10 @@
   </figure>
   <div class="notes">
     <div><b>One request, one compliance</b><p>Every client gets their own message and their own link. A link works until the last date plus a few grace days.</p></div>
-    <div><b>We never ask the client which request a file is for</b><p>We sort what comes in on WhatsApp. If we are not sure we still place it and mark it Check. The CA fixes it with Move.</p></div>
+    <div><b>We never ask the client which request a file is for</b><p>We sort what comes in on WhatsApp. What we cannot match waits in the request, and the CA puts each file in the right document while reviewing.</p></div>
     <div><b>Nothing is filed until the CA approves</b><p>Approved files go to the client’s folder in Document Master. The AI and OCR in the app is a stand-in for now.</p></div>
     <div><b>Own number or the DocCollect number</b><p>Replies in the chat are read only on the firm’s own number. On the DocCollect number, clients use the link only.</p></div>
   </div>
 </div>
-
 </body>
 </html>

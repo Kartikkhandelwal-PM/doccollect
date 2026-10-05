@@ -37,7 +37,7 @@ export function useAttention() {
             ...base,
             id: `s:${r.id}:${rc.clientId}`,
             kind: 'received',
-            sub: (toReview.length === 1 ? toReview[0].name : `${toReview[0].name} and ${toReview.length - 1} more`) + (toReview.some((d) => d.check) ? ` · ${toReview.filter((d) => d.check).length} to check` : ''),
+            sub: (toReview.length === 1 ? toReview[0].name : `${toReview[0].name} and ${toReview.length - 1} more`) + '',
             activity: first.receivedAt ?? '',
             activitySub: first.source === 'Link' ? 'via upload link' : 'via WhatsApp reply',
             status: 'to_review',

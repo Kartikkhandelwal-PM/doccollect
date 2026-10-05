@@ -1,4 +1,4 @@
-import type { DocRequest, RequestClient, RequestDoc } from './requests'
+import type { DocRequest, RequestClient, RequestDoc, UnsortedFile } from './requests'
 import { bulkNames, slugOf } from './bulkClients'
 import type { Status } from './types'
 
@@ -56,13 +56,13 @@ const fileFor = (name: string) => {
 }
 
 // One client in a request. `codes` has a letter per document: A approved, R to review, X sent back, P still pending.
-function rc(clientId: string, defs: Def[], codes: string, n = 0, lastReminder?: string, checks: Record<string, string> = {}): RequestClient {
+function rc(clientId: string, defs: Def[], codes: string, n = 0, lastReminder?: string): RequestClient {
   const docs: RequestDoc[] = defs.map(([id, name], i) => {
     const status = CODE[codes[i] ?? 'P']
     if (status === 'pending') return { id, name, status }
     const source: 'WhatsApp' | 'Link' = (n + i) % 3 === 0 ? 'WhatsApp' : 'Link'
     const receivedAt = status === 'to_review' ? fresh[(n + i) % fresh.length] : earlier[(n + i) % earlier.length]
-    return { id, name, status, source, receivedAt, fileName: fileFor(name), reason: status === 'rejected' ? why[(n + i) % why.length] : undefined, check: status === 'to_review' ? checks[id] : undefined }
+    return { id, name, status, source, receivedAt, fileName: fileFor(name), reason: status === 'rejected' ? why[(n + i) % why.length] : undefined }
   })
   return { clientId, docs, lastReminder }
 }
@@ -76,7 +76,7 @@ export const moreRequests: DocRequest[] = [
     due: '2026-10-05',
     via: 'own',
     clients: [
-      rc('mehta-foods-pvt-ltd', GST, 'ARRA', 1, undefined, { purchase: 'Looks like a sales register, not a purchase register' }),
+      rc('mehta-foods-pvt-ltd', GST, 'ARRA', 1),
       rc('gupta-textiles', GST, 'AAAA', 2),
       rc('bhatia-brothers', GST, 'APPP', 3, 'Sep 30'),
       rc('rao-associates', GST, 'ARPP', 4),
@@ -95,7 +95,7 @@ export const moreRequests: DocRequest[] = [
       rc('arjun-mehta', ITR, 'AARPPPP', 1),
       rc('neha-kulkarni', ITR, 'AAAAAAA', 2),
       rc('rohit-bansal', ITR, 'APPPPPP', 3, 'Sep 30'),
-      rc('pooja-nair', ITR, 'AARRXPP', 4, undefined, { form16: 'Looks like a Form 16 for the earlier year' }),
+      rc('pooja-nair', ITR, 'AARRXPP', 4),
       rc('sanjay-gupta', ITR, 'PPPPPPP', 0, 'Sep 29'),
       rc('divya-reddy', ITR, 'AAAAPPP', 5),
       rc('sunita', ITR, 'AARPPPP', 6),
@@ -176,7 +176,7 @@ export const moreRequests: DocRequest[] = [
     createdAt: '2026-09-27',
     due: '2026-10-06',
     via: 'own',
-    clients: [rc('orchid-hospitality', GST, 'AXPP', 1, 'Sep 30'), rc('sagar-marine-exports', GST, 'RRAA', 2, undefined, { sales: 'The name on it is a different firm' }), rc('bharat-hardware', GST, 'APPX', 3)],
+    clients: [rc('orchid-hospitality', GST, 'AXPP', 1, 'Sep 30'), rc('sagar-marine-exports', GST, 'RRAA', 2), rc('bharat-hardware', GST, 'APPX', 3)],
   },
 ]
 
@@ -191,3 +191,21 @@ export const bulkRequest: DocRequest = {
   via: 'own',
   clients: bulkNames.map((n, i) => rc(slugOf(n), GST, stages[(i * 7 + Math.floor(i / 5)) % stages.length], i, i % 3 === 0 && stages[(i * 7 + Math.floor(i / 5)) % stages.length].includes('P') ? 'Sep 30' : undefined)),
 }
+
+// Ramesh Kumar is a client for ITR and for GST, on one number. Both requests are open at the same time.
+export const rameshGst: DocRequest = {
+  id: 'r15',
+  ref: 'R-1032',
+  title: 'GST monthly',
+  createdAt: '2026-09-27',
+  due: '2026-10-07',
+  via: 'own',
+  clients: [rc('ramesh-gst', GST, 'PPPP', 0)],
+}
+
+// Files Ramesh sent in one go that we could not match. The CA puts them in the right request when reviewing.
+export const seedUnsorted: UnsortedFile[] = [
+  { id: 'u1', phone: '+91 98111 22301', fileName: 'Sales_Sep_2026.xlsx', receivedAt: 'Today, 10:46', source: 'WhatsApp' },
+  { id: 'u2', phone: '+91 98111 22301', fileName: 'scan_0417.pdf', receivedAt: 'Today, 10:47', source: 'WhatsApp' },
+  { id: 'u3', phone: '+91 98111 22301', fileName: 'Home_loan_certificate.pdf', receivedAt: 'Today, 10:47', source: 'WhatsApp' },
+]

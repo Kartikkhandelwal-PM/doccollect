@@ -1,16 +1,15 @@
-import { Bell, Check, ChevronDown, ChevronRight, Eye, FolderInput, Link2, Search, X } from 'lucide-react'
+import { Bell, Check, ChevronDown, ChevronRight, Eye, Link2, Search, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
 import DocPreviewDrawer from '../components/DocPreviewDrawer'
 import Pagination, { usePaging } from '../components/Pagination'
-import MoveDocDialog from '../components/MoveDocDialog'
 import ReminderDialog from '../components/ReminderDialog'
 import FileTypeIcon from '../components/FileTypeIcon'
 import StatusBadge from '../components/StatusBadge'
 import DueDatePicker from '../components/DueDatePicker'
 import { getClient } from '../data/mock'
-import type { DocRef, DocRequest } from '../data/requests'
+import type { DocRequest } from '../data/requests'
 import { fmtDate, progress, useRequests } from '../data/requests'
 import type { Status } from '../data/types'
 import { useSetup } from '../data/setup'
@@ -106,7 +105,7 @@ export default function RequestDetail() {
 
 function RequestView({ request }: { request: DocRequest }) {
   const [params] = useSearchParams()
-  const { requests, setDocStatus, remind, simulateReply, changeDue, newLink, moveDoc } = useRequests()
+  const { setDocStatus, remind, simulateReply, changeDue, newLink, unsorted, useUnsorted } = useRequests()
   const { graceDays } = useSetup()
 
   const [openDoc, setOpenDoc] = useState<{ clientId: string; docId: string } | null>(() => {
@@ -123,7 +122,6 @@ function RequestView({ request }: { request: DocRequest }) {
   const [filter, setFilter] = useState<Filter>('all')
   const [query, setQuery] = useState('')
   const [asking, setAsking] = useState(false)
-  const [moving, setMoving] = useState<DocRef | null>(null)
   // Clients whose documents are showing. One client can be opened straight from the Dashboard (?client=).
   const [open, setOpen] = useState<Set<string>>(() => {
     const c = params.get('client') ?? (params.get('doc') ?? '').split(':')[0]
@@ -158,13 +156,13 @@ function RequestView({ request }: { request: DocRequest }) {
         const counted = rc.docs.filter((d) => d.status !== 'na')
         const missing = counted.filter((d) => d.status === 'pending' || d.status === 'rejected').length
         const toReview = counted.filter((d) => d.status === 'to_review').length
-        const toCheck = counted.filter((d) => d.status === 'to_review' && d.check).length
+        const waiting = unsorted.filter((f) => f.phone === c.phone)
         const got = counted.filter((d) => d.status !== 'pending' && d.status !== 'rejected').length
         const late = missing > 0 && request.due < today
-        const state: Filter = toReview > 0 ? 'review' : missing > 0 ? 'waiting' : 'done'
-        return [{ rc, c, missing, toReview, toCheck, got, total: counted.length, late, state }]
+        const state: Filter = toReview > 0 || (waiting.length > 0 && missing > 0) ? 'review' : missing > 0 ? 'waiting' : 'done'
+        return [{ rc, c, missing, toReview, waiting, got, total: counted.length, late, state }]
       }),
-    [request, today],
+    [request, today, unsorted],
   )
   const counts = { all: rows.length, review: rows.filter((r) => r.state === 'review').length, waiting: rows.filter((r) => r.missing > 0).length, done: rows.filter((r) => r.state === 'done').length }
   const shown = rows.filter(
@@ -198,18 +196,6 @@ function RequestView({ request }: { request: DocRequest }) {
       setOpen((o) => new Set(o).add(x.clientId))
       setOpenDoc({ clientId: x.clientId, docId: x.doc.id })
     }
-  }
-  // Moving only makes sense when there is somewhere to go: the file is flagged, or this client still has something missing.
-  const canMove = (clientId: string, d: { status: string; check?: string }) =>
-    d.status === 'to_review' && (!!d.check || !!request.clients.find((c) => c.clientId === clientId)?.docs.some((x) => x.status === 'pending' || x.status === 'rejected'))
-  const confirmMove = (to: DocRef) => {
-    if (!moving) return
-    const target = requests.find((r) => r.id === to.requestId)?.clients.find((c) => c.clientId === to.clientId)?.docs.find((d) => d.id === to.docId)
-    const swapped = target?.status === 'to_review'
-    moveDoc(moving, to)
-    setMoving(null)
-    setOpenDoc(null)
-    setToast(swapped ? `Swapped with ${target?.name}. Both are still to be reviewed.` : `Moved to ${target?.name}. The old place is empty again.`)
   }
   const sendReminders = () => {
     toRemind.forEach((r) => remind(request.id, r.rc.clientId))
@@ -371,11 +357,11 @@ function RequestView({ request }: { request: DocRequest }) {
         </div>
 
         {paging.rows.length === 0 && <p className="p-8 text-sm text-muted">No clients match.</p>}
-        {paging.rows.map(({ rc, c, missing, toReview, toCheck, got, total, late, state }) => {
+        {paging.rows.map(({ rc, c, missing, toReview, waiting, got, total, late, state }) => {
           const isOpen = open.has(rc.clientId)
           const chip =
             state === 'review'
-              ? { text: `${toReview} to review`, cls: 'bg-warn-soft text-warn' }
+              ? { text: toReview > 0 ? `${toReview} to review` : `${waiting.length} to place`, cls: 'bg-warn-soft text-warn' }
               : late
                 ? { text: 'Overdue', cls: 'bg-danger-soft text-danger' }
                 : missing > 0
@@ -407,15 +393,16 @@ function RequestView({ request }: { request: DocRequest }) {
                 </div>
                 <div>
                   <span className={`inline-block rounded-md px-2 py-1 text-[11px] font-bold uppercase tracking-wide ${chip.cls}`}>{chip.text}</span>
-                  {toCheck > 0 ? <div className="mt-1 text-xs font-semibold text-warn">{toCheck} to check</div> : missing > 0 && state === 'review' && <div className="mt-1 text-xs text-muted">{missing} still missing</div>}
+                  {state === 'review' && toReview > 0 && waiting.length > 0 && missing > 0 && <div className="mt-1 text-xs font-semibold text-warn">+ {waiting.length} to place</div>}
+                  {state === 'review' && missing > 0 && !(toReview > 0 && waiting.length > 0) && <div className="mt-1 text-xs text-muted">{missing} still missing</div>}
                 </div>
                 <div onClick={(e) => e.stopPropagation()} className="flex justify-end">
-                  {state === 'review' && firstReview ? (
+                  {state === 'review' ? (
                     <button
                       type="button"
                       onClick={() => {
                         setOpen((o) => new Set(o).add(rc.clientId))
-                        setOpenDoc({ clientId: rc.clientId, docId: firstReview.id })
+                        if (firstReview) setOpenDoc({ clientId: rc.clientId, docId: firstReview.id })
                       }}
                       className="flex h-9 items-center rounded-lg bg-brand px-3.5 text-[13px] font-semibold text-white hover:bg-brand-dark"
                     >
@@ -458,6 +445,45 @@ function RequestView({ request }: { request: DocRequest }) {
                       onNew={() => setLinkFor(rc.clientId)}
                     />
                   </div>
+                  {waiting.length > 0 && missing > 0 && (
+                    <div className="border-t border-line bg-[#FFF8E8] px-6 py-3 pl-[72px]">
+                      <div className="text-[13px] font-bold text-warn">Files we could not match ({waiting.length})</div>
+                      <p className="text-xs text-muted">Pick the document each one is for. Files for another request stay here until you open that request.</p>
+                      <ul className="mt-2 flex flex-col gap-2">
+                        {waiting.map((f) => (
+                          <li key={f.id} className="flex items-center gap-3 rounded-xl border border-line bg-white px-3 py-2">
+                            <FileTypeIcon file={f.fileName} size={28} />
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate text-sm font-semibold">{f.fileName}</div>
+                              <div className="text-xs text-muted">
+                                {f.receivedAt} · via {f.source === 'Link' ? 'upload link' : 'WhatsApp'}
+                              </div>
+                            </div>
+                            <select
+                              aria-label={`Document for ${f.fileName}`}
+                              value=""
+                              onChange={(e) => {
+                                if (!e.target.value) return
+                                const name = rc.docs.find((d) => d.id === e.target.value)?.name
+                                useUnsorted(f.id, request.id, rc.clientId, e.target.value)
+                                setToast(`${f.fileName} added to ${name}. It is ready to review.`)
+                              }}
+                              className="h-9 w-56 rounded-lg border border-line bg-white px-2.5 text-[13px] font-medium outline-none focus:border-brand"
+                            >
+                              <option value="">Use as…</option>
+                              {rc.docs
+                                .filter((d) => d.status === 'pending' || d.status === 'rejected')
+                                .map((d) => (
+                                  <option key={d.id} value={d.id}>
+                                    {d.name}
+                                  </option>
+                                ))}
+                            </select>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                   {rc.docs.map((d) => {
                     const gotIt = d.status !== 'pending' && d.status !== 'na'
                     const active = current?.clientId === rc.clientId && current.doc.id === d.id
@@ -475,23 +501,9 @@ function RequestView({ request }: { request: DocRequest }) {
                           <div className={`text-sm font-semibold ${gotIt ? '' : 'text-muted'}`}>{d.name}</div>
                           <div className="text-xs text-muted">
                             {gotIt ? `${d.receivedAt} · via ${d.source === 'Link' ? 'upload link' : 'WhatsApp'}` : d.status === 'na' ? 'Client says this does not apply to them' : 'Not received yet'}
-                            {d.check && <span className="ml-1.5 font-semibold text-warn">· Check: {d.check}</span>}
                             {d.status === 'rejected' && d.reason && <span className="ml-1.5 font-semibold text-danger">· {d.reason}</span>}
                           </div>
                         </div>
-                        {d.status === 'to_review' && canMove(rc.clientId, d) && d.check && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setMoving({ requestId: request.id, clientId: rc.clientId, docId: d.id })
-                            }}
-                            className="flex h-8 items-center gap-1.5 rounded-lg border border-line bg-white px-2.5 text-[13px] font-semibold text-slate-700 hover:border-brand hover:text-brand-dark"
-                          >
-                            <FolderInput size={14} />
-                            Move
-                          </button>
-                        )}
                         {gotIt ? <StatusBadge status={d.status} options={reviewOptions} onChange={(st) => changeStatus(rc.clientId, d.id, d.name, st)} /> : <StatusBadge status={d.status === 'na' ? 'na' : 'pending'} />}
                       </div>
                     )
@@ -515,21 +527,8 @@ function RequestView({ request }: { request: DocRequest }) {
           onNext={() => openAt(idx + 1)}
           onApprove={approveOpen}
           onReject={rejectOpen}
-          onMove={canMove(current.clientId, current.doc) ? () => setMoving({ requestId: request.id, clientId: current.clientId, docId: current.doc.id }) : undefined}
         />
       )}
-
-      {moving && <MoveDocDialog
-          from={moving}
-          onMove={confirmMove}
-          onSendBack={() => {
-            const m = moving
-            const d = request.clients.find((c) => c.clientId === m.clientId)?.docs.find((x) => x.id === m.docId)
-            setMoving(null)
-            if (d) changeStatus(m.clientId, m.docId, d.name, 'rejected')
-          }}
-          onClose={() => setMoving(null)}
-        />}
 
       {asking && <ReminderDialog targets={toRemind.map((r) => ({ requestId: request.id, clientId: r.rc.clientId }))} via={request.via} request={request.title} onSend={sendReminders} onClose={() => setAsking(false)} />}
 
