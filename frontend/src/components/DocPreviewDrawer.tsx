@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Check, Download, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Check, Download, FolderInput, X } from 'lucide-react'
 import { useEffect } from 'react'
 import type { RequestDoc } from '../data/requests'
 import type { Client } from '../data/types'
@@ -84,8 +84,14 @@ export default function DocPreviewDrawer({ client, doc, position, total, onClose
 
       <div className="border-t border-line bg-white px-5 py-4">
         {doc.check && (
-          <div className="mb-3 rounded-lg bg-warn-soft px-3 py-2 text-[13px] font-medium text-warn">
-            <b>Please check:</b> {doc.check}
+          <div className="mb-3 flex items-center gap-3 rounded-lg bg-warn-soft px-3 py-2 text-[13px] font-medium text-warn">
+            <span className="flex-1">
+              <b>Please check:</b> {doc.check}
+            </span>
+            <button type="button" onClick={onMove} className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3 text-[13px] font-semibold text-ink shadow-sm hover:bg-canvas">
+              <FolderInput size={15} />
+              Move
+            </button>
           </div>
         )}
         {doc.status === 'rejected' && doc.reason && (
@@ -110,13 +116,15 @@ export default function DocPreviewDrawer({ client, doc, position, total, onClose
             {doc.status === 'rejected' ? 'Reject again' : 'Reject'}
           </button>
         </div>
-        {!decided && (
-          <p className="mt-3 text-center text-[13px] text-muted">
-            In the wrong place?{' '}
-            <button type="button" onClick={onMove} className="font-semibold text-brand hover:underline">
-              Move it
-            </button>
-          </p>
+        {doc.status === 'to_review' && (
+          <button
+            type="button"
+            onClick={onMove}
+            className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-line bg-white text-sm font-semibold text-ink hover:border-brand hover:bg-brand-soft/40"
+          >
+            <FolderInput size={17} />
+            Move to another document
+          </button>
         )}
         <p className="mt-2.5 text-center text-xs text-muted">
           {decided ? 'You can change your decision any time.' : 'After you decide, the next document opens by itself. Use ← → to move around, Esc to close.'}

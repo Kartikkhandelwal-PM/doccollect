@@ -1,4 +1,4 @@
-import { Bell, Check, ChevronDown, ChevronRight, Eye, Link2, Search, X } from 'lucide-react'
+import { Bell, Check, ChevronDown, ChevronRight, Eye, FolderInput, Link2, Search, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
@@ -482,8 +482,9 @@ function RequestView({ request }: { request: DocRequest }) {
                               e.stopPropagation()
                               setMoving({ requestId: request.id, clientId: rc.clientId, docId: d.id })
                             }}
-                            className="h-8 rounded-lg px-2.5 text-[13px] font-semibold text-brand hover:bg-brand-soft"
+                            className="flex h-8 items-center gap-1.5 rounded-lg border border-line bg-white px-2.5 text-[13px] font-semibold text-slate-700 hover:border-brand hover:text-brand-dark"
                           >
+                            <FolderInput size={14} />
                             Move
                           </button>
                         )}
