@@ -75,7 +75,7 @@ export default function Templates() {
             </div>
             <p className="mt-1 text-sm text-muted">{selected.hint}.</p>
 
-            <div className="mt-4 rounded-2xl bg-[#EFEAE2] bg-[radial-gradient(rgba(17,27,33,0.045)_1.2px,transparent_1.2px)] p-4 [background-size:22px_22px]">
+            <div className="mt-4 rounded-2xl wa-wallpaper p-4">
               <div className="ml-auto w-fit max-w-[94%] rounded-[10px] rounded-tr-none bg-[#D9FDD3] px-3 py-2 text-[14.5px] leading-snug shadow-[0_1px_1px_rgba(17,27,33,0.13)]">
                 <WaText text={fillTemplate(body)} />
                 <div className="pt-0.5 text-right text-[11px] text-slate-500">09:10</div>

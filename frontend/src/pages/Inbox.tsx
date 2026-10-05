@@ -558,7 +558,7 @@ export default function Inbox() {
       </div>
 
       {/* Chat */}
-      <div className="flex min-w-0 flex-1 flex-col bg-[#EFEAE2] bg-[radial-gradient(rgba(17,27,33,0.045)_1.2px,transparent_1.2px)] [background-size:22px_22px]">
+      <div className="flex min-w-0 flex-1 flex-col wa-wallpaper">
         <div className="flex h-[60px] shrink-0 items-center gap-3.5 bg-[#F0F2F5] px-4">
           {active.unassigned ? (
             <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#FEE9C9] font-bold text-warn">?</span>
