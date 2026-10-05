@@ -16,7 +16,7 @@ import { useSetup } from '../data/setup'
 import { expiresOn, isExpired, todayISO } from '../lib/dates'
 import { serviceColor } from '../lib/status'
 import { SHARED_NUMBER_NAME } from '../lib/brand'
-import { linkText, linkToken } from '../lib/links'
+import { fullLink, linkToken } from '../lib/links'
 
 const reviewOptions: Status[] = ['to_review', 'approved', 'rejected']
 const reasons = ['Blurry or unreadable', 'Wrong document', 'Pages missing', 'Wrong year']
@@ -440,7 +440,7 @@ function RequestView({ request }: { request: DocRequest }) {
                     <LinkMenu
                       previewTo={`/u/${request.id}/${rc.clientId}?preview=1`}
                       onCopy={() => {
-                        const url = linkText(linkToken(request.ref, rc.clientId, rc.linkVersion ?? 1))
+                        const url = fullLink(linkToken(request.ref, rc.clientId, rc.linkVersion ?? 1))
                         navigator.clipboard?.writeText(url).catch(() => undefined)
                         setToast('Link copied')
                       }}
