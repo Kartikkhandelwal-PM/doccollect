@@ -86,7 +86,7 @@ function LinkMenu({ previewTo, onCopy, onNew }: { previewTo: string; onCopy: () 
 
 type Filter = 'all' | 'review' | 'waiting' | 'done'
 
-const CLIENT_ROW = 'grid grid-cols-[minmax(0,1fr)_120px_150px_96px_20px] items-center gap-4 px-6'
+const CLIENT_ROW = 'grid grid-cols-[minmax(0,1fr)_120px_150px_120px_20px] items-center gap-4 px-6'
 
 export default function RequestDetail() {
   const { id } = useParams()
@@ -137,7 +137,7 @@ function RequestView({ request }: { request: DocRequest }) {
     return () => clearTimeout(t)
   }, [toast])
 
-  const { sendUpdate, preview } = useMessenger()
+  const { sendUpdate, sendRejected, preview } = useMessenger()
   const p = progress(request)
   const pct = p.total ? Math.round((p.received / p.total) * 100) : 0
   const approved = request.clients.flatMap((c) => c.docs).filter((d) => d.status === 'approved').length
@@ -254,6 +254,7 @@ function RequestView({ request }: { request: DocRequest }) {
     if (!rejecting) return
     const text = [reason, remark].filter(Boolean).join(' · ') || 'Please send it again'
     setDocStatus(request.id, rejecting.clientId, rejecting.docId, 'rejected', text)
+    sendRejected(request.id, rejecting.clientId, rejecting.docName, reason, remark)
     setToast(`${rejecting.docName} sent back. The client was told on WhatsApp.`)
     setRejecting(null)
     if (current && current.clientId === rejecting.clientId && current.doc.id === rejecting.docId) advance()
@@ -434,7 +435,7 @@ function RequestView({ request }: { request: DocRequest }) {
                         sendUpdate(request.id, rc.clientId)
                         setToast(`Thank-you sent to ${c.name} on WhatsApp`)
                       }}
-                      className="flex h-9 items-center gap-1.5 rounded-lg border border-line bg-white px-3 text-[13px] font-semibold hover:border-brand hover:text-brand-dark"
+                      className="flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg border border-line bg-white px-3 text-[13px] font-semibold hover:border-brand hover:text-brand-dark"
                     >
                       <Bell size={14} />
                       Send update
