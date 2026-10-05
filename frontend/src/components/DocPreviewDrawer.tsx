@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Check, Download, X } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, Check, Download, Search, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { RequestDoc } from '../data/requests'
 import type { Client } from '../data/types'
@@ -22,6 +22,8 @@ interface Props {
 
 export default function DocPreviewDrawer({ client, doc, position, total, onClose, onPrev, onNext, onApprove, onReject, place }: Props) {
   const [picked, setPicked] = useState('')
+  const [choosing, setChoosing] = useState(false)
+  const [q, setQ] = useState('')
   // Esc closes; arrow keys move between documents. Ignored while typing in a field.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -96,33 +98,59 @@ export default function DocPreviewDrawer({ client, doc, position, total, onClose
       </div>
 
       {place ? (
-        <div className="max-h-[46%] overflow-y-auto border-t border-line bg-white px-5 py-4">
-          <div className="text-sm font-bold">Which document is this?</div>
-          <p className="text-xs text-muted">Look at the file above, then pick where it goes.</p>
-          {['Not received yet', 'Add as another file of'].map((g) => {
-            const list = place.options.filter((o) => o.group === g)
-            if (list.length === 0) return null
-            return (
-              <div key={g} className="mt-3">
-                <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-faint">{g}</div>
-                <div className="flex flex-col gap-1.5" role="radiogroup" aria-label={g}>
-                  {list.map((o) => (
-                    <button
-                      key={o.id}
-                      type="button"
-                      role="radio"
-                      aria-checked={picked === o.id}
-                      onClick={() => setPicked(o.id)}
-                      className={`flex h-11 items-center justify-between rounded-xl border px-3.5 text-left text-sm font-semibold ${picked === o.id ? 'border-brand bg-brand-soft text-brand-dark' : 'border-line hover:bg-canvas'}`}
-                    >
-                      {o.label}
-                      {picked === o.id && <Check size={16} strokeWidth={3} />}
-                    </button>
-                  ))}
-                </div>
+        <div className="relative border-t border-line bg-white px-5 py-4">
+          {choosing && <button type="button" aria-label="Close the list" className="fixed inset-0 z-[26] cursor-default" onClick={() => setChoosing(false)} />}
+          {choosing && (
+            <div role="listbox" aria-label="Documents" className="absolute inset-x-5 bottom-[calc(100%-8px)] z-[27] flex max-h-[min(340px,55vh)] flex-col overflow-hidden rounded-2xl border border-line bg-white shadow-[0_-12px_32px_rgba(14,27,44,0.18)]">
+              {place.options.length > 6 && (
+                <label className="flex h-10 shrink-0 items-center gap-2 border-b border-line px-3.5 text-sm text-muted">
+                  <Search size={15} />
+                  <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search documents" aria-label="Search documents" className="w-full bg-transparent text-ink outline-none placeholder:text-muted" />
+                </label>
+              )}
+              <div className="overflow-y-auto py-1">
+                {['Not received yet', 'Add as another file of'].map((g) => {
+                  const list = place.options.filter((o) => o.group === g && o.label.toLowerCase().includes(q.trim().toLowerCase()))
+                  if (list.length === 0) return null
+                  return (
+                    <div key={g}>
+                      <div className="px-4 pb-1 pt-2 text-[11px] font-bold uppercase tracking-wider text-faint">{g}</div>
+                      {list.map((o) => (
+                        <button
+                          key={o.id}
+                          type="button"
+                          role="option"
+                          aria-selected={picked === o.id}
+                          onClick={() => {
+                            setPicked(o.id)
+                            setChoosing(false)
+                            setQ('')
+                          }}
+                          className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm font-medium hover:bg-canvas ${picked === o.id ? 'bg-brand-soft text-brand-dark' : ''}`}
+                        >
+                          {o.label}
+                          {picked === o.id && <Check size={15} strokeWidth={3} />}
+                        </button>
+                      ))}
+                    </div>
+                  )
+                })}
+                {place.options.filter((o) => o.label.toLowerCase().includes(q.trim().toLowerCase())).length === 0 && <p className="px-4 py-4 text-sm text-muted">No document found.</p>}
               </div>
-            )
-          })}
+            </div>
+          )}
+          <div className="text-sm font-bold">Which document is this?</div>
+          <button
+            type="button"
+            aria-haspopup="listbox"
+            aria-expanded={choosing}
+            onClick={() => setChoosing((v) => !v)}
+            className={`relative z-[27] mt-2 flex h-11 w-full items-center justify-between rounded-xl border bg-white px-3.5 text-left text-sm font-semibold ${picked ? 'border-brand text-ink' : 'border-line text-muted'} hover:border-brand`}
+          >
+            <span className="truncate">{picked ? (place.options.find((o) => o.id === picked)?.label ?? '') : 'Choose the document…'}</span>
+            <ChevronDown size={16} className={choosing ? 'rotate-180' : ''} />
+          </button>
+          {picked && place.options.find((o) => o.id === picked)?.group === 'Add as another file of' && <p className="mt-1.5 text-xs text-muted">It is added as another file of this document, for example the back of a card.</p>}
           <button
             type="button"
             disabled={!picked}
@@ -130,7 +158,7 @@ export default function DocPreviewDrawer({ client, doc, position, total, onClose
               place.onPlace(picked)
               setPicked('')
             }}
-            className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand text-[15px] font-semibold text-white shadow-[0_6px_16px_rgba(11,122,107,0.25)] disabled:opacity-40 disabled:shadow-none"
+            className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand text-[15px] font-semibold text-white shadow-[0_6px_16px_rgba(11,122,107,0.25)] disabled:opacity-40 disabled:shadow-none"
           >
             Save here
           </button>
