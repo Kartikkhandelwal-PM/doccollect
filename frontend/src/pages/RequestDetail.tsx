@@ -446,43 +446,52 @@ function RequestView({ request }: { request: DocRequest }) {
                     />
                   </div>
                   {waiting.length > 0 && missing > 0 && (
-                    <div className="border-t border-line bg-[#FFF8E8] px-6 py-3 pl-[72px]">
-                      <div className="text-[13px] font-bold text-warn">Files we could not match ({waiting.length})</div>
-                      <p className="text-xs text-muted">Pick the document each one is for. Files for another request stay here until you open that request.</p>
-                      <ul className="mt-2 flex flex-col gap-2">
-                        {waiting.map((f) => (
-                          <li key={f.id} className="flex items-center gap-3 rounded-xl border border-line bg-white px-3 py-2">
-                            <FileTypeIcon file={f.fileName} size={28} />
-                            <div className="min-w-0 flex-1">
-                              <div className="truncate text-sm font-semibold">{f.fileName}</div>
-                              <div className="text-xs text-muted">
-                                {f.receivedAt} · via {f.source === 'Link' ? 'upload link' : 'WhatsApp'}
-                              </div>
+                    <>
+                      <div className="border-t border-line px-6 pb-1 pt-3 pl-[72px]">
+                        <div className="text-[11px] font-bold uppercase tracking-wider text-faint">Files we could not match ({waiting.length})</div>
+                        <p className="text-xs text-muted">Choose the document each file is for. The rest wait for the next request.</p>
+                      </div>
+                      {waiting.map((f) => (
+                        <div key={f.id} className="flex items-center gap-4 border-t border-line px-6 py-3 pl-[72px]">
+                          <FileTypeIcon file={f.fileName} size={34} />
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-semibold">{f.fileName}</div>
+                            <div className="text-xs text-muted">
+                              {f.receivedAt} · via {f.source === 'Link' ? 'upload link' : 'WhatsApp'}
                             </div>
-                            <select
-                              aria-label={`Document for ${f.fileName}`}
-                              value=""
-                              onChange={(e) => {
-                                if (!e.target.value) return
-                                const name = rc.docs.find((d) => d.id === e.target.value)?.name
-                                useUnsorted(f.id, request.id, rc.clientId, e.target.value)
-                                setToast(`${f.fileName} added to ${name}. It is ready to review.`)
-                              }}
-                              className="h-9 w-56 rounded-lg border border-line bg-white px-2.5 text-[13px] font-medium outline-none focus:border-brand"
-                            >
-                              <option value="">Use as…</option>
-                              {rc.docs
-                                .filter((d) => d.status === 'pending' || d.status === 'rejected')
-                                .map((d) => (
+                          </div>
+                          <select
+                            aria-label={`Document for ${f.fileName}`}
+                            value=""
+                            onChange={(e) => {
+                              if (!e.target.value) return
+                              const name = rc.docs.find((d) => d.id === e.target.value)?.name
+                              useUnsorted(f.id, request.id, rc.clientId, e.target.value)
+                              setToast(`${f.fileName} added to ${name}.`)
+                            }}
+                            className="h-9 w-64 rounded-lg border border-line bg-white px-2.5 text-[13px] font-semibold text-slate-700 outline-none hover:border-brand focus:border-brand"
+                          >
+                            <option value="">Choose a document…</option>
+                            <optgroup label="Not received yet">
+                              {rc.docs.filter((d) => d.status === 'pending' || d.status === 'rejected').map((d) => (
+                                <option key={d.id} value={d.id}>
+                                  {d.name}
+                                </option>
+                              ))}
+                            </optgroup>
+                            {rc.docs.some((d) => d.status === 'to_review') && (
+                              <optgroup label="Add as another file of">
+                                {rc.docs.filter((d) => d.status === 'to_review').map((d) => (
                                   <option key={d.id} value={d.id}>
                                     {d.name}
                                   </option>
                                 ))}
-                            </select>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
+                              </optgroup>
+                            )}
+                          </select>
+                        </div>
+                      ))}
+                    </>
                   )}
                   {rc.docs.map((d) => {
                     const gotIt = d.status !== 'pending' && d.status !== 'na'
@@ -500,7 +509,7 @@ function RequestView({ request }: { request: DocRequest }) {
                         <div className="min-w-0 flex-1">
                           <div className={`text-sm font-semibold ${gotIt ? '' : 'text-muted'}`}>{d.name}</div>
                           <div className="text-xs text-muted">
-                            {gotIt ? `${d.receivedAt} · via ${d.source === 'Link' ? 'upload link' : 'WhatsApp'}` : d.status === 'na' ? 'Client says this does not apply to them' : 'Not received yet'}
+                            {gotIt ? `${d.receivedAt} · via ${d.source === 'Link' ? 'upload link' : 'WhatsApp'}${d.moreFiles?.length ? ` · ${d.moreFiles.length + 1} files` : ''}` : d.status === 'na' ? 'Client says this does not apply to them' : 'Not received yet'}
                             {d.status === 'rejected' && d.reason && <span className="ml-1.5 font-semibold text-danger">· {d.reason}</span>}
                           </div>
                         </div>

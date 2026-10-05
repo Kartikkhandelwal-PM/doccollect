@@ -13,7 +13,7 @@ export default function ClientUpload() {
   const { requestId, clientId } = useParams()
   const [params] = useSearchParams()
   const preview = params.get('preview') === '1'
-  const { getRequest, clientUpload, markNotApplicable, resetClient, clientRemove } = useRequests()
+  const { getRequest, clientUpload, clientAddFile, markNotApplicable, resetClient, clientRemove } = useRequests()
   const { firm, graceDays } = useSetup()
   const [sent, setSent] = useState(false)
   const [confirmId, setConfirmId] = useState<string | null>(null)
@@ -51,9 +51,16 @@ export default function ClientUpload() {
   const rank = (d: RequestDoc) => (d.status === 'rejected' ? 0 : d.status === 'pending' ? 1 : 2)
   const docs = [...rc.docs].sort((a, b) => rank(a) - rank(b))
 
+  // A document can be several files: the front and back of a card, or more than one sheet.
+  const addMore = (d: RequestDoc, files: FileList | null) => {
+    if (!files) return
+    for (const f of Array.from(files)) clientAddFile(request.id, rc.clientId, d.id, f.name)
+  }
   const pick = (d: RequestDoc, files: FileList | null) => {
-    const f = files?.[0]
-    if (f) clientUpload(request.id, rc.clientId, d.id, f.name)
+    const list = files ? Array.from(files) : []
+    if (list.length === 0) return
+    clientUpload(request.id, rc.clientId, d.id, list[0].name)
+    list.slice(1).forEach((f) => clientAddFile(request.id, rc.clientId, d.id, f.name))
   }
 
   const banner = preview && (
@@ -186,7 +193,7 @@ export default function ClientUpload() {
               <label className="flex h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-brand-soft text-sm font-semibold text-brand-dark active:bg-[#D3EDE6]">
                 <Upload size={16} />
                 {d.status === 'rejected' ? 'Upload again' : 'Upload'}
-                <input type="file" className="sr-only" aria-label={`Upload ${d.name}`} onChange={(e) => pick(d, e.target.files)} />
+                <input type="file" multiple className="sr-only" aria-label={`Upload ${d.name}`} onChange={(e) => pick(d, e.target.files)} />
               </label>
             )
 
@@ -242,7 +249,13 @@ export default function ClientUpload() {
                 </div>
                 {d.status === 'to_review' && (
                   <div className="mt-2.5 flex items-center gap-2 rounded-xl bg-canvas px-3 py-2">
-                    <span className="min-w-0 flex-1 truncate text-[13px] text-slate-600">{d.fileName}</span>
+                    <span className="min-w-0 flex-1 text-[13px] text-slate-600">
+                      {[d.fileName, ...(d.moreFiles ?? [])].map((f) => (
+                        <span key={f} className="block truncate">
+                          {f}
+                        </span>
+                      ))}
+                    </span>
                     {confirmId === d.id ? (
                       <>
                         <span className="text-xs font-semibold text-danger">Remove?</span>
@@ -262,6 +275,10 @@ export default function ClientUpload() {
                       </>
                     ) : (
                       <>
+                        <label className="cursor-pointer rounded-lg px-2.5 py-1.5 text-[13px] font-semibold text-brand hover:bg-white">
+                          Add another
+                          <input type="file" multiple className="sr-only" aria-label={`Add another file to ${d.name}`} onChange={(e) => addMore(d, e.target.files)} />
+                        </label>
                         <label className="cursor-pointer rounded-lg px-2.5 py-1.5 text-[13px] font-semibold text-brand hover:bg-white">
                           Replace
                           <input type="file" className="sr-only" aria-label={`Replace ${d.name}`} onChange={(e) => pick(d, e.target.files)} />

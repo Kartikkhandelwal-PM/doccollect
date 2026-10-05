@@ -76,6 +76,17 @@ export default function DocPreviewDrawer({ client, doc, position, total, onClose
         </div>
       </div>
 
+      {doc.moreFiles && doc.moreFiles.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-line bg-white px-5 py-2.5 text-[13px]">
+          <span className="font-semibold text-muted">{doc.moreFiles.length + 1} files:</span>
+          {[doc.fileName, ...doc.moreFiles].map((f) => (
+            <span key={f} className="inline-flex items-center gap-1.5 rounded-lg bg-canvas px-2 py-1 font-medium text-slate-700">
+              <FileTypeIcon file={f ?? 'file.pdf'} size={16} />
+              {f}
+            </span>
+          ))}
+        </div>
+      )}
       <div className="flex-1 overflow-y-auto bg-[#EDF0F5] px-6 py-8">
         <PaperPreview doc={doc} client={client} />
         <p className="mt-5 text-center text-xs text-muted">Sample preview. The client's real file shows here.</p>
