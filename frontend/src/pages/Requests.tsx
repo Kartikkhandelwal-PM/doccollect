@@ -20,9 +20,6 @@ const stateMeta: Record<RequestState, { label: string; className: string }> = {
   completed: { label: 'Completed', className: 'bg-ok-soft text-ok' },
 }
 
-// Which kind of work a request is, from its name. Used for the Type filter.
-const kindOf = (r: DocRequest) => (r.title.startsWith('ITR') ? 'ITR' : r.title.startsWith('GST') ? 'GST' : r.title.startsWith('TDS') ? 'TDS' : 'Other')
-
 // On a phone every request is a small card instead of a table row.
 const GRID = 'grid grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_130px_110px_170px_150px] items-center gap-4 px-5 @max-4xl:flex @max-4xl:flex-wrap @max-4xl:gap-x-3 @max-4xl:gap-y-2.5 @max-4xl:px-4'
 const selectCls = 'h-10 rounded-xl border border-line bg-white px-3 text-sm font-medium text-ink outline-none focus:border-brand @max-4xl:min-w-0 @max-4xl:flex-1 @max-4xl:px-2 @max-4xl:text-[13px]'
@@ -51,7 +48,6 @@ export default function Requests() {
   const first = params.get('tab')
   const [tab, setTab] = useState<Tab>(first === 'review' || first === 'waiting' || first === 'completed' ? first : 'all')
   const [query, setQuery] = useState('')
-  const [kind, setKind] = useState('all')
   const [due, setDue] = useState<'all' | 'late' | 'week' | 'later'>('all')
   const [from, setFrom] = useState<'all' | 'own' | 'kdk'>('all')
   const [open, setOpen] = useState<Set<string>>(new Set())
@@ -59,7 +55,6 @@ export default function Requests() {
   const q = query.trim().toLowerCase()
   const list = requests.filter((r) => {
     if (tab !== 'all' && requestState(r) !== tab) return false
-    if (kind !== 'all' && kindOf(r) !== kind) return false
     if (from !== 'all' && r.via !== from) return false
     if (due !== 'all') {
       const days = daysUntil(r.due)
@@ -74,7 +69,7 @@ export default function Requests() {
     }
     return true
   })
-  const listPaging = usePaging(list, `${tab}|${query}|${kind}|${due}|${from}`)
+  const listPaging = usePaging(list, `${tab}|${query}|${due}|${from}`)
 
   const tabs: { key: Tab; label: string }[] = [
     { key: 'all', label: 'All' },
@@ -130,12 +125,6 @@ export default function Requests() {
             <Search size={15} />
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search client or request number" className="w-full bg-transparent text-ink outline-none placeholder:text-muted" />
           </label>
-          <select value={kind} onChange={(e) => setKind(e.target.value)} className={selectCls} aria-label="Type">
-            <option value="all">All types</option>
-            <option>ITR</option>
-            <option>GST</option>
-            <option>TDS</option>
-          </select>
           <select value={due} onChange={(e) => setDue(e.target.value as typeof due)} className={selectCls} aria-label="Last date">
             <option value="all">Any last date</option>
             <option value="late">Late</option>
