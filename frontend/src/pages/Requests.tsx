@@ -21,7 +21,7 @@ const stateMeta: Record<RequestState, { label: string; className: string }> = {
 // Which kind of work a request is, from its name. Used for the Type filter.
 const kindOf = (r: DocRequest) => (r.title.startsWith('ITR') ? 'ITR' : r.title.startsWith('GST') ? 'GST' : r.title.startsWith('TDS') ? 'TDS' : 'Other')
 
-const GRID = 'grid grid-cols-[28px_minmax(0,1fr)_minmax(0,1.5fr)_130px_110px_170px_150px] items-center gap-4 px-6'
+const GRID = 'grid grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_130px_110px_170px_150px] items-center gap-4 px-5'
 const selectCls = 'h-10 rounded-xl border border-line bg-white px-3 text-sm font-medium text-ink outline-none focus:border-brand'
 const SHOW_CLIENTS = 5
 
@@ -147,8 +147,7 @@ export default function Requests() {
         </div>
 
         <div className={`${GRID} border-b border-line bg-slate-50/80 py-2.5 text-[11px] font-bold uppercase tracking-wider text-faint`}>
-          <span />
-          <span>Request</span>
+          <span className="pl-[26px]">Request</span>
           <span>Clients</span>
           <span>Sent</span>
           <span>Last date</span>
@@ -167,8 +166,9 @@ export default function Requests() {
           return (
             <Fragment key={r.id}>
               <div onClick={() => navigate(`/requests/${r.id}`)} className={`${GRID} min-h-[68px] cursor-pointer border-b border-line py-3 hover:bg-slate-50 ${isOpen ? 'bg-slate-50' : ''}`}>
+                <div className="flex min-w-0 items-center gap-2">
                 {people.length <= 1 ? (
-                  <span />
+                  <span className="w-[18px] shrink-0" />
                 ) : (
                 <button
                   type="button"
@@ -178,12 +178,11 @@ export default function Requests() {
                     e.stopPropagation()
                     toggle(r.id)
                   }}
-                  className="-m-2 flex items-center justify-center p-2 text-muted hover:text-ink"
+                  className="-m-1.5 flex shrink-0 items-center justify-center p-1.5 text-muted hover:text-ink"
                 >
                   <ChevronRight size={18} className={`transition ${isOpen ? 'rotate-90' : ''}`} />
                 </button>
                 )}
-                <div className="flex min-w-0 items-center gap-3">
                   <div className="min-w-0">
                     <div className="truncate text-[15px] font-semibold">{r.title}</div>
                     <div className="text-xs text-muted">{r.ref}</div>
@@ -234,7 +233,7 @@ export default function Requests() {
               </div>
 
               {isOpen && (
-                <div className="border-b border-line bg-slate-50/70 py-2 pl-[76px] pr-6">
+                <div className="border-b border-line bg-slate-50/70 py-2 pl-[48px] pr-5">
                   <div className="grid grid-cols-[minmax(0,1.4fr)_150px_150px_170px] gap-4 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-faint">
                     <span>Client</span>
                     <span>Documents</span>
