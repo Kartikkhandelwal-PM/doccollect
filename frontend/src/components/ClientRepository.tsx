@@ -3,11 +3,10 @@ import { motion } from 'framer-motion'
 import { ChevronRight, Download, Folder, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { buildMaster } from '../data/master'
+import { useMasterFiles } from '../data/masterFiles'
 import type { MasterFile } from '../data/master'
 import { useMasterStore } from '../data/masterStore'
 import { getClient } from '../data/mock'
-import { useRequests } from '../data/requests'
 import FileTypeIcon from './FileTypeIcon'
 import OpenInTab from './OpenInTab'
 import PaperPreview from './PaperPreview'
@@ -21,8 +20,8 @@ interface Node {
 
 // One client's part of the Document Master: their folders and approved files, right on the client page.
 export default function ClientRepository({ clientId }: { clientId: string }) {
-  const { requests } = useRequests()
-  const { folders: custom, uploads } = useMasterStore()
+  const masterFiles = useMasterFiles()
+  const { folders: custom } = useMasterStore()
   const client = getClient(clientId)
   const rootId = `c:${clientId}`
   const [current, setCurrent] = useState(rootId)
@@ -30,7 +29,7 @@ export default function ClientRepository({ clientId }: { clientId: string }) {
 
   // Folders and files that belong to this client (the automatic ones, plus any the CA made inside them).
   const { nodes, files } = useMemo(() => {
-    const all = [...buildMaster(requests), ...uploads]
+    const all = masterFiles
     const map = new Map<string, Node>()
     for (const f of all) {
       const m = f.folderId?.match(/^c:([^/]+)\/([^/]+)\/(.+)$/)
@@ -53,7 +52,7 @@ export default function ClientRepository({ clientId }: { clientId: string }) {
       }
     }
     return { nodes: [...map.values()], files: all.filter((f) => f.folderId && mine.has(f.folderId)) }
-  }, [requests, uploads, custom, clientId, rootId, client?.name])
+  }, [masterFiles, custom, clientId, rootId, client?.name])
 
   useEffect(() => {
     if (!open) return

@@ -10,11 +10,10 @@ import OpenInTab from '../components/OpenInTab'
 import PaperPreview from '../components/PaperPreview'
 import { fileLink } from '../lib/fileLink'
 import Pagination, { usePaging } from '../components/Pagination'
-import { buildMaster } from '../data/master'
+import { useMasterFiles } from '../data/masterFiles'
 import type { MasterFile } from '../data/master'
 import { FIRM_FOLDER, useMasterStore } from '../data/masterStore'
 import { getClient } from '../data/mock'
-import { useRequests } from '../data/requests'
 
 interface Node {
   id: string
@@ -88,19 +87,9 @@ const PAGE = 30 // folders shown at first in the main area, and added with each 
 const SIDE_PAGE = 25 // client folders shown at first in the left list
 
 export default function Master() {
-  const { requests } = useRequests()
-  const { folders: custom, uploads, fileEdits, folderNames, addFolder, addUploads, renameFolder, renameAutoFolder, moveFolder, deleteFolder, renameUpload, moveUpload, deleteUpload, editFile } = useMasterStore()
+  const { folders: custom, uploads, folderNames, addFolder, addUploads, renameFolder, renameAutoFolder, moveFolder, deleteFolder, renameUpload, moveUpload, deleteUpload, editFile } = useMasterStore()
   // Approved documents plus uploads, with the CA's own renames, moves and deletes applied on top.
-  const files = useMemo(
-    () =>
-      [...buildMaster(requests), ...uploads]
-        .filter((f) => !fileEdits[f.id]?.deleted)
-        .map((f) => {
-          const e = fileEdits[f.id]
-          return e ? { ...f, name: e.name ?? f.name, folderId: e.folderId !== undefined ? e.folderId : f.folderId } : f
-        }),
-    [requests, uploads, fileEdits],
-  )
+  const files = useMasterFiles()
 
   const [current, setCurrent] = useState<string | null>(START)
   const [expanded, setExpanded] = useState<Set<string>>(

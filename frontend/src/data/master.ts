@@ -6,8 +6,9 @@ export const folderIdOf = (clientId: string, fy: string, compliance: string) => 
 
 // Some documents never change from one filing to the next. Once approved they are kept in the client's own "Permanent documents" folder,
 // and later requests do not ask for them again.
-const PERMANENT_DOCS = ['PAN card', 'Aadhaar card', 'GST registration certificate', 'Udyam registration']
-export const isPermanent = (name: string) => PERMANENT_DOCS.includes(name)
+// Decided by the document's id, not its name, so renaming a document in the Documents list does not change this.
+const PERMANENT_DOCS = ['pan', 'aadhaar', 'gstcert', 'udyam']
+export const isPermanent = (docId: string) => PERMANENT_DOCS.includes(docId)
 const permanentFolder = (clientId: string) => `c:${clientId}/Permanent documents`
 
 export interface MasterFile {
@@ -19,6 +20,8 @@ export interface MasterFile {
   size: string
   date: string
   from: string
+  // Which document this is (PAN card, Form 16 ...), so it is still known after a rename of the file or of the document.
+  docId?: string
 }
 
 const sizeOf = (s: string) => {
@@ -56,9 +59,10 @@ const earlier: Record<Service, { fy: string; month: string; docs: string[] }[]> 
 
 // PAN for most clients, and Aadhaar for people filing ITR. Some are missing on purpose, as in a real office.
 const permanentFiles: MasterFile[] = clients.flatMap((c, i) =>
-  [...(i % 5 !== 3 ? ['PAN card'] : []), ...(c.service === 'ITR' && i % 4 !== 1 ? ['Aadhaar card'] : [])].map((name) => ({
+  [...(i % 5 !== 3 ? [['pan', 'PAN card']] : []), ...(c.service === 'ITR' && i % 4 !== 1 ? [['aadhaar', 'Aadhaar card']] : [])].map(([docId, name]) => ({
     ...file(c.id, 'FY 2024-25', c.service, name, 'Jul 2025'),
     id: `${c.id}-permanent-${name}`,
+    docId,
     folderId: permanentFolder(c.id),
   })),
 )
@@ -86,7 +90,8 @@ export function buildMaster(requests: DocRequest[]): MasterFile[] {
         .filter((d) => d.status === 'approved' && !d.reused)
         .map((d) => ({
           id: `${r.id}-${rc.clientId}-${d.id}`,
-          folderId: isPermanent(d.name) ? permanentFolder(rc.clientId) : folderIdOf(rc.clientId, 'FY 2025-26', complianceOf(r.title, client.service)),
+          docId: d.id,
+          folderId: isPermanent(d.id) ? permanentFolder(rc.clientId) : folderIdOf(rc.clientId, 'FY 2025-26', complianceOf(r.title, client.service)),
           name: d.name,
           fileName: d.fileName ?? `${d.name}.pdf`,
           size: sizeOf(d.name + rc.clientId),
