@@ -1,7 +1,7 @@
 import { backdropProps, panelProps, rowIn } from '../lib/motion'
 import { motion } from 'framer-motion'
 import Toast from '../components/Toast'
-import { Check, CheckCheck, ChevronDown, Image as ImageIcon, Info, Lock, PanelRightOpen, Search, Send, X } from 'lucide-react'
+import { ArrowLeft, Check, CheckCheck, ChevronDown, Image as ImageIcon, Info, Lock, PanelRightOpen, Search, Send, X } from 'lucide-react'
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
@@ -375,7 +375,14 @@ export default function Inbox() {
   const { addUploads } = useMasterStore()
   const [keeping, setKeeping] = useState(false)
   const [showInfo, setShowInfo] = useState(false)
-  const [showPanel, setShowPanel] = useState(true)
+  // The side panel sits beside the chat on a wide screen. On a phone or tablet it opens over the chat instead.
+  const [showPanel, setShowPanel] = useState(() => window.innerWidth >= 1100)
+  // On a phone you see the list of chats, or one chat. Opening a chat from another page goes straight to it.
+  const [chatOpen, setChatOpen] = useState(() => !!wantedChat || !!wanted)
+  useEffect(() => {
+    document.body.toggleAttribute('data-chat-open', chatOpen)
+    return () => document.body.removeAttribute('data-chat-open')
+  }, [chatOpen])
   const [toast, setToast] = useState<string | null>(null)
   const endRef = useRef<HTMLDivElement>(null)
 
@@ -465,9 +472,9 @@ export default function Inbox() {
   }
 
   return (
-    <div className="flex h-full min-h-[640px]">
+    <div className="flex h-full md:min-h-[640px]">
       {/* Chat list */}
-      <div className="flex w-[300px] shrink-0 flex-col border-r border-[#E9EDEF] bg-white">
+      <div className={`flex w-[300px] shrink-0 flex-col border-r border-[#E9EDEF] bg-white max-md:w-full ${chatOpen ? 'max-md:hidden' : ''}`}>
         <div className="shrink-0 px-4 pb-2 pt-6">
           <div className="relative flex items-center gap-2">
             <h1 className="text-[24px] font-bold tracking-tight">Inbox</h1>
@@ -576,7 +583,10 @@ export default function Inbox() {
                 key={c.id}
                 {...rowIn(listIndex)}
                 type="button"
-                onClick={() => setActiveId(c.id)}
+                onClick={() => {
+                  setActiveId(c.id)
+                  setChatOpen(true)
+                }}
                 className={`flex w-full items-center gap-3.5 px-4 py-3 text-left transition-colors ${c.id === active.id ? 'bg-[#F0F2F5]' : 'hover:bg-[#F7F8F8]'}`}
               >
                 {c.unassigned ? (
@@ -604,16 +614,19 @@ export default function Inbox() {
       </div>
 
       {/* Chat */}
-      <div className="flex min-w-0 flex-1 flex-col bg-[#EFEAE2] bg-[radial-gradient(rgba(17,27,33,0.045)_1.2px,transparent_1.2px)] [background-size:22px_22px]">
-        <div className="flex h-[60px] shrink-0 items-center gap-3.5 bg-[#F0F2F5] px-4">
+      <div className={`flex min-w-0 flex-1 flex-col bg-[#EFEAE2] bg-[radial-gradient(rgba(17,27,33,0.045)_1.2px,transparent_1.2px)] [background-size:22px_22px] ${chatOpen ? '' : 'max-md:hidden'}`}>
+        <div className="flex h-[60px] shrink-0 items-center gap-3 bg-[#F0F2F5] px-3 md:gap-3.5 md:px-4">
+          <button type="button" onClick={() => setChatOpen(false)} aria-label="Back to chats" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#54656F] active:bg-black/5 md:hidden">
+            <ArrowLeft size={22} />
+          </button>
           {active.unassigned ? (
             <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#FEE9C9] font-bold text-warn">?</span>
           ) : (
             <Avatar name={active.title} size={40} />
           )}
-          <div className="flex-1">
-            <div className="text-base font-semibold leading-tight">{active.title}</div>
-            <div className="text-[13px] text-[#54656F]">
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-base font-semibold leading-tight">{active.title}</div>
+            <div className="truncate text-[13px] text-[#54656F]">
               {active.phone}
               {client && ` · ${[...new Set(active.clientIds.map((id) => getClient(id)?.service))].join(' and ')}`}
             </div>
@@ -632,7 +645,7 @@ export default function Inbox() {
           )}
         </div>
 
-        <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-5 py-5">
+        <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-3 py-4 md:px-5 md:py-5">
           {active.msgs.map((m, i) => (
             <Fragment key={m.id}>
               {(i === 0 || active.msgs[i - 1].day !== m.day) && <div className="mx-auto my-2 rounded-lg bg-white px-3 py-1 text-xs font-semibold uppercase text-[#54656F] shadow-sm">{dayLabel(m.day)}</div>}
@@ -785,8 +798,9 @@ export default function Inbox() {
       <Toast message={toast} />
 
       {/* Info panel: the ✕ closes it, and the button in the chat header opens it again */}
+      {showPanel && <button type="button" aria-label="Close panel" onClick={() => setShowPanel(false)} className="fixed inset-0 z-40 bg-ink/40 lg:hidden" />}
       {showPanel && (
-      <div className="flex w-[320px] shrink-0 flex-col border-l border-[#E9EDEF] bg-white">
+      <div className="flex w-[320px] shrink-0 flex-col border-l border-[#E9EDEF] bg-white max-lg:fixed max-lg:inset-y-0 max-lg:right-0 max-lg:z-40 max-lg:w-[min(360px,100%)] max-lg:shadow-[-16px_0_48px_rgba(14,27,44,0.22)]">
         <div className="flex h-[60px] shrink-0 items-center gap-3 bg-[#F0F2F5] px-5 text-base font-semibold">
           <button type="button" onClick={() => setShowPanel(false)} aria-label="Close panel" title="Close panel" className="flex h-8 w-8 items-center justify-center rounded-full text-[#54656F] hover:bg-black/5">
             <X size={18} />

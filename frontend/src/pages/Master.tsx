@@ -1,7 +1,7 @@
 import { backdropProps, panelProps } from '../lib/motion'
 import { motion } from 'framer-motion'
 import Toast from '../components/Toast'
-import { Building2, ChevronDown, ChevronRight, Download, Folder, FolderInput, FolderPlus, FolderUp, LayoutGrid, List, MoreHorizontal, Pencil, Search, Trash2, Upload, X } from 'lucide-react'
+import { Building2, ChevronDown, Folders, ChevronRight, Download, Folder, FolderInput, FolderPlus, FolderUp, LayoutGrid, List, MoreHorizontal, Pencil, Search, Trash2, Upload, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import Avatar from '../components/Avatar'
@@ -121,6 +121,8 @@ export default function Master() {
   const [dlgError, setDlgError] = useState('')
   const [dest, setDest] = useState<string | null>(null)
   // A firm can have thousands of client folders, so lists start short and grow with "Show more".
+  // On a phone the folder tree is a panel that slides in from the left.
+  const [treeOpen, setTreeOpen] = useState(false)
   const [gridLimit, setGridLimit] = useState(PAGE)
   const [sideLimit, setSideLimit] = useState(SIDE_PAGE)
   const [clientQuery, setClientQuery] = useState('')
@@ -188,6 +190,7 @@ export default function Master() {
 
   const go = (id: string | null) => {
     setCurrent(id)
+    setTreeOpen(false)
     setGridLimit(PAGE)
     setClientQuery('')
     if (id) setExpanded((s) => new Set([...s, ...trail(id).map((n) => n.id)]))
@@ -434,8 +437,9 @@ export default function Master() {
   const clientForPreview = open ? getClient(clientOf(open.folderId) ?? '') : undefined
 
   return (
-    <div className="flex h-full min-h-[640px]">
-      <aside className="flex w-[290px] shrink-0 flex-col border-r border-line bg-white">
+    <div className="flex h-full md:min-h-[640px]">
+      {treeOpen && <button type="button" aria-label="Close folders" onClick={() => setTreeOpen(false)} className="fixed inset-0 z-30 bg-ink/40 md:hidden" />}
+      <aside className={`flex w-[290px] shrink-0 flex-col border-r border-line bg-white max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-40 max-md:w-[86%] max-md:shadow-2xl ${treeOpen ? '' : 'max-md:hidden'}`}>
         <div className="px-4 pb-3 pt-6">
           <h1 className="text-[24px] font-bold tracking-tight">Document Master</h1>
           <label className="mt-3 flex h-10 items-center gap-2.5 rounded-xl bg-canvas px-3.5 text-sm text-muted">
@@ -508,7 +512,11 @@ export default function Master() {
             </div>
           </div>
         )}
-        <div className="flex shrink-0 flex-col gap-3 border-b border-line px-8 pb-4 pt-6">
+        <div className="flex shrink-0 flex-col gap-3 border-b border-line px-4 pb-3 pt-3 md:px-8 md:pb-4 md:pt-6">
+          <button type="button" onClick={() => setTreeOpen(true)} className="flex h-10 w-fit items-center gap-2 rounded-xl border border-line bg-white px-3.5 text-sm font-semibold md:hidden">
+            <Folders size={16} />
+            All folders
+          </button>
           <nav className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] text-muted" aria-label="Breadcrumb">
             <button type="button" onClick={() => go(null)} {...dropProps(null)} className={`rounded px-1 ${isOver(null) ? dropRing : ''} ${here.length === 0 ? 'font-semibold text-ink' : 'hover:text-ink hover:underline'}`}>
               Document Master
@@ -533,34 +541,36 @@ export default function Master() {
                 {subFolders.length} {subFolders.length === 1 ? 'folder' : 'folders'} · {total} {total === 1 ? 'file' : 'files'} inside{node?.kind === 'client' && ' · Named after the client'}
               </p>
             </div>
-            <div className="flex shrink-0 items-center gap-2.5">
+            <div className="flex w-full shrink-0 items-center gap-2 md:w-auto md:gap-2.5">
               <button
                 type="button"
                 onClick={() => openNewFolder(current)}
-                className="flex h-11 shrink-0 items-center whitespace-nowrap gap-2 whitespace-nowrap rounded-xl border border-line bg-white px-4 text-sm font-semibold hover:bg-canvas"
+                className="flex h-11 shrink-0 items-center justify-center whitespace-nowrap gap-2 rounded-xl border border-line bg-white px-4 text-sm font-semibold hover:bg-canvas max-md:flex-1 max-md:px-2"
               >
                 <FolderPlus size={16} />
                 New folder
               </button>
               <input ref={fileInput} type="file" multiple className="hidden" onChange={(e) => onUpload(e.target.files)} />
-              <button type="button" onClick={() => pickFiles(current)} className="flex h-11 shrink-0 items-center whitespace-nowrap gap-2 whitespace-nowrap rounded-xl border border-line bg-white px-4 text-sm font-semibold hover:bg-canvas">
+              <button type="button" onClick={() => pickFiles(current)} className="flex h-11 shrink-0 items-center justify-center whitespace-nowrap gap-2 rounded-xl border border-line bg-white px-4 text-sm font-semibold hover:bg-canvas max-md:flex-1 max-md:px-2">
                 <Upload size={16} />
-                Upload file
+                <span className="max-md:hidden">Upload file</span>
+                <span className="md:hidden">Upload</span>
               </button>
               <button
                 type="button"
                 disabled={total === 0}
                 onClick={() => setToast(`Preparing a ZIP of ${total} files…`)}
-                className="flex h-11 shrink-0 items-center whitespace-nowrap gap-2 whitespace-nowrap rounded-xl bg-brand px-5 text-sm font-semibold text-white shadow-[0_6px_16px_rgba(11,122,107,0.25)] disabled:opacity-40 disabled:shadow-none"
+                className="flex h-11 shrink-0 items-center justify-center whitespace-nowrap gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white shadow-[0_6px_16px_rgba(11,122,107,0.25)] max-md:flex-1 max-md:px-2 disabled:opacity-40 disabled:shadow-none"
               >
                 <Download size={16} />
-                Download ZIP
+                <span className="max-md:hidden">Download ZIP</span>
+                <span className="md:hidden">ZIP</span>
               </button>
             </div>
           </div>
         </div>
 
-        <motion.div key={current ?? 'top'} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }} className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-8 py-5">
+        <motion.div key={current ?? 'top'} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }} className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4 md:gap-5 md:px-8 md:py-5">
         {(() => {
           // At the top, the firm's own folders stay in their own short block above the (possibly huge) list of clients.
           const atTop = current === null
@@ -568,7 +578,7 @@ export default function Master() {
           const q = clientQuery.trim().toLowerCase()
           const shownFolders = (atTop ? subFolders.filter((n) => n.kind === 'client') : subFolders).filter((n) => !q || n.name.toLowerCase().includes(q))
           const grid = (list: Node[]) => (
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 md:gap-4">
             {list.map((n) => (
               <div key={n.id} className="group relative" {...dropProps(n.id)} {...(movable(n) ? dragProps('folder', n.id) : {})}>
                 <button
@@ -641,7 +651,7 @@ export default function Master() {
               </div>
             </div>
             {view === 'grid' ? (
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
                 {filePaging.rows.map((f) => (
                   <div key={f.id} className="group relative" {...dragProps('file', f.id)}>
                     <button type="button" onClick={() => setOpen(f)} className="block w-full overflow-hidden rounded-2xl border border-line text-left hover:border-brand hover:shadow-sm">
@@ -668,9 +678,9 @@ export default function Master() {
                     <button type="button" onClick={() => setOpen(f)} className="flex flex-1 items-center gap-3.5 py-3 text-left">
                       <FileTypeIcon file={f.fileName} size={32} />
                       <span className="flex-1 text-sm font-semibold">{f.name}</span>
-                      <span className="w-24 text-[13px] text-muted">{f.size}</span>
-                      <span className="w-28 text-[13px] text-muted">{f.date}</span>
-                      <span className="w-28 truncate text-[13px] text-muted">{f.from}</span>
+                      <span className="w-24 text-[13px] text-muted max-md:hidden">{f.size}</span>
+                      <span className="w-28 text-[13px] text-muted max-md:hidden">{f.date}</span>
+                      <span className="w-28 truncate text-[13px] text-muted max-md:hidden">{f.from}</span>
                     </button>
                     <div className="w-9 opacity-0 transition focus-within:opacity-100 group-hover:opacity-100 has-[[aria-expanded=true]]:opacity-100 pointer-coarse:opacity-100">
                       <ItemMenu compact label={f.name} actions={fileActions(f)} />

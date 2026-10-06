@@ -258,7 +258,7 @@ function Notifications() {
       </button>
 
       {open && (
-        <div role="region" aria-label="Notifications" className="absolute right-0 top-12 z-20 w-[380px] overflow-hidden rounded-2xl border border-line bg-white shadow-[0_18px_44px_rgba(14,27,44,0.18)]">
+        <div role="region" aria-label="Notifications" className="absolute right-0 top-12 z-20 w-[380px] max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl border border-line bg-white shadow-[0_18px_44px_rgba(14,27,44,0.18)]">
           <div className="flex items-center justify-between border-b border-line px-4 py-3">
             <span className="text-[15px] font-bold tracking-tight">Notifications</span>
             {fresh.size > 0 && <span className="rounded-full bg-brand-soft px-2 py-0.5 text-xs font-bold text-brand-dark">{fresh.size} new</span>}
@@ -301,7 +301,7 @@ function Notifications() {
 // The bar across the top of every page.
 export default function GlobalHeader() {
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-line bg-white px-8">
+    <header className="app-header flex h-14 shrink-0 items-center justify-between gap-2 border-b border-line bg-white px-3 md:gap-4 md:px-8">
       <GlobalSearch />
       <div className="flex shrink-0 items-center gap-3">
         <Notifications />

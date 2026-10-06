@@ -50,9 +50,9 @@ function Stepper({ step }: { step: Step }) {
               >
                 {done ? <Check size={14} strokeWidth={3.2} /> : n}
               </span>
-              {label}
+              <span className={active ? '' : 'max-md:hidden'}>{label}</span>
             </span>
-            {n < 3 && <span className={`h-0.5 w-8 ${n < step ? 'bg-brand' : 'bg-slate-200'}`} />}
+            {n < 3 && <span className={`h-0.5 w-5 md:w-8 ${n < step ? 'bg-brand' : 'bg-slate-200'}`} />}
           </li>
         )
       })}
@@ -76,17 +76,17 @@ function Footer({
   disabled?: boolean
 }) {
   return (
-    <div className="sticky bottom-0 -mx-8 mt-auto flex items-center justify-between border-t border-line bg-white px-8 py-3.5">
-      <button type="button" onClick={onBack} className="h-12 rounded-xl border border-line bg-white px-6 text-sm font-semibold hover:bg-canvas">
+    <div className="sticky bottom-0 -mx-4 mt-auto flex items-center justify-between gap-3 border-t border-line bg-white px-4 py-3 md:-mx-8 md:px-8 md:py-3.5">
+      <button type="button" onClick={onBack} className="h-12 shrink-0 whitespace-nowrap rounded-xl border border-line bg-white px-5 text-sm font-semibold hover:bg-canvas md:px-6">
         {backLabel}
       </button>
-      <div className="flex items-center gap-4">
-        <span className="text-[13px] text-muted">{note}</span>
+      <div className="flex min-w-0 flex-1 items-center justify-end gap-4 md:flex-none">
+        <span className="text-[13px] text-muted max-md:hidden">{note}</span>
         <button
           type="button"
           onClick={onNext}
           disabled={disabled}
-          className="h-12 rounded-xl bg-brand px-7 text-[15px] font-semibold text-white shadow-[0_6px_16px_rgba(11,122,107,0.25)] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+          className="h-12 min-w-0 rounded-xl bg-brand px-5 text-[15px] font-semibold text-white shadow-[0_6px_16px_rgba(11,122,107,0.25)] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none max-md:flex-1 md:px-7"
         >
           {nextLabel}
         </button>
@@ -295,8 +295,8 @@ export default function NewRequest() {
         : { t: 'Check and send', s: 'This is what your clients will receive.' }
 
   return (
-    <div className="flex min-h-full flex-col gap-5 px-8">
-      <div className="sticky top-0 z-10 -mx-8 flex items-end justify-between border-b border-line bg-canvas px-8 pb-4 pt-6">
+    <div className="flex min-h-full flex-col gap-4 px-4 md:gap-5 md:px-8">
+      <div className="z-10 -mx-4 flex flex-col gap-3 border-b border-line bg-canvas px-4 pb-3 pt-4 md:sticky md:top-0 md:-mx-8 md:flex-row md:items-end md:justify-between md:px-8 md:pb-4 md:pt-6">
         <div>
           <div className="text-[13px] text-muted">
             <Link to="/requests" className="font-semibold text-brand">
@@ -312,16 +312,16 @@ export default function NewRequest() {
 
       {/* ---------- Step 1: clients ---------- */}
       {step === 1 && (
-        <div className="grid grid-cols-12 gap-5">
-          <div className="col-span-8 overflow-hidden rounded-[18px] border border-line bg-white">
-            <div className="flex items-center gap-3.5 border-b border-line p-4">
-              <label className="flex h-11 flex-1 items-center gap-2.5 rounded-xl bg-canvas px-3.5 text-sm text-muted">
+        <div className="grid grid-cols-1 gap-4 md:gap-5 lg:grid-cols-12">
+          <div className="overflow-hidden rounded-[18px] lg:col-span-8 border border-line bg-white">
+            <div className="flex flex-wrap items-center gap-3 border-b border-line p-3 md:gap-3.5 md:p-4">
+              <label className="flex h-11 flex-1 items-center gap-2.5 rounded-xl bg-canvas px-3.5 text-sm text-muted max-md:min-w-full">
                 <Search size={16} />
                 <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by name, number or PAN" className="w-full bg-transparent outline-none placeholder:text-muted" />
               </label>
-              <div className="flex rounded-xl bg-[#E9EEF5] p-1 text-[13px] font-semibold text-slate-600">
+              <div className="flex rounded-xl bg-[#E9EEF5] p-1 text-[13px] font-semibold text-slate-600 max-md:flex-1">
                 {(['All', 'GST', 'TDS', 'ITR'] as const).map((f) => (
-                  <button key={f} type="button" onClick={() => setService(f)} className={`rounded-[9px] px-3.5 py-2 ${service === f ? 'bg-white text-ink shadow-sm' : ''}`}>
+                  <button key={f} type="button" onClick={() => setService(f)} className={`rounded-[9px] px-3.5 py-2 max-md:flex-1 ${service === f ? 'bg-white text-ink shadow-sm' : ''}`}>
                     {f}
                   </button>
                 ))}
@@ -361,7 +361,7 @@ export default function NewRequest() {
             })}
           </div>
 
-          <div className="sticky top-32 col-span-4 flex flex-col gap-4 self-start">
+          <div className="flex flex-col gap-4 lg:sticky lg:top-32 lg:col-span-4 lg:self-start">
             <div className="rounded-[18px] border border-line bg-white p-5">
               <div className="flex items-baseline justify-between">
                 <h2 className="text-base font-bold tracking-tight">Selected</h2>
@@ -409,11 +409,11 @@ export default function NewRequest() {
 
       {/* ---------- Step 2: documents ---------- */}
       {step === 2 && (
-        <div className="grid grid-cols-12 gap-5">
-          <div className="col-span-8 flex flex-col gap-5">
+        <div className="grid grid-cols-1 gap-4 md:gap-5 lg:grid-cols-12">
+          <div className="flex min-w-0 flex-col gap-4 md:gap-5 lg:col-span-8">
           <section className="rounded-[18px] border border-line bg-white px-6 py-5">
             <h2 className="text-base font-bold tracking-tight">Start from a saved checklist</h2>
-            <div className="mt-3.5 grid grid-cols-3 gap-3">
+            <div className="mt-3.5 grid grid-cols-2 gap-3 md:grid-cols-3">
               {visibleChecklists.map((t) => (
                 <button
                   key={t.id}
@@ -435,17 +435,17 @@ export default function NewRequest() {
           </section>
 
           <section className="rounded-[18px] border border-line bg-white px-6 py-5">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-base font-bold tracking-tight">
                 Documents to ask for <span className="ml-1.5 font-medium text-muted">{docIds.length} selected</span>
               </h2>
-              <div className="flex gap-2">
+              <div className="flex gap-2 max-md:w-full">
                 <input
                   value={customText}
                   onChange={(e) => setCustomText(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && addCustom()}
                   placeholder="Add your own document"
-                  className="h-10 w-64 rounded-xl border border-line px-3.5 text-sm outline-none focus:border-brand"
+                  className="h-10 w-full rounded-xl border border-line px-3.5 text-sm outline-none focus:border-brand md:w-64"
                 />
                 <button type="button" onClick={addCustom} className="flex h-10 items-center gap-1.5 rounded-xl bg-canvas px-4 text-[13px] font-semibold hover:bg-slate-100">
                   <Plus size={14} strokeWidth={2.4} />
@@ -453,7 +453,7 @@ export default function NewRequest() {
                 </button>
               </div>
             </div>
-            <div className="mt-4 columns-2 gap-x-8">
+            <div className="mt-4 columns-1 gap-x-8 md:columns-2">
               {[...groups, ...(custom.length ? [{ title: 'Added by you', docs: custom }] : [])].map((g) => (
                 <div key={g.title} className="mb-5 break-inside-avoid">
                   <div className="mb-1.5 text-[11px] font-bold uppercase tracking-widest text-faint">{g.title}</div>
@@ -490,7 +490,7 @@ export default function NewRequest() {
           </section>
           </div>
 
-          <div className="sticky top-32 col-span-4 self-start">
+          <div className="lg:sticky lg:top-32 lg:col-span-4 lg:self-start">
             <div className="rounded-[18px] border border-line bg-white p-5">
               <div className="flex items-baseline justify-between">
                 <h2 className="text-base font-bold tracking-tight">Selected documents</h2>
@@ -551,11 +551,11 @@ export default function NewRequest() {
 
       {/* ---------- Step 3: review and send ---------- */}
       {step === 3 && (
-        <div className="grid grid-cols-12 gap-5">
-          <div className="col-span-7 flex flex-col gap-4">
+        <div className="grid grid-cols-1 gap-4 md:gap-5 lg:grid-cols-12">
+          <div className="flex min-w-0 flex-col gap-4 lg:col-span-7">
             <section className="rounded-[18px] border border-line bg-white px-6 py-5">
               <h2 className="text-base font-bold tracking-tight">Send from</h2>
-              <div className="mt-3 grid grid-cols-2 gap-3">
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {ownNumber ? (
                   <button type="button" onClick={() => setVia('own')} className={`rounded-2xl p-3.5 text-left ${via === 'own' ? 'border-2 border-brand bg-[#EEF8F5]' : 'border border-line'}`}>
                     <div className={`text-sm font-semibold ${via === 'own' ? 'text-brand-dark' : ''}`}>{whatsapp?.displayName ?? 'Your WhatsApp'}</div>
@@ -588,7 +588,7 @@ export default function NewRequest() {
             </section>
           </div>
 
-          <div className="col-span-5 flex flex-col gap-4">
+          <div className="flex flex-col gap-4 lg:col-span-5">
             <section className="rounded-[18px] border border-line bg-white px-6 py-5">
               <div className="flex items-baseline justify-between">
                 <h2 className="text-base font-bold tracking-tight">Message preview</h2>

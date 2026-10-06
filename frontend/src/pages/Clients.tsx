@@ -31,37 +31,37 @@ export default function Clients() {
     <Page
       header={
 <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-[24px] font-bold tracking-tight">Clients</h1>
           <p className="mt-0.5 text-sm text-muted">Last synced from KDK today, 08:30</p>
         </div>
         <div className="flex gap-3">
-          <button type="button" className="flex h-11 shrink-0 items-center whitespace-nowrap gap-2 rounded-xl border border-line bg-white px-4 text-sm font-semibold">
+          <button type="button" aria-label="Sync from KDK" className="flex h-11 shrink-0 items-center whitespace-nowrap gap-2 rounded-xl border border-line bg-white px-4 text-sm font-semibold max-md:w-11 max-md:justify-center max-md:px-0">
             <RefreshCw size={16} />
-            Sync from KDK
+            <span className="max-md:hidden">Sync from KDK</span>
           </button>
           <button type="button" className="flex h-11 shrink-0 items-center whitespace-nowrap gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white shadow-[0_6px_16px_rgba(11,122,107,0.25)]">
             <Plus size={16} strokeWidth={2.3} />
-            Add client
+            <span className="max-md:hidden">Add client</span><span className="md:hidden">Add</span>
           </button>
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
-        <div className="flex rounded-xl bg-[#E9EEF5] p-1 text-sm font-semibold text-slate-600">
+      <div className="flex flex-wrap items-center gap-3 md:gap-4">
+        <div className="flex rounded-xl bg-[#E9EEF5] p-1 max-md:w-full text-sm font-semibold text-slate-600">
           {(['All', 'GST', 'TDS', 'ITR'] as Filter[]).map((f) => (
             <button
               key={f}
               type="button"
               onClick={() => setFilter(f)}
-              className={`rounded-[9px] px-4 py-2 ${filter === f ? 'bg-white text-ink shadow-sm' : ''}`}
+              className={`rounded-[9px] px-4 py-2 max-md:flex-1 ${filter === f ? 'bg-white text-ink shadow-sm' : ''}`}
             >
               {f}
             </button>
           ))}
         </div>
-        <label className="flex h-11 w-80 items-center gap-2.5 rounded-xl border border-line bg-white px-4 text-sm text-muted">
+        <label className="flex h-11 w-80 items-center max-md:w-full gap-2.5 rounded-xl border border-line bg-white px-4 text-sm text-muted">
           <Search size={16} />
           <input
             value={query}
@@ -81,21 +81,28 @@ export default function Clients() {
             key={c.id}
             {...rowIn(index)}
             to={`/clients/${c.id}`}
-            className="flex items-center gap-4 border-b border-line px-6 py-3.5 transition-colors last:border-b-0 hover:bg-slate-50"
+            className="flex items-center gap-3 border-b border-line px-4 py-3.5 transition-colors last:border-b-0 hover:bg-slate-50 md:gap-4 md:px-6"
           >
             <Avatar name={c.name} size={44} />
             <div className="min-w-0 flex-1">
-              <div className="text-[15px] font-semibold">
+              <div className="truncate text-[15px] font-semibold">
                 {c.name} <span className={`ml-1 text-xs font-bold ${serviceColor[c.service]}`}>{c.service}</span>
               </div>
-              <div className="text-[13px] text-muted">
-                {c.phone} · {c.email}
+              <div className="truncate text-[13px] text-muted">
+                {c.phone} <span className="max-md:hidden">· {c.email}</span>
               </div>
+              {(c.note || c.openRequests > 0) && (
+                <div className="mt-0.5 text-xs font-semibold md:hidden">
+                  <span className={c.note === 'Overdue' ? 'text-danger' : c.sharedWith ? 'text-amber-700' : 'text-muted'}>{c.note}</span>
+                  {c.note && c.openRequests > 0 && <span className="text-faint"> · </span>}
+                  {c.openRequests > 0 && <span className="text-slate-700">{c.openRequests} open</span>}
+                </div>
+              )}
             </div>
-            <div className={`w-44 text-xs font-semibold ${c.note === 'Overdue' ? 'text-danger' : c.sharedWith ? 'text-amber-700' : 'text-muted'}`}>
+            <div className={`w-44 text-xs font-semibold max-md:hidden ${c.note === 'Overdue' ? 'text-danger' : c.sharedWith ? 'text-amber-700' : 'text-muted'}`}>
               {c.note ?? c.source}
             </div>
-            <div className="w-28 text-right text-[13px] font-semibold">
+            <div className="w-28 text-right text-[13px] font-semibold max-md:hidden">
               {c.openRequests > 0 ? `${c.openRequests} open request` : 'No open'}
             </div>
             <ChevronRight size={18} className="text-faint" />

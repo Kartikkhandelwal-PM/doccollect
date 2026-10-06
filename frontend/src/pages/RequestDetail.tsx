@@ -89,7 +89,8 @@ function LinkMenu({ previewTo, onCopy, onNew }: { previewTo: string; onCopy: () 
 
 type Filter = 'all' | 'review' | 'waiting' | 'done'
 
-const CLIENT_ROW = 'grid grid-cols-[minmax(0,1fr)_120px_150px_120px_20px] items-center gap-4 px-6'
+// On a phone each client is a small card; the table header goes away.
+const CLIENT_ROW = 'grid grid-cols-[minmax(0,1fr)_120px_150px_120px_20px] items-center gap-4 px-6 @max-3xl:flex @max-3xl:flex-wrap @max-3xl:gap-x-3 @max-3xl:gap-y-2.5 @max-3xl:px-4'
 
 export default function RequestDetail() {
   const { id } = useParams()
@@ -264,8 +265,8 @@ function RequestView({ request }: { request: DocRequest }) {
   }
 
   return (
-    <div className="flex min-h-full flex-col gap-5 px-8 py-6">
-      <div className="sticky top-0 z-10 -mx-8 -mt-6 flex flex-col gap-4 bg-canvas px-8 pb-3 pt-6">
+    <div className="flex min-h-full flex-col gap-4 px-4 py-4 md:gap-5 md:px-8 md:py-6">
+      <div className="z-10 -mx-4 -mt-4 flex flex-col gap-3 bg-canvas px-4 pb-3 pt-4 md:sticky md:top-0 md:-mx-8 md:-mt-6 md:gap-4 md:px-8 md:pt-6">
       <nav className="text-[13px] text-muted">
         <Link to="/requests" className="font-semibold text-brand">
           ← Requests
@@ -274,7 +275,7 @@ function RequestView({ request }: { request: DocRequest }) {
         <span className="text-ink">{request.ref}</span>
       </nav>
 
-      <div className="flex items-end justify-between">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-[24px] font-bold tracking-tight">{request.title}</h1>
           <p className="mt-0.5 text-sm text-muted">
@@ -291,7 +292,7 @@ function RequestView({ request }: { request: DocRequest }) {
             </button>
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 md:gap-3">
           <button
             type="button"
             onClick={() => setToast(simulateReply(request.id) ? 'Demo: a client just sent a document' : 'Nothing is pending')}
@@ -314,13 +315,13 @@ function RequestView({ request }: { request: DocRequest }) {
         </div>
       </div>
 
-      <section className="flex items-center gap-8 rounded-2xl border border-line bg-white px-6 py-4">
+      <section className="flex flex-wrap items-center gap-x-8 gap-y-3 rounded-2xl border border-line bg-white px-4 py-4 md:px-6">
         <div>
           <div className="text-[26px] font-bold leading-none">
             {p.received} <span className="text-[15px] font-medium text-muted">of {p.total} received</span>
           </div>
         </div>
-        <div className="h-2 flex-1 overflow-hidden rounded-full bg-line">
+        <div className="h-2 flex-1 overflow-hidden rounded-full bg-line max-md:order-3 max-md:basis-full">
           <div className="h-2 rounded-full bg-brand transition-all" style={{ width: `${pct}%` }} />
         </div>
         <div className="flex gap-5 text-[13px] text-slate-600">
@@ -337,9 +338,9 @@ function RequestView({ request }: { request: DocRequest }) {
       </section>
       </div>
 
-      <section className="overflow-hidden rounded-[18px] border border-line bg-white">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-6 py-3.5">
-          <div className="flex rounded-xl bg-[#E9EEF5] p-1 text-[13px] font-semibold text-slate-600" role="group" aria-label="Show clients">
+      <section className="@container overflow-hidden rounded-[18px] border border-line bg-white">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3 md:px-6 md:py-3.5">
+          <div className="flex max-w-full overflow-x-auto rounded-xl bg-[#E9EEF5] p-1 text-[13px] font-semibold text-slate-600" role="group" aria-label="Show clients">
             {(
               [
                 ['all', 'All', counts.all],
@@ -348,18 +349,18 @@ function RequestView({ request }: { request: DocRequest }) {
                 ['done', 'Complete', counts.done],
               ] as [Filter, string, number][]
             ).map(([key, label, n]) => (
-              <button key={key} type="button" onClick={() => setFilter(key)} aria-pressed={filter === key} className={`rounded-[9px] px-3.5 py-1.5 ${filter === key ? 'bg-white text-ink shadow-sm' : ''}`}>
+              <button key={key} type="button" onClick={() => setFilter(key)} aria-pressed={filter === key} className={`shrink-0 whitespace-nowrap rounded-[9px] px-3.5 py-1.5 ${filter === key ? 'bg-white text-ink shadow-sm' : ''}`}>
                 {label} <span className="ml-0.5 text-xs text-muted">{n}</span>
               </button>
             ))}
           </div>
-          <label className="flex h-10 w-72 items-center gap-2 rounded-xl border border-transparent bg-canvas px-3.5 text-sm text-muted focus-within:border-brand focus-within:bg-white">
+          <label className="flex h-10 w-72 items-center gap-2 rounded-xl border border-transparent bg-canvas @max-3xl:w-full px-3.5 text-sm text-muted focus-within:border-brand focus-within:bg-white">
             <Search size={15} />
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search client" aria-label="Search client" className="w-full bg-transparent text-ink outline-none placeholder:text-muted" />
           </label>
         </div>
 
-        <div className={`${CLIENT_ROW} border-b border-line bg-slate-50/80 py-2 text-[11px] font-bold uppercase tracking-wider text-faint`}>
+        <div className={`${CLIENT_ROW} @max-3xl:hidden border-b border-line bg-slate-50/80 py-2 text-[11px] font-bold uppercase tracking-wider text-faint`}>
           <span>Client</span>
           <span>Received</span>
           <span>Status</span>
@@ -381,8 +382,8 @@ function RequestView({ request }: { request: DocRequest }) {
           const firstReview = rc.docs.find((d) => d.status === 'to_review')
           return (
             <div key={rc.clientId} className="border-b border-line last:border-b-0">
-              <div onClick={() => toggle(rc.clientId)} className={`${CLIENT_ROW} h-[68px] cursor-pointer ${isOpen ? 'bg-slate-50' : 'hover:bg-slate-50'}`}>
-                <div className="flex min-w-0 items-center gap-3">
+              <div onClick={() => toggle(rc.clientId)} className={`${CLIENT_ROW} h-[68px] cursor-pointer @max-3xl:h-auto @max-3xl:py-3.5 ${isOpen ? 'bg-slate-50' : 'hover:bg-slate-50'}`}>
+                <div className="flex min-w-0 items-center gap-3 @max-3xl:order-1 @max-3xl:flex-[1_1_50%]">
                   <Avatar name={c.name} size={36} />
                   <div className="min-w-0">
                     <div className="truncate text-sm font-semibold">
@@ -394,7 +395,7 @@ function RequestView({ request }: { request: DocRequest }) {
                     </div>
                   </div>
                 </div>
-                <div>
+                <div className="@max-3xl:order-3 @max-3xl:basis-[42%]">
                   <div className="text-[13px] font-semibold tabular-nums">
                     {got} <span className="font-medium text-muted">of {total}</span>
                   </div>
@@ -402,12 +403,12 @@ function RequestView({ request }: { request: DocRequest }) {
                     <span className={`block h-full rounded-full ${late ? 'bg-danger' : 'bg-brand'}`} style={{ width: `${total ? (got / total) * 100 : 0}%` }} />
                   </span>
                 </div>
-                <div>
+                <div className="@max-3xl:order-4 @max-3xl:flex-1">
                   <span className={`inline-block rounded-md px-2 py-1 text-[11px] font-bold uppercase tracking-wide ${chip.cls}`}>{chip.text}</span>
                   {state === 'review' && toReview > 0 && waiting.length > 0 && missing > 0 && <div className="mt-1 text-xs font-semibold text-warn">+ {waiting.length} to place</div>}
                   {state === 'review' && missing > 0 && !(toReview > 0 && waiting.length > 0) && <div className="mt-1 text-xs text-muted">{missing} still missing</div>}
                 </div>
-                <div onClick={(e) => e.stopPropagation()} className="flex justify-end">
+                <div onClick={(e) => e.stopPropagation()} className="flex justify-end @max-3xl:order-2 @max-3xl:shrink-0">
                   {state === 'review' ? (
                     <button
                       type="button"
@@ -445,12 +446,12 @@ function RequestView({ request }: { request: DocRequest }) {
                     </button>
                   )}
                 </div>
-                <ChevronRight size={18} className={`justify-self-end text-faint transition ${isOpen ? 'rotate-90' : ''}`} />
+                <ChevronRight size={18} className={`justify-self-end text-faint transition @max-3xl:hidden ${isOpen ? 'rotate-90' : ''}`} />
               </div>
 
               {isOpen && (
                 <div className="border-t border-line bg-slate-50/50">
-                  <div className="flex items-center justify-between gap-3 px-6 py-2.5 pl-[72px] text-[13px] text-muted">
+                  <div className="flex items-center justify-between gap-3 px-6 py-2.5 pl-[72px] @max-3xl:px-4 text-[13px] text-muted">
                     <span>
                       {isExpired(request.due, graceDays) ? <span className="font-semibold text-danger">Link expired</span> : <>Link valid till {fmtDate(expiresOn(request.due, graceDays))}</>}
                       {' · '}
@@ -470,7 +471,7 @@ function RequestView({ request }: { request: DocRequest }) {
                   </div>
                   {waiting.length > 0 && missing > 0 && (
                     <>
-                      <div className="border-t border-line px-6 pb-1 pt-3 pl-[72px]">
+                      <div className="border-t border-line px-6 pb-1 pt-3 pl-[72px] @max-3xl:px-4">
                         <div className="text-[11px] font-bold uppercase tracking-wider text-faint">Files we could not match ({waiting.length})</div>
                         <p className="text-xs text-muted">Open a file to see it, then choose the document it is for. The rest wait for the next request.</p>
                       </div>
@@ -481,7 +482,7 @@ function RequestView({ request }: { request: DocRequest }) {
                           tabIndex={0}
                           onClick={() => setOpenFile({ fileId: f.id, clientId: rc.clientId })}
                           onKeyDown={(e) => e.key === 'Enter' && setOpenFile({ fileId: f.id, clientId: rc.clientId })}
-                          className="flex cursor-pointer items-center gap-4 border-t border-line px-6 py-3 pl-[72px] hover:bg-white"
+                          className="flex cursor-pointer items-center gap-4 border-t border-line px-6 py-3 pl-[72px] @max-3xl:gap-3 @max-3xl:px-4 hover:bg-white"
                         >
                           <FileTypeIcon file={f.fileName} size={34} />
                           <div className="min-w-0 flex-1">
@@ -505,7 +506,7 @@ function RequestView({ request }: { request: DocRequest }) {
                         tabIndex={gotIt ? 0 : undefined}
                         onClick={gotIt ? () => setOpenDoc({ clientId: rc.clientId, docId: d.id }) : undefined}
                         onKeyDown={gotIt ? (e) => e.key === 'Enter' && setOpenDoc({ clientId: rc.clientId, docId: d.id }) : undefined}
-                        className={`flex items-center gap-4 border-t border-line px-6 py-3 pl-[72px] ${gotIt ? 'cursor-pointer hover:bg-white' : ''} ${active ? 'bg-[#EEF8F5] shadow-[inset_3px_0_0_#0B7A6B]' : ''}`}
+                        className={`flex items-center gap-4 border-t border-line px-6 py-3 pl-[72px] @max-3xl:gap-3 @max-3xl:px-4 ${gotIt ? 'cursor-pointer hover:bg-white' : ''} ${active ? 'bg-[#EEF8F5] shadow-[inset_3px_0_0_#0B7A6B]' : ''}`}
                       >
                         {gotIt && d.fileName ? <FileTypeIcon file={d.fileName} size={34} /> : <span className="flex h-[34px] w-[27px] items-center justify-center rounded border-[1.5px] border-dashed border-slate-300" />}
                         <div className="min-w-0 flex-1">

@@ -81,7 +81,7 @@ export default function ClientRepository({ clientId }: { clientId: string }) {
   }
 
   return (
-    <section className="rounded-[18px] border border-line bg-white px-6 py-5">
+    <section className="rounded-[18px] border border-line bg-white px-4 py-4 md:px-6 md:py-5">
       <div className="flex items-center justify-between gap-4">
         <nav className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] text-muted" aria-label="Folder path">
           {trail.map((n, i) => (
@@ -99,7 +99,7 @@ export default function ClientRepository({ clientId }: { clientId: string }) {
       </div>
 
       {kids.length > 0 && (
-        <div className="mt-4 grid grid-cols-3 gap-3.5">
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 md:gap-3.5">
           {kids.map((n) => (
             <button key={n.id} type="button" onClick={() => setCurrent(n.id)} className="flex items-center gap-3.5 rounded-2xl border border-line p-3.5 text-left hover:border-brand hover:shadow-sm">
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand-dark">
@@ -115,7 +115,7 @@ export default function ClientRepository({ clientId }: { clientId: string }) {
       )}
 
       {direct.length > 0 && (
-        <div className="mt-4 grid grid-cols-4 gap-3.5">
+        <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-3.5">
           {direct.map((f) => (
             <button key={f.id} type="button" onClick={() => setOpen(f)} className="overflow-hidden rounded-2xl border border-line text-left hover:border-brand hover:shadow-sm">
               <div className="flex h-28 items-center justify-center bg-gradient-to-br from-[#E4F5EE] to-[#E8F1FD]">

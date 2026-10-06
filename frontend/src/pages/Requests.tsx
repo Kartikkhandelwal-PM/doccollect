@@ -23,8 +23,9 @@ const stateMeta: Record<RequestState, { label: string; className: string }> = {
 // Which kind of work a request is, from its name. Used for the Type filter.
 const kindOf = (r: DocRequest) => (r.title.startsWith('ITR') ? 'ITR' : r.title.startsWith('GST') ? 'GST' : r.title.startsWith('TDS') ? 'TDS' : 'Other')
 
-const GRID = 'grid grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_130px_110px_170px_150px] items-center gap-4 px-5'
-const selectCls = 'h-10 rounded-xl border border-line bg-white px-3 text-sm font-medium text-ink outline-none focus:border-brand'
+// On a phone every request is a small card instead of a table row.
+const GRID = 'grid grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_130px_110px_170px_150px] items-center gap-4 px-5 @max-4xl:flex @max-4xl:flex-wrap @max-4xl:gap-x-3 @max-4xl:gap-y-2.5 @max-4xl:px-4'
+const selectCls = 'h-10 rounded-xl border border-line bg-white px-3 text-sm font-medium text-ink outline-none focus:border-brand @max-4xl:min-w-0 @max-4xl:flex-1 @max-4xl:px-2 @max-4xl:text-[13px]'
 const SHOW_CLIENTS = 5
 
 // A request is late when its last date has passed and it is not complete.
@@ -107,13 +108,13 @@ export default function Requests() {
       </div>
       }
       tabs={
-      <div className="flex gap-7 border-b border-line text-sm font-semibold text-muted">
+      <div className="flex gap-7 overflow-x-auto border-b border-line text-sm font-semibold text-muted">
         {tabs.map((t) => (
           <button
             key={t.key}
             type="button"
             onClick={() => setTab(t.key)}
-            className={`flex h-11 items-center border-b-[3px] ${tab === t.key ? 'border-brand text-brand-dark' : 'border-transparent hover:text-ink'}`}
+            className={`flex h-11 shrink-0 items-center whitespace-nowrap border-b-[3px] ${tab === t.key ? 'border-brand text-brand-dark' : 'border-transparent hover:text-ink'}`}
           >
             {t.label}
           </button>
@@ -121,11 +122,11 @@ export default function Requests() {
       </div>
       }
     >
-      <div className="overflow-clip rounded-[18px] border border-line bg-white">
+      <div className="@container overflow-clip rounded-[18px] border border-line bg-white">
         {/* The filters and the column names stay in view while the list scrolls under them */}
         <div className="sticky -top-5 z-10 bg-white">
-        <div className="flex flex-wrap items-center gap-3 border-b border-line px-6 py-4">
-          <label className="flex h-10 min-w-[240px] flex-1 items-center gap-2 rounded-xl bg-canvas px-3.5 text-sm text-muted">
+        <div className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-3 md:px-6 md:py-4">
+          <label className="flex h-10 min-w-[240px] flex-1 items-center gap-2 rounded-xl bg-canvas px-3.5 text-sm text-muted @max-4xl:min-w-full">
             <Search size={15} />
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search client or request number" className="w-full bg-transparent text-ink outline-none placeholder:text-muted" />
           </label>
@@ -148,7 +149,7 @@ export default function Requests() {
           </select>
         </div>
 
-        <div className={`${GRID} border-b border-line bg-slate-50/80 py-2.5 text-[11px] font-bold uppercase tracking-wider text-faint`}>
+        <div className={`${GRID} @max-4xl:hidden border-b border-line bg-slate-50/80 py-2.5 text-[11px] font-bold uppercase tracking-wider text-faint`}>
           <span className="pl-[26px]">Request</span>
           <span>Clients</span>
           <span>Sent</span>
@@ -173,8 +174,8 @@ export default function Requests() {
           }).length
           return (
             <Fragment key={r.id}>
-              <motion.div {...rowIn(index)} onClick={() => navigate(`/requests/${r.id}`)} className={`${GRID} min-h-[68px] cursor-pointer border-b border-line py-3 transition-colors hover:bg-slate-50 ${isOpen ? 'bg-slate-50' : ''}`}>
-                <div className="flex min-w-0 items-center gap-2">
+              <motion.div {...rowIn(index)} onClick={() => navigate(`/requests/${r.id}`)} className={`${GRID} min-h-[68px] cursor-pointer border-b border-line py-3 transition-colors hover:bg-slate-50 @max-4xl:py-3.5 ${isOpen ? 'bg-slate-50' : ''}`}>
+                <div className="flex min-w-0 items-center gap-2 @max-4xl:order-1 @max-4xl:flex-[1_1_40%]">
                 {people.length <= 1 ? (
                   <span className="w-[18px] shrink-0" />
                 ) : (
@@ -198,7 +199,7 @@ export default function Requests() {
                     <div className="text-xs text-muted">{r.ref}</div>
                   </div>
                 </div>
-                <div className="flex min-w-0 items-center gap-2.5">
+                <div className="flex min-w-0 items-center gap-2.5 @max-4xl:order-3 @max-4xl:flex-[1_1_58%]">
                   {people.length === 1 ? (
                     <Avatar name={people[0].name} size={32} />
                   ) : (
@@ -221,12 +222,12 @@ export default function Requests() {
                     )}
                   </div>
                 </div>
-                <div>
+                <div className="@max-4xl:hidden">
                   <div className="text-sm font-semibold">{fmtDate(r.createdAt)}</div>
                   <div className="truncate text-xs text-muted">{r.via === 'own' ? 'Your WhatsApp' : SHARED_NUMBER_NAME}</div>
                 </div>
-                <DueCell r={r} />
-                <div>
+                <div className="@max-4xl:order-4 @max-4xl:shrink-0 @max-4xl:text-right"><DueCell r={r} /></div>
+                <div className="@max-4xl:order-5 @max-4xl:basis-full">
                   <div className="flex items-center gap-2.5">
                     <div className="h-1.5 flex-1 rounded-full bg-line">
                       <motion.div className="h-1.5 rounded-full bg-brand" initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: 0.15 }} />
@@ -236,7 +237,7 @@ export default function Requests() {
                     <b className="font-semibold text-slate-700">{p.received}</b> of {p.total} received
                   </div>
                 </div>
-                <div>
+                <div className="@max-4xl:order-2 @max-4xl:shrink-0">
                   <span className={`inline-block rounded-md px-2 py-1 text-[11px] font-semibold uppercase tracking-wide ${st.className}`}>{st.label}</span>
                 </div>
               </motion.div>
@@ -251,12 +252,12 @@ export default function Requests() {
                   transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
                   className="overflow-hidden"
                 >
-                <div className="border-b border-line bg-slate-50/70 py-2 pl-[48px] pr-5">
-                  <div className="grid grid-cols-[minmax(0,1.4fr)_150px_150px_170px] gap-4 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-faint">
+                <div className="border-b border-line bg-slate-50/70 py-2 pl-[48px] pr-5 @max-4xl:pl-4 @max-4xl:pr-3">
+                  <div className="grid grid-cols-[minmax(0,1.4fr)_150px_150px_170px] gap-4 px-3 @max-4xl:grid-cols-[minmax(0,1fr)_64px_auto] @max-4xl:gap-2 py-1.5 text-[11px] font-bold uppercase tracking-wider text-faint">
                     <span>Client</span>
                     <span>Documents</span>
                     <span>Status</span>
-                    <span>Last reminder</span>
+                    <span className="@max-4xl:hidden">Last reminder</span>
                   </div>
                   {r.clients.slice(0, SHOW_CLIENTS).map((rc) => {
                     const c = getClient(rc.clientId)
@@ -267,7 +268,7 @@ export default function Requests() {
                     const label = toReview > 0 ? `${toReview} to review` : missing > 0 ? 'Waiting' : 'Complete'
                     const tone = toReview > 0 ? 'bg-warn-soft text-warn' : missing > 0 ? 'bg-info-soft text-info' : 'bg-ok-soft text-ok'
                     return (
-                      <Link key={rc.clientId} to={`/requests/${r.id}?client=${rc.clientId}`} className="grid grid-cols-[minmax(0,1.4fr)_150px_150px_170px] items-center gap-4 rounded-lg px-3 py-2 text-sm hover:bg-white">
+                      <Link key={rc.clientId} to={`/requests/${r.id}?client=${rc.clientId}`} className="grid grid-cols-[minmax(0,1.4fr)_150px_150px_170px] items-center gap-4 rounded-lg px-3 py-2 text-sm hover:bg-white @max-4xl:grid-cols-[minmax(0,1fr)_64px_auto] @max-4xl:gap-2">
                         <span className="flex min-w-0 items-center gap-2.5">
                           {c && <Avatar name={c.name} size={28} />}
                           <span className="truncate font-semibold">{c?.name}</span>
@@ -278,7 +279,7 @@ export default function Requests() {
                         <span>
                           <span className={`inline-block rounded-md px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${tone}`}>{label}</span>
                         </span>
-                        <span className="text-[13px] text-muted">{rc.lastReminder ?? 'None yet'}</span>
+                        <span className="text-[13px] text-muted @max-4xl:hidden">{rc.lastReminder ?? 'None yet'}</span>
                       </Link>
                     )
                   })}

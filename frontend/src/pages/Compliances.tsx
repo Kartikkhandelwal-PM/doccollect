@@ -1,10 +1,12 @@
-import { Check, ListChecks, Plus, Search, Trash2 } from 'lucide-react'
+import { ArrowLeft, Check, ListChecks, Plus, Search, Trash2 } from 'lucide-react'
 import Page from '../components/Page'
 import { useState } from 'react'
 import { useSetup } from '../data/setup'
 
 export default function Compliances() {
   const { compliances, documents, groups, addCompliance, updateCompliance, removeCompliance } = useSetup()
+  // On a phone you see the list, or the one you opened.
+  const [detail, setDetail] = useState(false)
   const [selectedId, setSelectedId] = useState<string>(compliances[0]?.id ?? '')
   const [confirm, setConfirm] = useState(false)
   const [query, setQuery] = useState('')
@@ -21,7 +23,7 @@ export default function Compliances() {
   return (
     <Page
       header={
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-[24px] font-bold tracking-tight">Compliances</h1>
           <p className="mt-0.5 text-sm text-muted">Saved checklists. Pick one when you make a request and you will not have to choose documents again.</p>
@@ -31,6 +33,7 @@ export default function Compliances() {
           onClick={() => {
             setSelectedId(addCompliance())
             setConfirm(false)
+            setDetail(true)
           }}
           className="flex h-11 shrink-0 items-center whitespace-nowrap gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white shadow-[0_6px_16px_rgba(11,122,107,0.25)]"
         >
@@ -41,8 +44,8 @@ export default function Compliances() {
       }
       fixed
     >
-      <div className="grid h-full min-h-0 grid-cols-12 gap-5">
-        <div className="col-span-4 flex min-h-0 flex-col gap-2.5 overflow-y-auto pr-1">
+      <div className="grid h-full min-h-0 grid-cols-1 gap-5 md:grid-cols-12">
+        <div className={`flex min-h-0 flex-col gap-2.5 overflow-y-auto pr-1 md:col-span-4 ${detail ? 'max-md:hidden' : ''}`}>
           <label className="sticky top-0 z-10 flex h-11 shrink-0 items-center gap-2.5 rounded-xl border border-line bg-white px-4 text-sm text-muted">
             <Search size={16} />
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`Search ${compliances.length} compliances`} className="w-full bg-transparent outline-none placeholder:text-muted" />
@@ -54,6 +57,7 @@ export default function Compliances() {
               onClick={() => {
                 setSelectedId(c.id)
                 setConfirm(false)
+                setDetail(true)
               }}
               className={`flex items-center gap-3.5 rounded-2xl p-4 text-left ${selected?.id === c.id ? 'border-2 border-brand bg-[#EEF8F5]' : 'border border-line bg-white hover:bg-canvas'}`}
             >
@@ -71,8 +75,12 @@ export default function Compliances() {
         </div>
 
         {selected && (
-          <section className="col-span-8 min-h-0 overflow-y-auto rounded-[18px] border border-line bg-white p-6">
-            <div className="sticky -top-6 z-10 -mx-6 -mt-6 flex items-end gap-4 border-b border-line bg-white px-6 pb-4 pt-6">
+          <section className={`min-h-0 overflow-y-auto rounded-[18px] border border-line bg-white p-4 md:col-span-8 md:p-6 ${detail ? '' : 'max-md:hidden'}`}>
+            <div className="sticky -top-4 z-10 -mx-4 -mt-4 flex flex-wrap items-end gap-4 border-b border-line bg-white px-4 pb-4 pt-4 md:-top-6 md:-mx-6 md:-mt-6 md:flex-nowrap md:px-6 md:pt-6">
+              <button type="button" onClick={() => setDetail(false)} className="flex basis-full items-center gap-1.5 text-sm font-semibold text-brand md:hidden">
+                <ArrowLeft size={16} />
+                All compliances
+              </button>
               <label className="flex-1 text-[13px] font-semibold text-muted">
                 Name
                 <input
@@ -90,6 +98,7 @@ export default function Compliances() {
                       removeCompliance(selected.id)
                       setConfirm(false)
                       setSelectedId('')
+                      setDetail(false)
                     }}
                     className="rounded-lg bg-danger px-3 py-1.5 text-white"
                   >

@@ -1,4 +1,4 @@
-import { Check, FileText, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
+import { ArrowLeft, Check, FileText, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
 import Page from '../components/Page'
 import { useState } from 'react'
 import { useSetup } from '../data/setup'
@@ -9,6 +9,8 @@ export default function Documents() {
   const { documents, categories, compliances, addDocument, renameDocument, moveDocument, removeDocument, addCategory, renameCategory, removeCategory } = useSetup()
 
   const [selected, setSelected] = useState<string>(categories[0] ?? ALL)
+  // On a phone you see the categories, or the documents of one category.
+  const [showDocs, setShowDocs] = useState(false)
   const [query, setQuery] = useState('')
   const [name, setName] = useState('')
 
@@ -72,14 +74,14 @@ export default function Documents() {
   return (
     <Page
       header={
-      <div className="flex items-end justify-between gap-4">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between md:gap-4">
         <div>
           <h1 className="text-[24px] font-bold tracking-tight">Documents list</h1>
           <p className="mt-0.5 text-sm text-muted">
             Every document you ask for. {documents.length} documents in {categories.length} categories.
           </p>
         </div>
-        <label className="flex h-11 w-80 shrink-0 items-center gap-2.5 rounded-xl border border-line bg-white px-4 text-sm text-muted">
+        <label className="flex h-11 w-80 shrink-0 items-center gap-2.5 rounded-xl border border-line bg-white px-4 text-sm text-muted max-md:w-full">
           <Search size={16} />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search all documents" className="w-full bg-transparent outline-none placeholder:text-muted" />
           {searching && (
@@ -92,15 +94,16 @@ export default function Documents() {
       }
       fixed
     >
-      <div className="grid h-full min-h-0 grid-cols-12 gap-5">
+      <div className="grid h-full min-h-0 grid-cols-1 gap-5 md:grid-cols-12">
         {/* Categories */}
-        <aside className="col-span-3 min-h-0 overflow-y-auto rounded-[18px] border border-line bg-white p-3">
+        <aside className={`min-h-0 overflow-y-auto rounded-[18px] border border-line bg-white p-3 md:col-span-3 ${showDocs || searching ? 'max-md:hidden' : ''}`}>
           <div className="px-2 pb-2 pt-1 text-[11px] font-bold uppercase tracking-widest text-faint">Categories</div>
           <button
             type="button"
             onClick={() => {
               setSelected(ALL)
               setQuery('')
+              setShowDocs(true)
             }}
             className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm font-semibold ${current === ALL && !searching ? 'bg-brand-soft text-brand-dark' : 'hover:bg-canvas'}`}
           >
@@ -137,6 +140,7 @@ export default function Documents() {
                     onClick={() => {
                       setSelected(c)
                       setQuery('')
+                      setShowDocs(true)
                     }}
                     className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm font-semibold ${current === c && !searching ? 'bg-brand-soft text-brand-dark' : 'hover:bg-canvas'}`}
                   >
@@ -205,8 +209,12 @@ export default function Documents() {
         </aside>
 
         {/* Documents */}
-        <section className="col-span-9 flex min-h-0 flex-col overflow-hidden rounded-[18px] border border-line bg-white">
-          <div className="shrink-0 border-b border-line px-6 py-4">
+        <section className={`flex min-h-0 flex-col overflow-hidden rounded-[18px] border border-line bg-white md:col-span-9 ${showDocs || searching ? '' : 'max-md:hidden'}`}>
+          <div className="shrink-0 border-b border-line px-4 py-4 md:px-6">
+            <button type="button" onClick={() => { setShowDocs(false); setQuery('') }} className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-brand md:hidden">
+              <ArrowLeft size={16} />
+              All categories
+            </button>
             <h2 className="text-lg font-bold">
               {searching ? `Results for “${query.trim()}”` : current === ALL ? 'All documents' : current}
               <span className="ml-2 text-sm font-medium text-muted">{list.length}</span>

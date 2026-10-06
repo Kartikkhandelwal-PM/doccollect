@@ -101,7 +101,7 @@ export default function ClientDetail() {
   const sourceText = (d: RequestDoc) => (d.source === 'Link' ? 'via upload link' : 'via WhatsApp')
 
   return (
-    <div className="flex min-h-full flex-col gap-5 px-8 py-6">
+    <div className="flex min-h-full flex-col gap-4 px-4 py-4 md:gap-5 md:px-8 md:py-6">
       <nav className="flex items-center gap-2 text-[13px] text-muted">
         <Link to="/clients" className="font-semibold text-brand">
           ← Clients
@@ -110,7 +110,8 @@ export default function ClientDetail() {
         <span className="text-ink">{client.name}</span>
       </nav>
 
-      <section className="flex items-center gap-5 rounded-[20px] border border-[#D3E9E4] bg-gradient-to-r from-[#DDF3EC] via-[#E7F4F6] to-[#E6EEFC] px-7 py-6">
+      <section className="flex flex-col gap-4 rounded-[20px] border border-[#D3E9E4] bg-gradient-to-r from-[#DDF3EC] via-[#E7F4F6] to-[#E6EEFC] px-5 py-5 md:flex-row md:items-center md:gap-5 md:px-7 md:py-6">
+        <div className="flex items-center gap-4 md:contents">
         <Avatar name={client.name} size={76} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-3">
@@ -125,14 +126,15 @@ export default function ClientDetail() {
             {client.gstin && <span>GSTIN {client.gstin}</span>}
           </div>
         </div>
-        <div className="flex shrink-0 gap-2.5">
-          <Link to={`/inbox?client=${client.id}`} className="flex h-11 items-center gap-2 whitespace-nowrap rounded-xl border border-[#CFE3DE] bg-white px-4 text-sm font-semibold">
+        </div>
+        <div className="grid shrink-0 grid-cols-2 gap-2.5 md:flex">
+          <Link to={`/inbox?client=${client.id}`} className="flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-[#CFE3DE] bg-white px-4 text-sm font-semibold">
             <MessageCircle size={16} />
             Open chat
           </Link>
           <Link
             to={`/requests/new?client=${client.id}`}
-            className="flex h-11 items-center gap-2 whitespace-nowrap rounded-xl bg-brand px-5 text-sm font-semibold text-white shadow-[0_6px_16px_rgba(11,122,107,0.25)]"
+            className="flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-brand px-5 text-sm font-semibold text-white shadow-[0_6px_16px_rgba(11,122,107,0.25)]"
           >
             <Plus size={16} strokeWidth={2.3} />
             New request
@@ -140,7 +142,7 @@ export default function ClientDetail() {
         </div>
       </section>
 
-      <div className="sticky top-0 z-10 -mx-8 flex h-11 gap-7 border-b border-line bg-canvas px-8 text-sm font-semibold text-muted" role="tablist">
+      <div className="sticky top-0 z-10 -mx-4 flex h-11 shrink-0 gap-7 overflow-x-auto border-b border-line bg-canvas px-4 text-sm font-semibold text-muted md:-mx-8 md:px-8" role="tablist">
         {tabs.map((t) => {
           const n = t.key === 'requests' ? mine.length : t.key === 'documents' ? folderFiles.length : null
           return (
@@ -150,7 +152,7 @@ export default function ClientDetail() {
               role="tab"
               aria-selected={tab === t.key}
               onClick={() => setTab(t.key)}
-              className={`flex items-center border-b-[3px] ${tab === t.key ? 'border-brand text-brand-dark' : 'border-transparent hover:text-ink'}`}
+              className={`flex shrink-0 items-center whitespace-nowrap border-b-[3px] ${tab === t.key ? 'border-brand text-brand-dark' : 'border-transparent hover:text-ink'}`}
             >
               {t.label}
               {n !== null && <span className="ml-1.5 rounded-md bg-white px-1.5 py-px text-xs">{n}</span>}
@@ -161,9 +163,9 @@ export default function ClientDetail() {
 
       {/* ---------------- Overview ---------------- */}
       {tab === 'overview' && (
-        <div className="grid grid-cols-12 gap-5">
-          <div className="col-span-8 flex flex-col gap-5">
-            <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:gap-5 lg:grid-cols-12">
+          <div className="flex min-w-0 flex-col gap-4 md:gap-5 lg:col-span-8">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
               {[
                 ['Open requests', open.length, 'text-ink'],
                 ['To review', count('to_review'), 'text-warn'],
@@ -177,7 +179,7 @@ export default function ClientDetail() {
               ))}
             </div>
 
-            <section className="rounded-[18px] border border-line bg-white px-6 py-5">
+            <section className="rounded-[18px] border border-line bg-white px-4 py-4 md:px-6 md:py-5">
               <div className="flex items-baseline justify-between">
                 <h2 className="text-base font-bold tracking-tight">Open requests</h2>
                 <button type="button" onClick={() => setTab('requests')} className="text-[13px] font-semibold text-brand">
@@ -189,7 +191,7 @@ export default function ClientDetail() {
                 const p = progressOf(r)
                 const st = stateLabel[requestState(r)]
                 return (
-                  <Link key={r.id} to={`/requests/${r.id}`} className="flex items-center gap-4 border-b border-line py-3.5 last:border-b-0 hover:bg-slate-50">
+                  <Link key={r.id} to={`/requests/${r.id}`} className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line py-3.5 last:border-b-0 hover:bg-slate-50">
                     <div className="flex-1">
                       <div className="text-[15px] font-semibold">
                         {r.title} <span className="ml-1 text-xs font-medium text-muted">{r.ref}</span>
@@ -198,7 +200,7 @@ export default function ClientDetail() {
                         Sent {fmtDate(r.createdAt)} · due {fmtDate(r.due)}
                       </div>
                     </div>
-                    <div className="flex w-40 items-center gap-2.5">
+                    <div className="flex items-center gap-2.5 max-md:order-3 max-md:basis-full md:w-40">
                       <div className="h-1.5 flex-1 rounded-full bg-line">
                         <div className="h-1.5 rounded-full bg-brand" style={{ width: `${p.total ? (p.done / p.total) * 100 : 0}%` }} />
                       </div>
@@ -212,7 +214,7 @@ export default function ClientDetail() {
               })}
             </section>
 
-            <section className="rounded-[18px] border border-line bg-white px-6 py-5">
+            <section className="rounded-[18px] border border-line bg-white px-4 py-4 md:px-6 md:py-5">
               <div className="flex items-baseline justify-between">
                 <h2 className="text-base font-bold tracking-tight">Recent documents</h2>
                 <button type="button" onClick={() => setTab('documents')} className="text-[13px] font-semibold text-brand">
@@ -235,7 +237,7 @@ export default function ClientDetail() {
             </section>
           </div>
 
-          <div className="col-span-4 flex flex-col gap-5">
+          <div className="flex flex-col gap-4 md:gap-5 lg:col-span-4">
             <section className="rounded-[18px] border border-line bg-white px-5 py-4">
               <h2 className="pb-1 text-base font-bold tracking-tight">Details</h2>
               <Row k="Name" v={client.name} />
@@ -287,8 +289,8 @@ export default function ClientDetail() {
                 const p = progressOf(r)
                 const st = stateLabel[requestState(r)]
                 return (
-                  <Link key={r.id} to={`/requests/${r.id}`} className="flex items-center gap-5 border-b border-line px-6 py-4 last:border-b-0 hover:bg-slate-50">
-                    <div className="min-w-0 flex-1">
+                  <Link key={r.id} to={`/requests/${r.id}`} className="flex flex-wrap items-center gap-x-5 gap-y-2.5 border-b border-line px-4 py-4 last:border-b-0 hover:bg-slate-50 md:px-6">
+                    <div className="min-w-0 flex-1 max-md:basis-[55%]">
                       <div className="text-[15px] font-semibold">
                         {r.title} <span className="ml-1 text-xs font-medium text-muted">{r.ref}</span>
                       </div>
@@ -296,7 +298,7 @@ export default function ClientDetail() {
                         Sent {fmtDate(r.createdAt)} from {r.via === 'own' ? (whatsapp?.displayName ?? 'your WhatsApp') : `the ${SHARED_NUMBER_NAME} number`}
                       </div>
                     </div>
-                    <div className="flex w-44 items-center gap-2.5">
+                    <div className="flex items-center gap-2.5 max-md:order-4 max-md:basis-full md:w-44">
                       <div className="h-1.5 flex-1 rounded-full bg-line">
                         <div className="h-1.5 rounded-full bg-brand" style={{ width: `${p.total ? (p.done / p.total) * 100 : 0}%` }} />
                       </div>
@@ -304,8 +306,8 @@ export default function ClientDetail() {
                         {p.done} / {p.total}
                       </span>
                     </div>
-                    <span className={`w-36 rounded-md px-2 py-1 text-center text-[11px] font-semibold uppercase tracking-wide ${st.className}`}>{st.text}</span>
-                    <span className="w-20 text-right text-[13px] font-semibold text-slate-600">Due {fmtDate(r.due)}</span>
+                    <span className={`rounded-md px-2 py-1 text-center md:w-36 text-[11px] font-semibold uppercase tracking-wide ${st.className}`}>{st.text}</span>
+                    <span className="text-right text-[13px] font-semibold text-slate-600 md:w-20 max-md:hidden">Due {fmtDate(r.due)}</span>
                   </Link>
                 )
               })}
@@ -320,7 +322,7 @@ export default function ClientDetail() {
           <ClientRepository clientId={client.id} />
 
           {inProgress.length > 0 && (
-            <section className="rounded-[18px] border border-line bg-white px-6 py-5">
+            <section className="rounded-[18px] border border-line bg-white px-4 py-4 md:px-6 md:py-5">
               <h2 className="text-base font-bold tracking-tight">
                 In progress <span className="ml-1.5 text-sm font-medium text-muted">{inProgress.length}</span>
               </h2>
@@ -387,7 +389,7 @@ export default function ClientDetail() {
               ...(rc.lastReminder ? [{ text: 'Reminder sent on WhatsApp', when: rc.lastReminder, tone: 'bg-amber-500' }] : []),
             ]
             return (
-              <section key={r.id} className="rounded-[18px] border border-line bg-white px-6 py-5">
+              <section key={r.id} className="rounded-[18px] border border-line bg-white px-4 py-4 md:px-6 md:py-5">
                 <h2 className="text-base font-bold tracking-tight">
                   {r.title} <span className="ml-1 text-xs font-medium text-muted">{r.ref}</span>
                 </h2>

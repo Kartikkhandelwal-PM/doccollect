@@ -19,6 +19,7 @@ import { APP_NAME } from '../lib/brand'
 import { pageIn, spring } from '../lib/motion'
 import { resetDemo } from '../lib/session'
 import GlobalHeader from './GlobalHeader'
+import MobileNav from './MobileNav'
 import UserMenu from './UserMenu'
 
 interface NavItem {
@@ -89,12 +90,15 @@ function NavGroup({ items, dots = {}, collapsed }: { items: NavItem[]; dots?: Re
 }
 
 const KEY = 'sidebar-collapsed'
+// What the person chose, if anything. With no choice yet, a narrow window starts with the slim sidebar.
 const readSaved = () => {
   try {
-    return localStorage.getItem(KEY) === '1'
+    const v = localStorage.getItem(KEY)
+    if (v !== null) return v === '1'
   } catch {
-    return false
+    /* no saved choice */
   }
+  return window.innerWidth < 1100
 }
 
 export default function Layout() {
@@ -114,7 +118,7 @@ export default function Layout() {
 
   return (
     <div className="flex h-full">
-      <aside className={`flex shrink-0 flex-col gap-6 border-r border-line bg-white py-5 transition-[width] duration-200 ${collapsed ? 'w-[76px] px-3' : 'w-64 px-4'}`}>
+      <aside className={`hidden shrink-0 flex-col gap-6 border-r border-line bg-white py-5 transition-[width] duration-200 md:flex ${collapsed ? 'w-[76px] px-3' : 'w-64 px-4'}`}>
         <div className={collapsed ? 'flex flex-col items-center gap-3' : 'flex items-center gap-2.5 px-2.5'}>
           <button type="button" onClick={resetDemo} title="Reload and start the demo again from the sample data" className={`flex items-center gap-2.5 ${collapsed ? '' : 'min-w-0 flex-1'}`}>
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-brand text-white">
@@ -143,13 +147,14 @@ export default function Layout() {
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
         <GlobalHeader />
-        <main className="min-h-0 flex-1 overflow-y-auto">
+        <main className="mobile-main min-h-0 flex-1 overflow-y-auto max-md:pb-[calc(4rem+env(safe-area-inset-bottom))]">
           {/* each screen eases in when you open it */}
           <motion.div key={pathname} variants={pageIn} initial="hidden" animate="show" className="h-full">
             <Outlet />
           </motion.div>
         </main>
       </div>
+      <MobileNav />
     </div>
   )
 }

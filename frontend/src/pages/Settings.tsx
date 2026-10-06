@@ -64,12 +64,12 @@ function Usage() {
       <section>
         <h2 className="text-base font-bold tracking-tight">Messages</h2>
         <p className="mt-0.5 text-sm text-muted">Last 30 days</p>
-        <div className="mt-3 grid grid-cols-3 gap-4">
+        <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4">
           <Card n={sent.length} label="Messages sent" />
           <Card n={byNumber.own} label="From your WhatsApp" />
           <Card n={byNumber.kdk} label={`From the ${SHARED_NUMBER_NAME} number`} />
         </div>
-        <div className="mt-4 grid grid-cols-3 gap-4">
+        <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4">
           <Card n={messaged.size} label="Clients messaged" />
           <Card n={replied} label="Of them, sent files" />
           <Card n={messaged.size - replied} label="Not replied yet" />
@@ -78,12 +78,12 @@ function Usage() {
       <section>
         <h2 className="text-base font-bold tracking-tight">Files</h2>
         <p className="mt-0.5 text-sm text-muted">Across all your requests</p>
-        <div className="mt-3 grid grid-cols-3 gap-4">
+        <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4">
           <Card n={got.length} label="Files received" />
           <Card n={count('approved')} label="Approved" />
           <Card n={count('to_review')} label="Waiting for review" />
         </div>
-        <div className="mt-4 grid grid-cols-3 gap-4">
+        <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4">
           <Card n={count('rejected')} label="Sent back" />
           <Card n={unsorted.length} label="Not placed yet" />
         </div>
@@ -122,9 +122,9 @@ export default function Settings() {
       </div>
       }
       tabs={
-      <div className="flex gap-7 border-b border-line text-sm font-semibold text-muted">
+      <div className="flex gap-7 overflow-x-auto border-b border-line text-sm font-semibold text-muted">
         {tabs.map((t) => (
-          <button key={t.key} type="button" onClick={() => setTab(t.key)} className={`h-11 border-b-[3px] ${tab === t.key ? 'border-brand text-brand-dark' : 'border-transparent hover:text-ink'}`}>
+          <button key={t.key} type="button" onClick={() => setTab(t.key)} className={`h-11 shrink-0 whitespace-nowrap border-b-[3px] ${tab === t.key ? 'border-brand text-brand-dark' : 'border-transparent hover:text-ink'}`}>
             {t.label}
           </button>
         ))}
@@ -163,7 +163,7 @@ export default function Settings() {
               </div>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="col-span-2">
               <Field label="Firm name" value={draft.name} onChange={(v) => setDraft({ ...draft, name: v })} />
             </div>
@@ -219,7 +219,7 @@ export default function Settings() {
 
                 {whatsapp && (
                   <div className="border-t border-line bg-slate-50/70 px-4 py-4">
-                    <dl className="grid grid-cols-3 gap-x-6 text-sm">
+                    <dl className="grid grid-cols-1 gap-y-3 text-sm md:grid-cols-3 md:gap-x-6">
                       <div className="min-w-0">
                         <dt className="text-xs font-semibold uppercase tracking-wide text-faint">WhatsApp number</dt>
                         <dd className="mt-0.5 truncate font-medium">{whatsapp.number}</dd>
@@ -355,7 +355,7 @@ export default function Settings() {
               </button>
             </div>
           ))}
-          <div className="mt-4 flex items-end gap-3 rounded-2xl bg-canvas p-4">
+          <div className="mt-4 flex flex-col gap-3 rounded-2xl bg-canvas p-4 md:flex-row md:items-end">
             <label className="flex-1 text-[13px] font-semibold text-muted">
               Invite by email
               <input value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="name@firm.com" className="mt-1 block h-11 w-full rounded-xl border border-line bg-white px-3.5 text-[15px] font-medium text-ink outline-none focus:border-brand" />

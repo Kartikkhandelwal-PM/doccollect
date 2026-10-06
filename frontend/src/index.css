@@ -46,3 +46,16 @@ body {
   from { transform: translateX(32px); opacity: 0; }
   to { transform: translateX(0); opacity: 1; }
 }
+
+/* A chat open on a phone uses the whole screen: the top bar and the tab bar step aside. */
+@media (max-width: 767px) {
+  body[data-chat-open] .mobile-tabbar,
+  body[data-chat-open] .app-header { display: none; }
+  body[data-chat-open] .mobile-main { padding-bottom: 0; }
+}
+
+/* Dialogs on a phone: a little margin around them, and tall ones scroll instead of running off the screen. */
+@media (max-width: 767px) {
+  div[role="dialog"][class*="bg-ink/40"] { padding: 0.75rem; }
+  div[role="dialog"][class*="bg-ink/40"] > div { max-height: calc(100dvh - 1.5rem); overflow-y: auto; }
+}

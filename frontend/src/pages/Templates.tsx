@@ -1,4 +1,4 @@
-import { BadgeCheck } from 'lucide-react'
+import { ArrowLeft, BadgeCheck } from 'lucide-react'
 import { useState } from 'react'
 import Page from '../components/Page'
 import { useSetup } from '../data/setup'
@@ -11,6 +11,8 @@ export default function Templates() {
   const { messageTemplates, ownNumber } = useSetup()
   // Which number the messages are for: your own WhatsApp ("we") or the shared number (names the firm).
   const [voice, setVoice] = useState<'own' | 'kdk'>(ownNumber ? 'own' : 'kdk')
+  // On a phone you see the list of messages, or the one you opened.
+  const [detail, setDetail] = useState(false)
   const [selectedId, setSelectedId] = useState(messageTemplates[0].id)
   const selected = messageTemplates.find((m) => m.id === selectedId) ?? messageTemplates[0]
 
@@ -22,24 +24,24 @@ export default function Templates() {
     <Page
       fixed
       header={
-        <div className="flex items-center justify-between gap-6">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-6">
           <div className="min-w-0">
             <h1 className="text-[24px] font-bold tracking-tight">Message templates</h1>
             <p className="mt-0.5 text-sm text-muted">{messageTemplates.length} ready messages, already approved by WhatsApp.</p>
           </div>
-          <div className="flex shrink-0 rounded-xl bg-[#E9EEF5] p-1 text-[13px] font-semibold text-slate-600" role="group" aria-label="Which number the messages are sent from">
-            <button type="button" onClick={() => setVoice('own')} className={`rounded-[9px] px-4 py-1.5 ${voice === 'own' ? 'bg-white text-ink shadow-sm' : ''}`}>
+          <div className="flex shrink-0 rounded-xl bg-[#E9EEF5] p-1 text-[13px] font-semibold text-slate-600 max-md:w-full" role="group" aria-label="Which number the messages are sent from">
+            <button type="button" onClick={() => setVoice('own')} className={`rounded-[9px] px-4 py-1.5 max-md:flex-1 ${voice === 'own' ? 'bg-white text-ink shadow-sm' : ''}`}>
               From your WhatsApp
             </button>
-            <button type="button" onClick={() => setVoice('kdk')} className={`rounded-[9px] px-4 py-1.5 ${voice === 'kdk' ? 'bg-white text-ink shadow-sm' : ''}`}>
+            <button type="button" onClick={() => setVoice('kdk')} className={`rounded-[9px] px-4 py-1.5 max-md:flex-1 ${voice === 'kdk' ? 'bg-white text-ink shadow-sm' : ''}`}>
               From {SHARED_NUMBER_NAME} number
             </button>
           </div>
         </div>
       }
     >
-      <div className="grid h-full min-h-0 grid-cols-12 gap-5">
-        <div className="col-span-3 flex min-h-0 flex-col gap-2 overflow-y-auto pr-1">
+      <div className="grid h-full min-h-0 grid-cols-1 gap-5 md:grid-cols-12">
+        <div className={`flex min-h-0 flex-col gap-2 overflow-y-auto pr-1 md:col-span-3 ${detail ? 'max-md:hidden' : ''}`}>
           {[...new Set(messageTemplates.map((m) => m.group))].map((g) => (
             <div key={g} className="flex flex-col gap-1.5">
               <div className="px-1 pt-1 text-[11px] font-bold uppercase tracking-widest text-faint">{g}</div>
@@ -49,7 +51,10 @@ export default function Templates() {
                   <button
                     key={m.id}
                     type="button"
-                    onClick={() => setSelectedId(m.id)}
+                    onClick={() => {
+                      setSelectedId(m.id)
+                      setDetail(true)
+                    }}
                     className={`rounded-xl px-3.5 py-2.5 text-left ${selected.id === m.id ? 'border-2 border-brand bg-[#EEF8F5]' : 'border border-line bg-white hover:bg-canvas'}`}
                   >
                     <div className="flex items-start justify-between gap-2">
@@ -63,7 +68,11 @@ export default function Templates() {
           ))}
         </div>
 
-        <div className="col-span-9 grid min-h-0 grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] content-start gap-5 overflow-y-auto">
+        <div className={`grid min-h-0 grid-cols-1 content-start gap-5 overflow-y-auto md:col-span-9 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] ${detail ? '' : 'max-md:hidden'}`}>
+          <button type="button" onClick={() => setDetail(false)} className="flex items-center gap-1.5 text-sm font-semibold text-brand md:hidden">
+            <ArrowLeft size={16} />
+            All messages
+          </button>
           <section className="rounded-[18px] border border-line bg-white p-5">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold tracking-tight">{selected.name}</h2>

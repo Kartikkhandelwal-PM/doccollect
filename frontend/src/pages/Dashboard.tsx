@@ -25,7 +25,8 @@ const greeting = () => {
 }
 
 // One row height for every kind of item, so the table reads as a clean grid.
-const ROW = 'grid grid-cols-[18px_minmax(0,1fr)_112px_148px_92px] items-center gap-4 px-6'
+// On a phone each row becomes a small card: who and the button on top, then how far along and what is needed.
+const ROW = 'grid grid-cols-[18px_minmax(0,1fr)_112px_148px_92px] items-center gap-4 px-6 @max-2xl:flex @max-2xl:flex-wrap @max-2xl:gap-x-3 @max-2xl:gap-y-2.5 @max-2xl:px-4'
 
 // A month calendar. Every day is a box. Days with requests due show a coloured bar, and a click opens that day below.
 function MiniCalendar({ requests }: { requests: Request[] }) {
@@ -209,42 +210,42 @@ export default function Dashboard() {
   const dateText = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
   return (
-    <div className="flex min-h-full flex-col gap-5 px-8 py-6">
-      <motion.section initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }} className="flex items-center justify-between rounded-[22px] border border-[#D3E9E4] bg-gradient-to-r from-[#DDF3EC] via-[#E7F4F6] to-[#E6EEFC] px-8 py-7">
+    <div className="flex min-h-full flex-col gap-4 px-4 py-4 md:gap-5 md:px-8 md:py-6">
+      <motion.section initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }} className="flex flex-col gap-4 rounded-[22px] border border-[#D3E9E4] bg-gradient-to-r from-[#DDF3EC] via-[#E7F4F6] to-[#E6EEFC] px-5 py-5 md:flex-row md:items-center md:justify-between md:px-8 md:py-7">
         <div>
           <div className="text-[13px] font-semibold text-brand-dark">{dateText}</div>
-          <h1 className="mt-1 text-[28px] font-bold tracking-tight">{greeting()}, {firstName}</h1>
+          <h1 className="mt-1 text-[24px] font-bold tracking-tight md:text-[28px]">{greeting()}, {firstName}</h1>
           <p className="mt-1.5 text-[15px] text-slate-600">
             {counts.received} {counts.received === 1 ? 'client has' : 'clients have'} sent documents to review, and {stats.overdue} {stats.overdue === 1 ? 'is' : 'are'} overdue.
           </p>
         </div>
-        <div className="flex gap-3">
-          <Link to="/clients" className="flex h-12 shrink-0 items-center whitespace-nowrap gap-2 rounded-xl border border-[#CFE3DE] bg-white px-5 text-sm font-semibold">
+        <div className="grid grid-cols-2 gap-3 md:flex">
+          <Link to="/clients" className="flex h-12 shrink-0 items-center justify-center whitespace-nowrap gap-2 rounded-xl border border-[#CFE3DE] bg-white px-5 text-sm font-semibold">
             <UserPlus size={17} />
             Add client
           </Link>
-          <Link to="/requests/new" className="flex h-12 shrink-0 items-center whitespace-nowrap gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white shadow-[0_6px_16px_rgba(11,122,107,0.25)]">
+          <Link to="/requests/new" className="flex h-12 shrink-0 items-center justify-center whitespace-nowrap gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white shadow-[0_6px_16px_rgba(11,122,107,0.25)]">
             <Plus size={17} strokeWidth={2.3} />
             New request
           </Link>
         </div>
       </motion.section>
 
-      <div className="grid grid-cols-12 items-stretch gap-5">
-        <div className="col-span-8 flex min-w-0 scroll-mt-4 flex-col">
+      <div className="grid grid-cols-1 items-stretch gap-4 md:gap-5 lg:grid-cols-12">
+        <div className="flex min-w-0 lg:col-span-8 scroll-mt-4 flex-col">
 
-      <section className="flex min-h-[420px] flex-1 flex-col rounded-[18px] border border-line bg-white">
+      <section className="@container flex min-h-[420px] flex-1 flex-col rounded-[18px] border border-line bg-white">
         <div className="sticky top-0 z-10 rounded-t-[18px] bg-white">
-        <div className="flex h-14 shrink-0 items-center justify-between gap-4 px-6">
+        <div className="flex h-14 shrink-0 items-center justify-between gap-4 px-4 md:px-6">
           <h2 className="text-base font-bold tracking-tight">Work queue</h2>
         </div>
-        <div className="flex h-12 shrink-0 items-center gap-6 border-b border-line px-6 text-sm font-semibold text-muted">
+        <div className="flex h-12 shrink-0 items-center gap-6 overflow-x-auto border-b border-line px-4 text-sm font-semibold text-muted md:px-6">
           {tabs.map((t) => (
             <button
               key={t.key}
               type="button"
               onClick={() => setTab(t.key)}
-              className={`flex h-12 items-center border-b-[3px] ${tab === t.key ? 'border-brand text-brand-dark' : 'border-transparent hover:text-ink'}`}
+              className={`flex h-12 shrink-0 items-center whitespace-nowrap border-b-[3px] ${tab === t.key ? 'border-brand text-brand-dark' : 'border-transparent hover:text-ink'}`}
             >
               {t.label}
               <span className={`ml-1.5 rounded-md px-1.5 py-px text-xs ${t.danger ? 'bg-danger-soft text-danger' : 'bg-canvas'}`}>
@@ -255,7 +256,7 @@ export default function Dashboard() {
         </div>
 
         {picked.length > 0 && (
-          <div className="flex items-center gap-3 border-b border-[#BFDDD2] bg-brand-soft px-6 py-2.5" role="toolbar" aria-label="Bulk actions">
+          <div className="flex items-center gap-3 border-b border-[#BFDDD2] bg-brand-soft px-4 py-2.5 md:px-6 @max-2xl:hidden" role="toolbar" aria-label="Bulk actions">
             <span className="whitespace-nowrap text-sm font-semibold text-brand-dark">{picked.length} selected</span>
             <button
               type="button"
@@ -276,7 +277,7 @@ export default function Dashboard() {
             </button>
           </div>
         )}
-        <div className={`${ROW} border-b border-t border-line bg-slate-50/80 py-2 text-[11px] font-bold uppercase tracking-wider text-faint`}>
+        <div className={`${ROW} @max-2xl:hidden border-b border-t border-line bg-slate-50/80 py-2 text-[11px] font-bold uppercase tracking-wider text-faint`}>
           <button
             type="button"
             role="checkbox"
@@ -313,7 +314,7 @@ export default function Dashboard() {
                 key={i.id}
                 {...rowIn(index)}
                 onClick={() => navigate(i.href)}
-                className={`${ROW} group h-[68px] cursor-pointer border-b border-line transition-colors last:border-b-0 ${on ? 'bg-brand-soft/60' : 'hover:bg-slate-50'}`}
+                className={`${ROW} group h-[68px] cursor-pointer border-b border-line transition-colors last:border-b-0 @max-2xl:h-auto @max-2xl:py-3.5 ${on ? 'bg-brand-soft/60' : 'hover:bg-slate-50'}`}
               >
                 {/* the whole height of the row beside the box counts as the checkbox, so nobody opens a request by mistake */}
                 <button
@@ -325,12 +326,12 @@ export default function Dashboard() {
                     e.stopPropagation()
                     toggleOne(i.id)
                   }}
-                  className="-mx-3 -my-[25px] flex items-center justify-center px-3 py-[25px]"
+                  className="-mx-3 -my-[25px] flex items-center justify-center px-3 py-[25px] @max-2xl:hidden"
                 >
                   <span className={`flex h-[18px] w-[18px] items-center justify-center rounded-[5px] ${on ? 'bg-brand text-white' : 'border-[1.5px] border-slate-300 bg-white group-hover:border-slate-400'}`}>{on && <Check size={12} strokeWidth={3.4} />}</span>
                 </button>
 
-                <div className="flex min-w-0 items-center gap-3">
+                <div className="flex min-w-0 items-center gap-3 @max-2xl:order-1 @max-2xl:flex-[1_1_60%]">
                   {i.kind === 'unassigned' ? (
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-canvas text-muted">
                       <MessageCircle size={17} />
@@ -347,7 +348,7 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div>
+                <div className="@max-2xl:order-3 @max-2xl:basis-[44%]">
                   {i.total > 0 ? (
                     <>
                       <div className="text-[13px] font-semibold tabular-nums">
@@ -362,12 +363,12 @@ export default function Dashboard() {
                   )}
                 </div>
 
-                <div className="min-w-0">
+                <div className="min-w-0 @max-2xl:order-4 @max-2xl:flex-1 @max-2xl:basis-[45%]">
                   <span className={`inline-block rounded-md px-2 py-1 text-[11px] font-bold uppercase tracking-wide ${chip.cls}`}>{chip.text}</span>
                   <div className={`mt-1 truncate text-xs ${i.activityTone === 'danger' ? 'font-semibold text-danger' : 'text-muted'}`}>{i.activity}</div>
                 </div>
 
-                <div onClick={(e) => e.stopPropagation()} className="flex justify-end">
+                <div onClick={(e) => e.stopPropagation()} className="flex justify-end @max-2xl:order-2 @max-2xl:shrink-0">
                   {i.kind === 'no_response' ? (
                     <button
                       type="button"
@@ -400,7 +401,7 @@ export default function Dashboard() {
       </section>
         </div>
 
-        <aside className="col-span-4 flex flex-col gap-5">
+        <aside className="flex flex-col gap-4 md:gap-5 lg:col-span-4">
           <MiniCalendar requests={requests} />
           <section className="flex-1 rounded-[18px] border border-line bg-white px-5 pb-3 pt-4">
             <div className="flex items-baseline justify-between">
