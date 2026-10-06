@@ -163,6 +163,11 @@ export default function Requests() {
           const pct = p.total ? Math.round((p.received / p.total) * 100) : 0
           const people = r.clients.map((c) => getClient(c.clientId)).filter((c) => c !== undefined)
           const isOpen = open.has(r.id)
+          // A request with something to review can still have clients who owe documents. Say so, it should not hide.
+          const owing = r.clients.filter((rc) => {
+            const counted = rc.docs.filter((d) => d.status !== 'na')
+            return !counted.some((d) => d.status === 'to_review') && counted.some((d) => d.status === 'pending' || d.status === 'rejected')
+          }).length
           return (
             <Fragment key={r.id}>
               <div onClick={() => navigate(`/requests/${r.id}`)} className={`${GRID} min-h-[68px] cursor-pointer border-b border-line py-3 hover:bg-slate-50 ${isOpen ? 'bg-slate-50' : ''}`}>
@@ -229,6 +234,11 @@ export default function Requests() {
                   <span className={`inline-block rounded-md px-2 py-1 text-[11px] font-semibold uppercase tracking-wide ${st.className}`}>
                     {requestState(r) === 'review' ? `${p.toReview} to review` : st.label}
                   </span>
+                  {requestState(r) === 'review' && owing > 0 && (
+                    <div className={`mt-1 text-xs font-semibold ${isLate(r) ? 'text-danger' : 'text-muted'}`}>
+                      {owing} {owing === 1 ? 'client' : 'clients'} {isLate(r) ? 'late' : 'still waiting'}
+                    </div>
+                  )}
                 </div>
               </div>
 
