@@ -1,8 +1,9 @@
-import { Check, Plus, Search } from 'lucide-react'
+import { Check, ChevronDown, FileCheck2, Plus, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
 import DueDatePicker from '../components/DueDatePicker'
+import OnFileDialog from '../components/OnFileDialog'
 import WaText from '../components/WaText'
 import { clients, getClient } from '../data/mock'
 import { buildMaster, isPermanent } from '../data/master'
@@ -132,6 +133,20 @@ export default function NewRequest() {
   const onFile = (clientId: string, d: { id: string; name: string }) =>
     isPermanent(d.name) && !askAgain.includes(d.id) ? master.find((f) => f.name === d.name && f.folderId?.startsWith(`c:${clientId}/`)) : undefined
   const haveCount = (d: { id: string; name: string }) => chosenClients.filter((c) => onFile(c.id, d)).length
+  const [viewOnFile, setViewOnFile] = useState<{ id: string; name: string } | null>(null)
+  const [allChecklists, setAllChecklists] = useState(false)
+  // The chip that opens the copy we hold. Same look in the list and in the "Selected documents" box.
+  const onFileChip = (d: { id: string; name: string }) => {
+    const n = haveCount(d)
+    if (n === 0) return null
+    return (
+      <button type="button" onClick={() => setViewOnFile(d)} title="See the copy we have" className="flex shrink-0 items-center gap-1.5 rounded-full bg-[#DDF3EC] px-2.5 py-1 text-xs font-semibold text-brand-dark hover:bg-[#cdeee4]">
+        <FileCheck2 size={13} />
+        {chosenClients.length === 1 ? 'On file' : `On file for ${n} of ${chosenClients.length}`}
+        <span className="font-medium text-brand-dark/70">· View</span>
+      </button>
+    )
+  }
 
   // Every client gets their own message and their own link, even when two of them use the same number.
   const sharedCount = chosenClients.filter((c) => chosenClients.some((o) => o.id !== c.id && o.phone === c.phone)).length
@@ -162,6 +177,12 @@ export default function NewRequest() {
     setCustomText('')
     setTemplateId('custom')
   }
+
+  // The checklists start as a short, complete set, with a clear way to see the rest.
+  const customList = templates.find((t) => t.id === 'custom')
+  const shortList = [...templates.filter((t) => t.id !== 'custom').slice(0, 5), ...(customList ? [customList] : [])]
+  const chosenChecklist = templates.find((t) => t.id === templateId)
+  const visibleChecklists = allChecklists ? templates : chosenChecklist && !shortList.includes(chosenChecklist) ? [...shortList.slice(0, 5), chosenChecklist, ...(customList ? [customList] : [])] : shortList
 
   const first = chosenClients[0]
   const title = templates.find((t) => t.id === templateId)?.name ?? 'Custom'
@@ -390,8 +411,8 @@ export default function NewRequest() {
           <div className="col-span-8 flex flex-col gap-5">
           <section className="rounded-[18px] border border-line bg-white px-6 py-5">
             <h2 className="text-base font-bold tracking-tight">Start from a saved checklist</h2>
-            <div className="mt-3.5 grid max-h-[236px] grid-cols-3 gap-3 overflow-y-auto pr-1">
-              {templates.map((t) => (
+            <div className="mt-3.5 grid grid-cols-3 gap-3">
+              {visibleChecklists.map((t) => (
                 <button
                   key={t.id}
                   type="button"
@@ -403,6 +424,12 @@ export default function NewRequest() {
                 </button>
               ))}
             </div>
+            {templates.length > visibleChecklists.length || allChecklists ? (
+              <button type="button" onClick={() => setAllChecklists((v) => !v)} className="mt-3 flex items-center gap-1.5 text-[13px] font-semibold text-brand-dark hover:underline">
+                {allChecklists ? 'Show fewer checklists' : `Show all ${templates.length} checklists`}
+                <ChevronDown size={14} className={allChecklists ? 'rotate-180' : ''} />
+              </button>
+            ) : null}
           </section>
 
           <section className="rounded-[18px] border border-line bg-white px-6 py-5">
@@ -432,9 +459,8 @@ export default function NewRequest() {
                     {g.docs.map((d) => {
                       const on = docIds.includes(d.id)
                       const have = on ? haveCount(d) : 0
-                      const total = chosenClients.length
-                      return (
-                        <div key={d.id} className={`flex items-center gap-2 rounded-xl pr-3 ${on ? 'bg-[#EEF8F5]' : 'border border-line hover:bg-canvas'}`}>
+                                            return (
+                        <div key={d.id} className={`flex flex-wrap items-center rounded-xl pr-3 ${on ? 'bg-[#EEF8F5]' : 'border border-line hover:bg-canvas'}`}>
                           <button type="button" role="checkbox" aria-checked={on} onClick={() => toggleDoc(d.id)} className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-left text-sm font-medium">
                             <Box on={on} />
                             <span className="truncate">{d.name}</span>
@@ -445,12 +471,12 @@ export default function NewRequest() {
                             </button>
                           )}
                           {have > 0 && (
-                            <span className="flex shrink-0 items-center gap-2 text-xs">
-                              <span className="font-semibold text-brand-dark">{total === 1 ? 'On file' : `On file for ${have} of ${total}`}</span>
+                            <div className="flex basis-full items-center gap-3 pb-2.5 pl-[44px] text-xs">
+                              {onFileChip(d)}
                               <button type="button" onClick={() => setAskAgain((a) => [...a, d.id])} className="font-semibold text-muted hover:text-ink hover:underline">
                                 Ask again
                               </button>
-                            </span>
+                            </div>
                           )}
                         </div>
                       )
@@ -491,9 +517,7 @@ export default function NewRequest() {
                       <span className="w-5 shrink-0 text-xs text-muted">{i + 1}.</span>
                       <span className="min-w-0 flex-1">
                         {d.name}
-                        {haveCount(d) > 0 && (
-                          <span className="block text-xs font-semibold text-brand-dark">{chosenClients.length === 1 ? 'On file, not asked again' : `On file for ${haveCount(d)} of ${chosenClients.length}, not asked again`}</span>
-                        )}
+                        {haveCount(d) > 0 && <span className="mt-0.5 block">{onFileChip(d)}</span>}
                         {isPermanent(d.name) && askAgain.includes(d.id) && <span className="block text-xs font-medium text-muted">Asking everyone</span>}
                       </span>
                       <button type="button" onClick={() => toggleDoc(d.id)} className="text-muted hover:text-danger" aria-label={`Remove ${d.name}`}>
@@ -506,6 +530,21 @@ export default function NewRequest() {
             </div>
           </div>
         </div>
+      )}
+
+      {viewOnFile && (
+        <OnFileDialog
+          docName={viewOnFile.name}
+          entries={chosenClients.flatMap((c) => {
+            const f = onFile(c.id, viewOnFile)
+            return f ? [{ clientId: c.id, clientName: c.name, pan: c.pan, fileName: f.fileName, date: f.date }] : []
+          })}
+          onAskAgain={() => {
+            setAskAgain((a) => [...a, viewOnFile.id])
+            setViewOnFile(null)
+          }}
+          onClose={() => setViewOnFile(null)}
+        />
       )}
 
       {/* ---------- Step 3: review and send ---------- */}
