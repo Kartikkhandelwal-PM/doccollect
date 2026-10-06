@@ -251,7 +251,7 @@ export default function Dashboard() {
 
         {picked.length > 0 && (
           <div className="flex items-center gap-3 border-b border-[#BFDDD2] bg-brand-soft px-6 py-2.5" role="toolbar" aria-label="Bulk actions">
-            <span className="text-sm font-semibold text-brand-dark">{picked.length} selected</span>
+            <span className="whitespace-nowrap text-sm font-semibold text-brand-dark">{picked.length} selected</span>
             <button
               type="button"
               onClick={() => setAsking(true)}
@@ -262,14 +262,10 @@ export default function Dashboard() {
               <Bell size={14} />
               Remind{toRemind.length ? ` (${toRemind.length})` : ''}
             </button>
-            {picked.length > toRemind.length && (
-              <span className="text-[13px] text-brand-dark">
-                {toRemind.length === 0
-                  ? 'Reminders are for clients who still owe documents. These have sent documents that wait for your review.'
-                  : `${picked.length - toRemind.length} ${picked.length - toRemind.length === 1 ? 'client is' : 'clients are'} skipped: their documents wait for your review.`}
-              </span>
-            )}
-            <button type="button" onClick={() => setSelected(new Set())} className="ml-auto flex h-9 items-center gap-1 rounded-lg px-3 text-[13px] font-semibold text-slate-600 hover:bg-white">
+            <span className="min-w-0 flex-1 truncate text-[13px] text-brand-dark">
+              {picked.length > toRemind.length && (toRemind.length === 0 ? 'Nothing to remind: these wait for your review' : `${picked.length - toRemind.length} skipped, waiting for your review`)}
+            </span>
+            <button type="button" onClick={() => setSelected(new Set())} className="flex h-9 shrink-0 items-center gap-1 rounded-lg px-3 text-[13px] font-semibold text-slate-600 hover:bg-white">
               <X size={14} />
               Clear
             </button>
