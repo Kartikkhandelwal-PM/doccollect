@@ -489,7 +489,13 @@ export default function NewRequest() {
                   {chosenDocs.map((d, i) => (
                     <li key={d.id} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-canvas">
                       <span className="w-5 shrink-0 text-xs text-muted">{i + 1}.</span>
-                      <span className="flex-1">{d.name}</span>
+                      <span className="min-w-0 flex-1">
+                        {d.name}
+                        {haveCount(d) > 0 && (
+                          <span className="block text-xs font-semibold text-brand-dark">{chosenClients.length === 1 ? 'On file, not asked again' : `On file for ${haveCount(d)} of ${chosenClients.length}, not asked again`}</span>
+                        )}
+                        {isPermanent(d.name) && askAgain.includes(d.id) && <span className="block text-xs font-medium text-muted">Asking everyone</span>}
+                      </span>
                       <button type="button" onClick={() => toggleDoc(d.id)} className="text-muted hover:text-danger" aria-label={`Remove ${d.name}`}>
                         ✕
                       </button>
