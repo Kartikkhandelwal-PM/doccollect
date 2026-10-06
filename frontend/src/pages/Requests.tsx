@@ -18,14 +18,8 @@ const stateMeta: Record<RequestState, { label: string; className: string }> = {
   completed: { label: 'Completed', className: 'bg-ok-soft text-ok' },
 }
 
-// Which kind of work a request is, from its name. It is shown as a small coloured badge in place of faces.
+// Which kind of work a request is, from its name. Used for the Type filter.
 const kindOf = (r: DocRequest) => (r.title.startsWith('ITR') ? 'ITR' : r.title.startsWith('GST') ? 'GST' : r.title.startsWith('TDS') ? 'TDS' : 'Other')
-const kindStyle: Record<string, string> = {
-  ITR: 'bg-[#EFE9FD] text-violet-700',
-  GST: 'bg-info-soft text-info',
-  TDS: 'bg-[#FDF1DC] text-amber-700',
-  Other: 'bg-canvas text-slate-600',
-}
 
 const GRID = 'grid grid-cols-[28px_minmax(0,1fr)_minmax(0,1.5fr)_130px_110px_170px_150px] items-center gap-4 px-6'
 const selectCls = 'h-10 rounded-xl border border-line bg-white px-3 text-sm font-medium text-ink outline-none focus:border-brand'
@@ -167,7 +161,6 @@ export default function Requests() {
           const pct = p.total ? Math.round((p.received / p.total) * 100) : 0
           const people = r.clients.map((c) => getClient(c.clientId)).filter((c) => c !== undefined)
           const isOpen = open.has(r.id)
-          const k = kindOf(r)
           return (
             <Fragment key={r.id}>
               <div onClick={() => navigate(`/requests/${r.id}`)} className={`${GRID} min-h-[68px] cursor-pointer border-b border-line py-3 hover:bg-slate-50 ${isOpen ? 'bg-slate-50' : ''}`}>
@@ -184,7 +177,6 @@ export default function Requests() {
                   <ChevronRight size={18} className={`transition ${isOpen ? 'rotate-90' : ''}`} />
                 </button>
                 <div className="flex min-w-0 items-center gap-3">
-                  <span className={`shrink-0 rounded-md px-2 py-1 text-[11px] font-bold ${kindStyle[k]}`}>{k}</span>
                   <div className="min-w-0">
                     <div className="truncate text-[15px] font-semibold">{r.title}</div>
                     <div className="text-xs text-muted">{r.ref}</div>
