@@ -180,6 +180,24 @@ export const moreRequests: DocRequest[] = [
     clients: [rc('ram-sharma', ITR, 'AAPPPPP', 1), rc('reeta-sharma', ITR, 'PPRPPPP', 2), rc('seeta-sharma', ITR, 'PPPPPPP')],
   },
   {
+    id: 'r17',
+    ref: 'R-1046',
+    title: 'GST monthly',
+    createdAt: demoDay('2026-10-01'),
+    due: demoDay('2026-10-09'),
+    via: 'own',
+    clients: [rc('agarwal-traders', GST, 'AAPP', 1), rc('agarwal-exports', GST, 'PRPP', 2)],
+  },
+  {
+    id: 'r18',
+    ref: 'R-1047',
+    title: 'TDS quarterly',
+    createdAt: demoDay('2026-10-01'),
+    due: demoDay('2026-10-12'),
+    via: 'own',
+    clients: [rc('agarwal-realty', TDS, 'APPP', 3)],
+  },
+  {
     id: 'r13',
     ref: 'R-1034',
     title: 'GST monthly',
@@ -215,6 +233,8 @@ export const rameshGst: DocRequest = {
 
 // Files Ramesh sent in one go that we could not match. The CA puts them in the right request when reviewing.
 export const seedUnsorted: UnsortedFile[] = [
+  // Suresh sent this for one of his three firms. Which one is not clear, so it waits to be placed.
+  { id: 'u6', phone: '+91 98765 20817', fileName: 'bank_stmt_sep.pdf', receivedAt: 'Today, 10:05', source: 'WhatsApp' },
   // Ram sent this for one of his three clients (himself, Reeta or Seeta). Nobody can tell which, so it waits to be placed.
   { id: 'u5', phone: '+91 98230 51147', fileName: 'scan_0522.pdf', receivedAt: 'Today, 11:20', source: 'WhatsApp' },
   { id: 'u3', phone: '+91 98111 22301', fileName: 'HDFC_HL_Statement.pdf', receivedAt: 'Today, 10:47', source: 'WhatsApp' },

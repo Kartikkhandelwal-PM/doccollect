@@ -16,6 +16,10 @@ const core: Client[] = [
   { id: 'ram-sharma', name: 'Ram Sharma', kind: 'person', service: 'ITR', phone: '+91 98230 51147', email: 'ram.sharma@example.com', pan: 'AKTPS3321D', source: 'Added manually', openRequests: 0, sharedWith: 'reeta-sharma' },
   { id: 'reeta-sharma', name: 'Reeta Sharma', kind: 'person', service: 'ITR', phone: '+91 98230 51147', email: 'ram.sharma@example.com', pan: 'BQRPS7712F', source: 'Added manually', openRequests: 0, sharedWith: 'ram-sharma' },
   { id: 'seeta-sharma', name: 'Seeta Sharma', kind: 'person', service: 'ITR', phone: '+91 98230 51147', email: 'ram.sharma@example.com', pan: 'CMSPS4409H', source: 'Added manually', openRequests: 0, sharedWith: 'ram-sharma' },
+  // One owner, three firms, all on his phone. Each firm is its own client with its own PAN and GST.
+  { id: 'agarwal-traders', name: 'Agarwal Traders', kind: 'firm', service: 'GST', phone: '+91 98765 20817', email: 'suresh@agarwalgroup.example', pan: 'AAAFA4410G', gstin: '07AAAFA4410G1Z3', source: 'Added manually', openRequests: 0, sharedWith: 'agarwal-exports' },
+  { id: 'agarwal-exports', name: 'Agarwal Exports Pvt Ltd', kind: 'firm', service: 'GST', phone: '+91 98765 20817', email: 'suresh@agarwalgroup.example', pan: 'AABCA7731H', gstin: '07AABCA7731H1Z6', source: 'Added manually', openRequests: 0, sharedWith: 'agarwal-traders' },
+  { id: 'agarwal-realty', name: 'Agarwal Realty LLP', kind: 'firm', service: 'TDS', phone: '+91 98765 20817', email: 'suresh@agarwalgroup.example', pan: 'AAFFA9025K', source: 'Added manually', openRequests: 0, sharedWith: 'agarwal-traders' },
   { id: 'vikram', name: 'Vikram Enterprises', kind: 'firm', service: 'TDS', phone: '+91 93777 88809', email: 'vikram@enterprises.example', pan: 'AAGFV3344R', source: 'KDK sync', openRequests: 0 },
 ]
 

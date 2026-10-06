@@ -250,6 +250,21 @@ const rawSeed: Seed[] = [
     msgs: [{ id: 'ze1', from: 'ca', time: 'Tue', tick: 'read', text: say('request', { name: 'Zenith Packaging', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '8 Oct', link: `${LINK_DOMAIN}/u/r-1035-zenith-packaging-v1` }, 'kdk') }],
   },
   {
+    id: 'c-agarwal',
+    title: 'Suresh Agarwal',
+    phone: '+91 98765 20817',
+    clientIds: ['agarwal-traders', 'agarwal-exports', 'agarwal-realty'],
+    unread: 1,
+    msgs: [
+      { id: 'ag1', clientId: 'agarwal-traders', from: 'ca', time: 'Fri', tick: 'read', text: say('request', { name: 'Agarwal Traders', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '9 Oct', link: `${LINK_DOMAIN}/u/r-1046-agarwal-traders-v1` }) },
+      { id: 'ag2', clientId: 'agarwal-exports', from: 'ca', time: 'Fri', tick: 'read', text: say('request', { name: 'Agarwal Exports Pvt Ltd', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '9 Oct', link: `${LINK_DOMAIN}/u/r-1046-agarwal-exports-v1` }) },
+      { id: 'ag3', clientId: 'agarwal-realty', from: 'ca', time: 'Fri', tick: 'read', text: say('request', { name: 'Agarwal Realty LLP', request: 'TDS quarterly', documents: formatList(['TDS challans', 'Deductee list', 'Form 16A', 'Bank statement Apr–Mar']), due_date: '12 Oct', link: `${LINK_DOMAIN}/u/r-1047-agarwal-realty-v1` }) },
+      { id: 'ag4', from: 'client', time: 'Sat', file: { name: 'Agarwal_Traders_Sales_Sep.xlsx', size: '310 KB' }, matched: 'Filed as Sales register · Approved', link: { requestId: 'r17', clientId: 'agarwal-traders', docId: 'sales' } },
+      { id: 'ag5', from: 'client', time: 'Yesterday', file: { name: 'Realty_TDS_challans.pdf', size: '3 pages · 480 KB' }, matched: 'Filed as TDS challans · Approved', link: { requestId: 'r18', clientId: 'agarwal-realty', docId: 'challans' } },
+      { id: 'ag6', from: 'client', time: '10:05', file: { name: 'bank_stmt_sep.pdf', size: '4 pages · 760 KB' }, matched: 'Not placed yet' },
+    ],
+  },
+  {
     id: 'c-sharma',
     title: 'Ram Sharma',
     phone: '+91 98230 51147',
