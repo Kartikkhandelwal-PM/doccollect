@@ -278,9 +278,9 @@ export default function Dashboard() {
             aria-checked={allShown}
             aria-label="Select all rows"
             onClick={toggleAll}
-            className={`flex h-[18px] w-[18px] items-center justify-center rounded-[5px] ${allShown ? 'bg-brand text-white' : 'border-[1.5px] border-slate-300 bg-white'}`}
+            className="-m-3 flex items-center justify-center p-3"
           >
-            {allShown && <Check size={12} strokeWidth={3.4} />}
+            <span className={`flex h-[18px] w-[18px] items-center justify-center rounded-[5px] ${allShown ? 'bg-brand text-white' : 'border-[1.5px] border-slate-300 bg-white'}`}>{allShown && <Check size={12} strokeWidth={3.4} />}</span>
           </button>
           <span>Client</span>
           <span>Received</span>
@@ -309,6 +309,7 @@ export default function Dashboard() {
                 onClick={() => navigate(i.href)}
                 className={`${ROW} group h-[68px] cursor-pointer border-b border-line last:border-b-0 ${on ? 'bg-brand-soft/60' : 'hover:bg-slate-50'}`}
               >
+                {/* the whole height of the row beside the box counts as the checkbox, so nobody opens a request by mistake */}
                 <button
                   type="button"
                   role="checkbox"
@@ -318,9 +319,9 @@ export default function Dashboard() {
                     e.stopPropagation()
                     toggleOne(i.id)
                   }}
-                  className={`flex h-[18px] w-[18px] items-center justify-center rounded-[5px] ${on ? 'bg-brand text-white' : 'border-[1.5px] border-slate-300 bg-white group-hover:border-slate-400'}`}
+                  className="-mx-3 -my-[25px] flex items-center justify-center px-3 py-[25px]"
                 >
-                  {on && <Check size={12} strokeWidth={3.4} />}
+                  <span className={`flex h-[18px] w-[18px] items-center justify-center rounded-[5px] ${on ? 'bg-brand text-white' : 'border-[1.5px] border-slate-300 bg-white group-hover:border-slate-400'}`}>{on && <Check size={12} strokeWidth={3.4} />}</span>
                 </button>
 
                 <div className="flex min-w-0 items-center gap-3">
