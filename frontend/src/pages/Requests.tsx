@@ -163,7 +163,8 @@ export default function Requests() {
           const pct = p.total ? Math.round((p.received / p.total) * 100) : 0
           const people = r.clients.map((c) => getClient(c.clientId)).filter((c) => c !== undefined)
           const isOpen = open.has(r.id)
-          // A request with something to review can still have clients who owe documents. Say so, it should not hide.
+          // How the clients stand, shown under their names: how many have something to review, and how many still owe documents.
+          const reviewing = r.clients.filter((rc) => rc.docs.some((d) => d.status === 'to_review')).length
           const owing = r.clients.filter((rc) => {
             const counted = rc.docs.filter((d) => d.status !== 'na')
             return !counted.some((d) => d.status === 'to_review') && counted.some((d) => d.status === 'pending' || d.status === 'rejected')
@@ -207,10 +208,11 @@ export default function Requests() {
                   )}
                   <div className="min-w-0">
                     <div className="truncate text-sm font-semibold">{people.length === 1 ? people[0].name : `${people.length} clients`}</div>
-                    {people.length > 1 && (
-                      <div className="truncate text-xs text-muted">
-                        {people.slice(0, 2).map((c) => c.name).join(', ')}
-                        {people.length > 2 && ` +${people.length - 2}`}
+                    {people.length > 1 && (reviewing > 0 || owing > 0) && (
+                      <div className="truncate text-xs font-semibold">
+                        {reviewing > 0 && <span className="text-warn">{reviewing} to review</span>}
+                        {reviewing > 0 && owing > 0 && <span className="text-faint"> · </span>}
+                        {owing > 0 && <span className={isLate(r) ? 'text-danger' : 'text-muted'}>{owing} {isLate(r) ? 'late' : 'waiting'}</span>}
                       </div>
                     )}
                   </div>
@@ -231,14 +233,7 @@ export default function Requests() {
                   </div>
                 </div>
                 <div>
-                  <span className={`inline-block rounded-md px-2 py-1 text-[11px] font-semibold uppercase tracking-wide ${st.className}`}>
-                    {requestState(r) === 'review' ? `${p.toReview} to review` : st.label}
-                  </span>
-                  {requestState(r) === 'review' && owing > 0 && (
-                    <div className={`mt-1 text-xs font-semibold ${isLate(r) ? 'text-danger' : 'text-muted'}`}>
-                      {owing} {owing === 1 ? 'client' : 'clients'} {isLate(r) ? 'late' : 'still waiting'}
-                    </div>
-                  )}
+                  <span className={`inline-block rounded-md px-2 py-1 text-[11px] font-semibold uppercase tracking-wide ${st.className}`}>{st.label}</span>
                 </div>
               </div>
 
