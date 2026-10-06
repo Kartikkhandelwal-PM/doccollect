@@ -598,7 +598,7 @@ export default function Master() {
                 <section>
                   <div className="mb-2.5 flex items-center justify-between gap-4">
                     <h3 className="text-[11px] font-bold uppercase tracking-widest text-faint">{atTop ? `Client folders · ${subFolders.filter((n) => n.kind === 'client').length}` : 'Folders'}</h3>
-                    {(atTop ? subFolders.length > PAGE : subFolders.length > PAGE) && (
+                    {subFolders.length > PAGE && (
                       <label className="flex h-9 w-60 items-center gap-2 rounded-xl bg-white px-3 text-sm text-muted ring-1 ring-line focus-within:ring-brand">
                         <Search size={14} />
                         <input value={clientQuery} onChange={(e) => { setClientQuery(e.target.value); setGridLimit(PAGE) }} placeholder={atTop ? 'Search client folders' : 'Search folders'} className="w-full bg-transparent text-ink outline-none placeholder:text-muted" />
