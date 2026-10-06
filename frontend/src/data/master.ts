@@ -6,9 +6,9 @@ export const folderIdOf = (clientId: string, fy: string, compliance: string) => 
 
 // Some documents never change from one filing to the next. Once approved they are kept in the client's own "Permanent documents" folder,
 // and later requests do not ask for them again.
-export const PERMANENT_DOCS = ['PAN card', 'Aadhaar card', 'GST registration certificate', 'Udyam registration']
+const PERMANENT_DOCS = ['PAN card', 'Aadhaar card', 'GST registration certificate', 'Udyam registration']
 export const isPermanent = (name: string) => PERMANENT_DOCS.includes(name)
-export const permanentFolder = (clientId: string) => `c:${clientId}/Permanent documents`
+const permanentFolder = (clientId: string) => `c:${clientId}/Permanent documents`
 
 export interface MasterFile {
   id: string
