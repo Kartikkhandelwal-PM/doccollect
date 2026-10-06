@@ -1,4 +1,7 @@
-import { Check, Trash2 } from 'lucide-react'
+import { backdropProps, panelProps } from '../lib/motion'
+import { motion } from 'framer-motion'
+import Toast from '../components/Toast'
+import { Trash2 } from 'lucide-react'
 import Page from '../components/Page'
 import { useEffect, useState } from 'react'
 import Avatar from '../components/Avatar'
@@ -381,8 +384,8 @@ export default function Settings() {
       {tab === 'usage' && <Usage />}
 
       {disconnecting && (
-        <div className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="Disconnect your WhatsApp">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+        <motion.div {...backdropProps} className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="Disconnect your WhatsApp">
+          <motion.div {...panelProps} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
             <h2 className="text-lg font-bold">Disconnect your WhatsApp?</h2>
             <p className="mt-2 text-sm leading-relaxed text-muted">From now, all communication with your clients will go from the {SHARED_NUMBER_NAME} number.</p>
             <ul className="mt-3 flex list-disc flex-col gap-1.5 pl-5 text-sm leading-relaxed text-slate-700">
@@ -408,8 +411,8 @@ export default function Settings() {
                 Disconnect
               </button>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
 
       {connecting && (
@@ -423,12 +426,7 @@ export default function Settings() {
         />
       )}
 
-      {toast && (
-        <div className="fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-xl bg-ink px-5 py-3 text-sm font-medium text-white shadow-xl" role="status">
-          <Check size={16} className="text-emerald-300" />
-          {toast}
-        </div>
-      )}
+      <Toast message={toast} />
     </Page>
   )
 }

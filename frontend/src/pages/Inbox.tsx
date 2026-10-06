@@ -1,3 +1,6 @@
+import { backdropProps, panelProps, rowIn } from '../lib/motion'
+import { motion } from 'framer-motion'
+import Toast from '../components/Toast'
 import { Check, CheckCheck, ChevronDown, Image as ImageIcon, Info, Lock, PanelRightOpen, Search, Send, X } from 'lucide-react'
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
@@ -48,7 +51,7 @@ function Bubble({ m, onOpen }: { m: Msg; onOpen: (m: Msg) => void }) {
       </div>
     )
   return (
-    <div className={`flex max-w-[78%] flex-col gap-1 ${mine ? 'items-end self-end' : 'items-start self-start'}`}>
+    <motion.div initial={{ opacity: 0, y: 8, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className={`flex max-w-[78%] flex-col gap-1 ${mine ? 'items-end self-end' : 'items-start self-start'}`}>
       <div
         className={`w-fit max-w-full rounded-[10px] px-2.5 pb-1.5 pt-2 text-[14.5px] leading-snug shadow-[0_1px_1px_rgba(17,27,33,0.13)] ${
           mine ? 'rounded-tr-none bg-[#D9FDD3]' : 'rounded-tl-none bg-white'
@@ -90,7 +93,7 @@ function Bubble({ m, onOpen }: { m: Msg; onOpen: (m: Msg) => void }) {
           {mine && <Ticks tick={m.tick} />}
         </div>
       </div>
-    </div>
+    </motion.div>
   )
 }
 
@@ -117,8 +120,8 @@ function FileViewer({
   }, [onClose])
   const file = msg.file!
   return (
-    <div className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label={`Preview of ${file.name}`}>
-      <div className="flex max-h-full w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+    <motion.div {...backdropProps} className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label={`Preview of ${file.name}`}>
+      <motion.div {...panelProps} className="flex max-h-full w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
         <div className="flex items-center gap-3 border-b border-line px-5 py-4">
           <FileTypeIcon file={file.name} size={34} />
           <div className="min-w-0 flex-1">
@@ -157,8 +160,8 @@ function FileViewer({
             <p className="flex-1 text-[13px] leading-snug text-muted">This file is not filed against a document yet. Match it from the panel on the right.</p>
           )}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }
 
@@ -176,8 +179,8 @@ function KeepFile({ fileName, clientName, onSave, onRemove, onClose }: { fileNam
     return f.parentId ? `${folders.find((x) => x.id === f.parentId)?.name} / ${f.name}` : f.name
   }
   return (
-    <div className="fixed inset-0 z-[40] flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="Keep this file elsewhere">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+    <motion.div {...backdropProps} className="fixed inset-0 z-[40] flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="Keep this file elsewhere">
+      <motion.div {...panelProps} className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
         <div className="text-base font-bold">Not for this request</div>
         <p className="mt-1 text-[13px] leading-relaxed text-muted">
           {fileName} stays out of {clientName}&apos;s documents. Keep it in a folder, or remove it.
@@ -202,8 +205,8 @@ function KeepFile({ fileName, clientName, onSave, onRemove, onClose }: { fileNam
         <button type="button" onClick={onClose} className="mt-3 block w-full text-center text-[13px] font-semibold text-muted hover:underline">
           Cancel
         </button>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }
 
@@ -566,14 +569,15 @@ export default function Inbox() {
         </div>
         <div className="flex-1 overflow-y-auto">
           {list.length === 0 && <p className="p-5 text-sm text-muted">No chats here.</p>}
-          {list.map((c) => {
+          {list.map((c, listIndex) => {
             const last = c.msgs[c.msgs.length - 1]
             return (
-              <button
+              <motion.button
                 key={c.id}
+                {...rowIn(listIndex)}
                 type="button"
                 onClick={() => setActiveId(c.id)}
-                className={`flex w-full items-center gap-3.5 px-4 py-3 text-left ${c.id === active.id ? 'bg-[#F0F2F5]' : 'hover:bg-[#F7F8F8]'}`}
+                className={`flex w-full items-center gap-3.5 px-4 py-3 text-left transition-colors ${c.id === active.id ? 'bg-[#F0F2F5]' : 'hover:bg-[#F7F8F8]'}`}
               >
                 {c.unassigned ? (
                   <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#FEE9C9] text-lg font-bold text-warn">?</span>
@@ -593,7 +597,7 @@ export default function Inbox() {
                     {c.unread > 0 && <span className="shrink-0 rounded-full bg-[#008069] px-1.5 py-px text-xs font-bold text-white">{c.unread}</span>}
                   </div>
                 </div>
-              </button>
+              </motion.button>
             )
           })}
         </div>
@@ -778,12 +782,7 @@ export default function Inbox() {
         />
       )}
 
-      {toast && (
-        <div className="fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-xl bg-ink px-5 py-3 text-sm font-medium text-white shadow-xl" role="status">
-          <Check size={16} className="text-emerald-300" />
-          {toast}
-        </div>
-      )}
+      <Toast message={toast} />
 
       {/* Info panel: the ✕ closes it, and the button in the chat header opens it again */}
       {showPanel && (

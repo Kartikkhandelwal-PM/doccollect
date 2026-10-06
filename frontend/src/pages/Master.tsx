@@ -1,3 +1,6 @@
+import { backdropProps, panelProps } from '../lib/motion'
+import { motion } from 'framer-motion'
+import Toast from '../components/Toast'
 import { Building2, ChevronDown, ChevronRight, Download, Folder, FolderInput, FolderPlus, FolderUp, LayoutGrid, List, MoreHorizontal, Pencil, Search, Trash2, Upload, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -557,7 +560,7 @@ export default function Master() {
           </div>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-8 py-5">
+        <motion.div key={current ?? 'top'} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }} className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-8 py-5">
         {(() => {
           // At the top, the firm's own folders stay in their own short block above the (possibly huge) list of clients.
           const atTop = current === null
@@ -686,12 +689,12 @@ export default function Master() {
             <p className="mt-1 text-sm text-muted">Create a folder, upload a file, or drag files here.</p>
           </div>
         )}
-        </div>
+        </motion.div>
       </section>
 
       {open && (
-        <div className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label={`Preview of ${open.name}`}>
-          <div className="flex max-h-full w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <motion.div {...backdropProps} className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label={`Preview of ${open.name}`}>
+          <motion.div {...panelProps} className="flex max-h-full w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
             <div className="flex items-center gap-3 border-b border-line px-5 py-4">
               <FileTypeIcon file={open.fileName} size={34} />
               <div className="min-w-0 flex-1">
@@ -717,12 +720,12 @@ export default function Master() {
                 Download
               </button>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
 
       {newFolder && (
-        <div className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="New folder">
+        <motion.div {...backdropProps} className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="New folder">
           <form
             onSubmit={(e) => {
               e.preventDefault()
@@ -743,20 +746,20 @@ export default function Master() {
               className="mt-4 h-11 w-full rounded-xl border border-line px-3.5 text-[15px] outline-none focus:border-brand"
             />
             {folderError && <p className="mt-2 text-[13px] font-medium text-danger">{folderError}</p>}
-            <div className="mt-5 flex justify-end gap-3">
+            <motion.div {...panelProps} className="mt-5 flex justify-end gap-3">
               <button type="button" onClick={() => setNewFolder(false)} className="h-11 rounded-xl border border-line px-5 text-sm font-semibold">
                 Cancel
               </button>
               <button type="submit" className="h-11 rounded-xl bg-brand px-6 text-sm font-semibold text-white">
                 Create
               </button>
-            </div>
+            </motion.div>
           </form>
-        </div>
+        </motion.div>
       )}
 
       {dlg && (
-        <div className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label={`${dlg.type} ${dlg.target.name}`}>
+        <motion.div {...backdropProps} className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label={`${dlg.type} ${dlg.target.name}`}>
           <form
             onSubmit={(e) => {
               e.preventDefault()
@@ -783,7 +786,7 @@ export default function Master() {
               <>
                 <h2 className="text-lg font-bold">Move “{dlg.target.name}”</h2>
                 <p className="mt-1 text-sm text-muted">Choose where it should go.</p>
-                <div className="mt-3 max-h-64 overflow-y-auto rounded-xl border border-line py-1">
+                <motion.div {...panelProps} className="mt-3 max-h-64 overflow-y-auto rounded-xl border border-line py-1">
                   {[{ node: null as Node | null, depth: 0 }, ...destinations(dlg.target)].map(({ node: n, depth }) => {
                     const id = n ? n.id : null
                     return (
@@ -801,7 +804,7 @@ export default function Master() {
                       </button>
                     )
                   })}
-                </div>
+                </motion.div>
               </>
             )}
             {dlg.type === 'delete' && (
@@ -828,14 +831,10 @@ export default function Master() {
               </button>
             </div>
           </form>
-        </div>
+        </motion.div>
       )}
 
-      {toast && (
-        <div className="fixed bottom-6 left-1/2 z-40 -translate-x-1/2 rounded-xl bg-ink px-5 py-3 text-sm font-medium text-white shadow-xl" role="status">
-          {toast}
-        </div>
-      )}
+      <Toast message={toast} />
     </div>
   )
 }

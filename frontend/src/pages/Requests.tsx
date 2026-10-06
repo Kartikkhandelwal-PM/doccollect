@@ -1,5 +1,6 @@
 import { ChevronRight, Plus, Search } from 'lucide-react'
 import Page from '../components/Page'
+import { AnimatePresence, motion } from 'framer-motion'
 import { Fragment, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
@@ -9,6 +10,7 @@ import { fmtDate, isReceived, progress, requestState, useRequests } from '../dat
 import type { DocRequest, RequestState } from '../data/requests'
 import { daysUntil } from '../lib/dates'
 import { SHARED_NUMBER_NAME } from '../lib/brand'
+import { ease, rowIn } from '../lib/motion'
 
 type Tab = 'all' | RequestState
 
@@ -157,7 +159,7 @@ export default function Requests() {
         </div>
 
         {list.length === 0 && <p className="p-8 text-sm text-muted">No requests match.</p>}
-        {listPaging.rows.map((r) => {
+        {listPaging.rows.map((r, index) => {
           const p = progress(r)
           const st = stateMeta[requestState(r)]
           const pct = p.total ? Math.round((p.received / p.total) * 100) : 0
@@ -171,7 +173,7 @@ export default function Requests() {
           }).length
           return (
             <Fragment key={r.id}>
-              <div onClick={() => navigate(`/requests/${r.id}`)} className={`${GRID} min-h-[68px] cursor-pointer border-b border-line py-3 hover:bg-slate-50 ${isOpen ? 'bg-slate-50' : ''}`}>
+              <motion.div {...rowIn(index)} onClick={() => navigate(`/requests/${r.id}`)} className={`${GRID} min-h-[68px] cursor-pointer border-b border-line py-3 transition-colors hover:bg-slate-50 ${isOpen ? 'bg-slate-50' : ''}`}>
                 <div className="flex min-w-0 items-center gap-2">
                 {people.length <= 1 ? (
                   <span className="w-[18px] shrink-0" />
@@ -186,7 +188,9 @@ export default function Requests() {
                   }}
                   className="-m-1.5 flex shrink-0 items-center justify-center p-1.5 text-muted hover:text-ink"
                 >
-                  <ChevronRight size={18} className={`transition ${isOpen ? 'rotate-90' : ''}`} />
+                  <motion.span animate={{ rotate: isOpen ? 90 : 0 }} transition={ease} className="flex">
+                    <ChevronRight size={18} />
+                  </motion.span>
                 </button>
                 )}
                   <div className="min-w-0">
@@ -225,7 +229,7 @@ export default function Requests() {
                 <div>
                   <div className="flex items-center gap-2.5">
                     <div className="h-1.5 flex-1 rounded-full bg-line">
-                      <div className="h-1.5 rounded-full bg-brand" style={{ width: `${pct}%` }} />
+                      <motion.div className="h-1.5 rounded-full bg-brand" initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: 0.15 }} />
                     </div>
                   </div>
                   <div className="mt-1 text-xs text-muted">
@@ -235,9 +239,18 @@ export default function Requests() {
                 <div>
                   <span className={`inline-block rounded-md px-2 py-1 text-[11px] font-semibold uppercase tracking-wide ${st.className}`}>{st.label}</span>
                 </div>
-              </div>
+              </motion.div>
 
+              <AnimatePresence initial={false}>
               {isOpen && (
+                <motion.div
+                  key="more"
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
+                  className="overflow-hidden"
+                >
                 <div className="border-b border-line bg-slate-50/70 py-2 pl-[48px] pr-5">
                   <div className="grid grid-cols-[minmax(0,1.4fr)_150px_150px_170px] gap-4 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-faint">
                     <span>Client</span>
@@ -275,7 +288,9 @@ export default function Requests() {
                     </Link>
                   )}
                 </div>
+                </motion.div>
               )}
+              </AnimatePresence>
             </Fragment>
           )
         })}

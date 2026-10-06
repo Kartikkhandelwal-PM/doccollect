@@ -12,9 +12,11 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useState } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { motion } from 'framer-motion'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useInbox } from '../data/inbox'
 import { APP_NAME } from '../lib/brand'
+import { pageIn, spring } from '../lib/motion'
 import { resetDemo } from '../lib/session'
 import GlobalHeader from './GlobalHeader'
 import UserMenu from './UserMenu'
@@ -54,15 +56,19 @@ function NavGroup({ items, dots = {}, collapsed }: { items: NavItem[]; dots?: Re
             aria-label={label}
             className={({ isActive }) =>
               `group relative flex items-center rounded-[10px] text-sm font-semibold ${collapsed ? 'h-11 justify-center' : 'gap-3 px-3 py-2.5'} ${
-                isActive ? 'bg-brand-soft text-brand-dark' : 'text-slate-600 hover:bg-canvas'
+                isActive ? 'text-brand-dark' : 'text-slate-600 hover:bg-canvas'
               }`
             }
           >
-            <Icon size={19} strokeWidth={1.9} className={collapsed ? 'transition-transform duration-150 group-hover:scale-125' : ''} />
-            {!collapsed && <span className="flex-1">{label}</span>}
+            {({ isActive }) => (
+              <>
+            {/* the green marker slides from one menu item to the next */}
+            {isActive && <motion.span layoutId={collapsed ? 'nav-pill-small' : 'nav-pill'} transition={spring} className="absolute inset-0 rounded-[10px] bg-brand-soft" />}
+            <Icon size={19} strokeWidth={1.9} className={`relative ${collapsed ? 'transition-transform duration-150 group-hover:scale-125' : ''}`} />
+            {!collapsed && <span className="relative flex-1">{label}</span>}
             {news ? (
               <span
-                className={collapsed ? 'absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-brand ring-2 ring-white' : 'h-2 w-2 rounded-full bg-brand'}
+                className={collapsed ? 'absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-brand ring-2 ring-white' : 'relative h-2 w-2 rounded-full bg-brand'}
                 role="img"
                 aria-label={`${news} new`}
                 title={`${news} new`}
@@ -72,6 +78,8 @@ function NavGroup({ items, dots = {}, collapsed }: { items: NavItem[]; dots?: Re
               <span role="tooltip" className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-lg bg-ink px-2.5 py-1.5 text-xs font-semibold text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
                 {label}
               </span>
+            )}
+              </>
             )}
           </NavLink>
         )
@@ -91,6 +99,7 @@ const readSaved = () => {
 
 export default function Layout() {
   const { unreadTotal } = useInbox()
+  const { pathname } = useLocation()
   // The sidebar can shrink to icons only, and remembers the choice.
   const [collapsed, setCollapsed] = useState(readSaved)
   const toggle = () =>
@@ -135,7 +144,10 @@ export default function Layout() {
       <div className="flex min-w-0 flex-1 flex-col">
         <GlobalHeader />
         <main className="min-h-0 flex-1 overflow-y-auto">
-          <Outlet />
+          {/* each screen eases in when you open it */}
+          <motion.div key={pathname} variants={pageIn} initial="hidden" animate="show" className="h-full">
+            <Outlet />
+          </motion.div>
         </main>
       </div>
     </div>

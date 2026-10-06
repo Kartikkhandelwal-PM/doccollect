@@ -1,3 +1,5 @@
+import { backdropProps, panelProps } from '../lib/motion'
+import { motion } from 'framer-motion'
 import { Bell, X } from 'lucide-react'
 import { useEffect } from 'react'
 import Avatar from './Avatar'
@@ -21,8 +23,8 @@ export default function ReminderDialog({ targets, text, update, onSend, onClose 
   const n = targets.length
 
   return (
-    <div className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="Send reminders">
-      <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
+    <motion.div {...backdropProps} className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="Send reminders">
+      <motion.div {...panelProps} className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
         <div className="flex items-start justify-between gap-4 px-6 pt-6">
           <div>
             <h2 className="text-lg font-bold">
@@ -65,7 +67,7 @@ export default function ReminderDialog({ targets, text, update, onSend, onClose 
             Send {n} {n === 1 ? (update ? 'update' : 'reminder') : update ? 'updates' : 'reminders'}
           </button>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }

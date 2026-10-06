@@ -1,3 +1,5 @@
+import { backdropProps, panelProps } from '../lib/motion'
+import { motion } from 'framer-motion'
 import { AlertTriangle, ArrowLeft, Check, Copy, Eye, EyeOff, Loader2, X } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useEffect, useMemo, useState } from 'react'
@@ -191,8 +193,8 @@ export default function ConnectWhatsApp({ onClose, onConnected }: { onClose: () 
   }
 
   return (
-    <div className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="Connect your WhatsApp">
-      <div className="flex max-h-full w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+    <motion.div {...backdropProps} className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="Connect your WhatsApp">
+      <motion.div {...panelProps} className="flex max-h-full w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
         <div className="border-b border-line px-6 pb-4 pt-5">
           <div className="flex items-start gap-3">
             <WhatsAppIcon size={40} />
@@ -558,7 +560,7 @@ export default function ConnectWhatsApp({ onClose, onConnected }: { onClose: () 
             )}
           </div>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }

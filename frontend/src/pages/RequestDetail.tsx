@@ -1,4 +1,7 @@
-import { Bell, Check, ChevronDown, ChevronRight, Eye, Link2, Search, X } from 'lucide-react'
+import { backdropProps, panelProps } from '../lib/motion'
+import { motion } from 'framer-motion'
+import Toast from '../components/Toast'
+import { Bell, ChevronDown, ChevronRight, Eye, Link2, Search, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
@@ -580,8 +583,8 @@ function RequestView({ request }: { request: DocRequest }) {
       {asking && <ReminderDialog targets={toNotify.map((r) => ({ requestId: request.id, clientId: r.rc.clientId }))} update={thanking} text={preview(request.id, toNotify[0].rc.clientId)} onSend={sendReminders} onClose={() => setAsking(false)} />}
 
       {dateOpen && (
-        <div className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="Change last date">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+        <motion.div {...backdropProps} className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="Change last date">
+          <motion.div {...panelProps} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
             <h2 className="text-lg font-bold">Change the last date</h2>
             <p className="mt-1 text-sm text-muted">Clients see the new date on their upload page. The link stays the same and moves with the date.</p>
             <div className="mt-4">
@@ -604,13 +607,13 @@ function RequestView({ request }: { request: DocRequest }) {
                 Save date
               </button>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
 
       {linkFor && (
-        <div className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="Send new link">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+        <motion.div {...backdropProps} className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="Send new link">
+          <motion.div {...panelProps} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
             <h2 className="text-lg font-bold">Send a new link to {getClient(linkFor)?.name}?</h2>
             <p className="mt-1.5 text-sm leading-relaxed text-muted">They get a fresh link on WhatsApp. The old link stops working. Files they have already uploaded are kept.</p>
             <div className="mt-5 flex justify-end gap-3">
@@ -629,13 +632,13 @@ function RequestView({ request }: { request: DocRequest }) {
                 Send new link
               </button>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
 
       {rejecting && (
-        <div className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="Send back document">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+        <motion.div {...backdropProps} className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="Send back document">
+          <motion.div {...panelProps} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
             <h2 className="text-lg font-bold">Send “{rejecting.docName}” back?</h2>
             <p className="mt-1 text-sm text-muted">Tell the client what is wrong. They get this on WhatsApp with a fresh upload link.</p>
             <div className="mt-4 flex flex-wrap gap-2">
@@ -665,16 +668,11 @@ function RequestView({ request }: { request: DocRequest }) {
                 Send back
               </button>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
 
-      {toast && (
-        <div className="fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-xl bg-ink px-5 py-3 text-sm font-medium text-white shadow-xl" role="status">
-          <Check size={16} className="text-emerald-300" />
-          {toast}
-        </div>
-      )}
+      <Toast message={toast} />
     </div>
   )
 }

@@ -1,3 +1,5 @@
+import { backdropProps, panelProps } from '../lib/motion'
+import { motion } from 'framer-motion'
 import { ChevronRight, Download, Folder, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -133,8 +135,8 @@ export default function ClientRepository({ clientId }: { clientId: string }) {
       {kids.length === 0 && direct.length === 0 && <p className="mt-4 text-sm text-muted">This folder is empty.</p>}
 
       {open && (
-        <div className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label={`Preview of ${open.name}`}>
-          <div className="flex max-h-full w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <motion.div {...backdropProps} className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label={`Preview of ${open.name}`}>
+          <motion.div {...panelProps} className="flex max-h-full w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
             <div className="flex items-center gap-3 border-b border-line px-5 py-4">
               <FileTypeIcon file={open.fileName} size={34} />
               <div className="min-w-0 flex-1">
@@ -160,8 +162,8 @@ export default function ClientRepository({ clientId }: { clientId: string }) {
                 Download
               </button>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
     </section>
   )

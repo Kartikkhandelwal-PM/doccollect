@@ -1,3 +1,5 @@
+import { motion } from 'framer-motion'
+import { rowIn } from '../lib/motion'
 import { ChevronRight, Plus, RefreshCw, Search } from 'lucide-react'
 import Page from '../components/Page'
 import { useState } from 'react'
@@ -7,6 +9,8 @@ import Pagination, { usePaging } from '../components/Pagination'
 import { clients } from '../data/mock'
 import type { Service } from '../data/types'
 import { serviceColor } from '../lib/status'
+
+const MotionLink = motion.create(Link)
 
 type Filter = 'All' | Service
 
@@ -72,11 +76,12 @@ export default function Clients() {
     >
       <div className="overflow-hidden rounded-[18px] border border-line bg-white">
         {list.length === 0 && <p className="p-8 text-sm text-muted">No clients match your search.</p>}
-        {paging.rows.map((c) => (
-          <Link
+        {paging.rows.map((c, index) => (
+          <MotionLink
             key={c.id}
+            {...rowIn(index)}
             to={`/clients/${c.id}`}
-            className="flex items-center gap-4 border-b border-line px-6 py-3.5 last:border-b-0 hover:bg-slate-50"
+            className="flex items-center gap-4 border-b border-line px-6 py-3.5 transition-colors last:border-b-0 hover:bg-slate-50"
           >
             <Avatar name={c.name} size={44} />
             <div className="min-w-0 flex-1">
@@ -94,7 +99,7 @@ export default function Clients() {
               {c.openRequests > 0 ? `${c.openRequests} open request` : 'No open'}
             </div>
             <ChevronRight size={18} className="text-faint" />
-          </Link>
+          </MotionLink>
         ))}
         <Pagination p={paging} noun="clients" />
       </div>

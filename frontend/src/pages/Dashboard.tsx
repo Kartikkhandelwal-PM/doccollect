@@ -1,3 +1,5 @@
+import { motion } from 'framer-motion'
+import Toast from '../components/Toast'
 import { Bell, Check, ChevronLeft, ChevronRight, MessageCircle, Plus, UserPlus, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -11,8 +13,11 @@ import type { DocRequest as Request } from '../data/requests'
 import { progress, requestState, useRequests } from '../data/requests'
 import { daysUntil, iso, parseISO, todayISO } from '../lib/dates'
 import { serviceColor } from '../lib/status'
+import { rowIn } from '../lib/motion'
 
 type Tab = 'all' | 'received' | 'no_response'
+
+const MotionLink = motion.create(Link)
 
 const greeting = () => {
   const h = new Date().getHours()
@@ -205,7 +210,7 @@ export default function Dashboard() {
 
   return (
     <div className="flex min-h-full flex-col gap-5 px-8 py-6">
-      <section className="flex items-center justify-between rounded-[22px] border border-[#D3E9E4] bg-gradient-to-r from-[#DDF3EC] via-[#E7F4F6] to-[#E6EEFC] px-8 py-7">
+      <motion.section initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }} className="flex items-center justify-between rounded-[22px] border border-[#D3E9E4] bg-gradient-to-r from-[#DDF3EC] via-[#E7F4F6] to-[#E6EEFC] px-8 py-7">
         <div>
           <div className="text-[13px] font-semibold text-brand-dark">{dateText}</div>
           <h1 className="mt-1 text-[28px] font-bold tracking-tight">{greeting()}, {firstName}</h1>
@@ -223,7 +228,7 @@ export default function Dashboard() {
             New request
           </Link>
         </div>
-      </section>
+      </motion.section>
 
       <div className="grid grid-cols-12 items-stretch gap-5">
         <div className="col-span-8 flex min-w-0 scroll-mt-4 flex-col">
@@ -292,7 +297,7 @@ export default function Dashboard() {
 
         <div className="flex-1">
           {visible.length === 0 && <p className="p-8 text-sm text-muted">Nothing here right now.</p>}
-          {shown.map((i) => {
+          {shown.map((i, index) => {
             const on = selected.has(i.id)
             const pct = i.total ? (i.got / i.total) * 100 : 0
             const chip =
@@ -304,10 +309,11 @@ export default function Dashboard() {
                     ? { text: 'Overdue', cls: 'bg-danger-soft text-danger' }
                     : { text: 'Waiting', cls: 'bg-info-soft text-info' }
             return (
-              <div
+              <motion.div
                 key={i.id}
+                {...rowIn(index)}
                 onClick={() => navigate(i.href)}
-                className={`${ROW} group h-[68px] cursor-pointer border-b border-line last:border-b-0 ${on ? 'bg-brand-soft/60' : 'hover:bg-slate-50'}`}
+                className={`${ROW} group h-[68px] cursor-pointer border-b border-line transition-colors last:border-b-0 ${on ? 'bg-brand-soft/60' : 'hover:bg-slate-50'}`}
               >
                 {/* the whole height of the row beside the box counts as the checkbox, so nobody opens a request by mistake */}
                 <button
@@ -348,7 +354,7 @@ export default function Dashboard() {
                         {i.got} <span className="font-medium text-muted">of {i.total}</span>
                       </div>
                       <span className="mt-1.5 block h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
-                        <span className={`block h-full rounded-full ${i.status === 'overdue' ? 'bg-danger' : 'bg-brand'}`} style={{ width: `${pct}%` }} />
+                        <motion.span className={`block h-full rounded-full ${i.status === 'overdue' ? 'bg-danger' : 'bg-brand'}`} initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: 0.2 }} />
                       </span>
                     </>
                   ) : (
@@ -382,7 +388,7 @@ export default function Dashboard() {
                     </button>
                   )}
                 </div>
-              </div>
+              </motion.div>
             )
           })}
         </div>
@@ -405,14 +411,14 @@ export default function Dashboard() {
             </div>
             {dueSoon.length === 0 && <p className="py-4 text-sm text-muted">Nothing is due in the next 7 days.</p>}
             <div className="mt-2">
-              {dueSoon.map(({ r, days }) => {
+              {dueSoon.map(({ r, days }, n) => {
                 const p = progress(r)
                 const names = r.clients.map((c) => getClient(c.clientId)?.name).filter(Boolean) as string[]
                 const late = days < 0
                 const d = parseISO(r.due)
                 const label = late ? `${-days} ${days === -1 ? 'day' : 'days'} late` : days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : `In ${days} days`
                 return (
-                  <Link key={r.id} to={`/requests/${r.id}`} className="-mx-2 flex items-center gap-3 rounded-xl px-2 py-2.5 hover:bg-slate-50">
+                  <MotionLink key={r.id} {...rowIn(n + 2)} to={`/requests/${r.id}`} className="-mx-2 flex items-center gap-3 rounded-xl px-2 py-2.5 transition-colors hover:bg-slate-50">
                     <div className="flex w-12 shrink-0 flex-col overflow-hidden rounded-xl border border-line bg-white shadow-[0_1px_2px_rgba(14,27,44,0.06)]" aria-hidden="true">
                       <span className={`py-0.5 text-center text-[9px] font-bold uppercase tracking-widest text-white ${late ? 'bg-danger' : days <= 1 ? 'bg-[#D9822B]' : 'bg-brand'}`}>{d.toLocaleDateString('en-IN', { month: 'short' })}</span>
                       <span className={`py-1 text-center text-[19px] font-bold leading-none tabular-nums ${late ? 'text-danger' : ''}`}>{d.getDate()}</span>
@@ -428,14 +434,14 @@ export default function Dashboard() {
                       </div>
                       <div className="mt-1.5 flex items-center gap-2">
                         <span className="h-1 flex-1 overflow-hidden rounded-full bg-slate-100">
-                          <span className={`block h-full rounded-full ${late ? 'bg-danger' : 'bg-brand'}`} style={{ width: `${p.total ? (p.received / p.total) * 100 : 0}%` }} />
+                          <motion.span className={`block h-full rounded-full ${late ? 'bg-danger' : 'bg-brand'}`} initial={{ width: 0 }} animate={{ width: `${p.total ? (p.received / p.total) * 100 : 0}%` }} transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: 0.3 }} />
                         </span>
                         <span className="text-[11px] tabular-nums text-muted">
                           {p.received}/{p.total}
                         </span>
                       </div>
                     </div>
-                  </Link>
+                  </MotionLink>
                 )
               })}
             </div>
@@ -445,12 +451,7 @@ export default function Dashboard() {
       </div>
       {asking && toRemind.length > 0 && <ReminderDialog targets={toRemind.map((i) => ({ requestId: i.requestId!, clientId: i.clientId! }))} text={preview(toRemind[0].requestId!, toRemind[0].clientId!)} onSend={sendReminders} onClose={() => setAsking(false)} />}
 
-      {toast && (
-        <div className="fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-xl bg-ink px-5 py-3 text-sm font-medium text-white shadow-xl" role="status">
-          <Check size={16} className="text-emerald-300" />
-          {toast}
-        </div>
-      )}
+      <Toast message={toast} />
     </div>
   )
 }

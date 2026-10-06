@@ -1,3 +1,5 @@
+import { backdropProps, panelProps } from '../lib/motion'
+import { motion } from 'framer-motion'
 import { X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import FileTypeIcon from './FileTypeIcon'
@@ -24,8 +26,8 @@ export default function OnFileDialog({ docName, entries, onAskAgain, onClose }: 
   const e = entries.find((x) => x.clientId === picked) ?? entries[0]
   if (!e) return null
   return (
-    <div className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label={`${docName} on file`}>
-      <div className="flex max-h-full w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+    <motion.div {...backdropProps} className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label={`${docName} on file`}>
+      <motion.div {...panelProps} className="flex max-h-full w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
         <div className="flex items-start gap-3 border-b border-line px-5 py-4">
           <div className="min-w-0 flex-1">
             <div className="text-base font-bold">{docName} on file</div>
@@ -61,7 +63,7 @@ export default function OnFileDialog({ docName, entries, onAskAgain, onClose }: 
             Done
           </button>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }
