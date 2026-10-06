@@ -58,7 +58,7 @@ function NavGroup({ items, dots = {}, collapsed }: { items: NavItem[]; dots?: Re
               }`
             }
           >
-            <Icon size={19} strokeWidth={1.9} />
+            <Icon size={19} strokeWidth={1.9} className={collapsed ? 'transition-transform duration-150 group-hover:scale-125' : ''} />
             {!collapsed && <span className="flex-1">{label}</span>}
             {news ? (
               <span
