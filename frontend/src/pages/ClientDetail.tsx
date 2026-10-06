@@ -101,7 +101,7 @@ export default function ClientDetail() {
   const sourceText = (d: RequestDoc) => (d.source === 'Link' ? 'via upload link' : 'via WhatsApp')
 
   return (
-    <div className="flex min-h-full flex-col gap-4 px-4 py-4 md:gap-5 md:px-8 md:py-6">
+    <div className="flex min-h-full flex-col gap-4 px-4 py-4 pb-8 max-md:pb-28 md:gap-5 md:px-8 md:py-6 md:pb-8">
       <nav className="flex items-center gap-2 text-[13px] text-muted">
         <Link to="/clients" className="font-semibold text-brand">
           ← Clients

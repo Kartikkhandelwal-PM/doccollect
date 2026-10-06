@@ -210,7 +210,7 @@ export default function Dashboard() {
   const dateText = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
   return (
-    <div className="flex min-h-full flex-col gap-4 px-4 py-4 md:gap-5 md:px-8 md:py-6">
+    <div className="flex min-h-full flex-col gap-4 px-4 py-4 pb-8 max-md:pb-28 md:gap-5 md:px-8 md:py-6 md:pb-8">
       <motion.section initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }} className="flex flex-col gap-4 rounded-[22px] border border-[#D3E9E4] bg-gradient-to-r from-[#DDF3EC] via-[#E7F4F6] to-[#E6EEFC] px-5 py-5 md:flex-row md:items-center md:justify-between md:px-8 md:py-7">
         <div>
           <div className="text-[13px] font-semibold text-brand-dark">{dateText}</div>

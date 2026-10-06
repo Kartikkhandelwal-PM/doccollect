@@ -265,7 +265,7 @@ function RequestView({ request }: { request: DocRequest }) {
   }
 
   return (
-    <div className="flex min-h-full flex-col gap-4 px-4 py-4 md:gap-5 md:px-8 md:py-6">
+    <div className="flex min-h-full flex-col gap-4 px-4 py-4 pb-8 max-md:pb-28 md:gap-5 md:px-8 md:py-6 md:pb-8">
       <div className="z-10 -mx-4 -mt-4 flex flex-col gap-3 bg-canvas px-4 pb-3 pt-4 md:sticky md:top-0 md:-mx-8 md:-mt-6 md:gap-4 md:px-8 md:pt-6">
       <nav className="text-[13px] text-muted">
         <Link to="/requests" className="font-semibold text-brand">
