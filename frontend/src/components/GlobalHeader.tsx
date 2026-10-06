@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useNotifications } from '../data/notifications'
 import type { Notice } from '../data/notifications'
-import { useMasterFiles } from '../data/masterFiles'
+import { buildMaster } from '../data/master'
 import { clients, getClient } from '../data/mock'
 import { useRequests } from '../data/requests'
 
@@ -36,7 +36,6 @@ const iconBox = 'flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px
 // One search for the whole app: clients, requests, the documents inside them, approved files, and pages.
 function GlobalSearch() {
   const { requests } = useRequests()
-  const masterFiles = useMasterFiles()
   const navigate = useNavigate()
   const input = useRef<HTMLInputElement>(null)
   const [q, setQ] = useState('')
@@ -103,7 +102,7 @@ function GlobalSearch() {
       }),
     )
 
-    masterFiles
+    buildMaster(requests)
       .filter((f) => has(f.name, f.fileName))
       .slice(0, MAX_PER_GROUP)
       .forEach((f) => {
@@ -126,7 +125,7 @@ function GlobalSearch() {
       .forEach((p) => out.push({ id: `p-${p.to}`, group: 'Go to', title: p.title, sub: 'Page', to: p.to, icon: <LayoutDashboard size={17} /> }))
 
     return out
-  }, [query, requests, masterFiles])
+  }, [query, requests])
 
   const go = (r: Result) => {
     navigate(r.to)

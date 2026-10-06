@@ -9,7 +9,7 @@ import StatusBadge from '../components/StatusBadge'
 import WaText from '../components/WaText'
 import { msgClient, useInbox } from '../data/inbox'
 import type { Msg } from '../data/inbox'
-import { useMasterFiles } from '../data/masterFiles'
+import { buildMaster } from '../data/master'
 import { getClient } from '../data/mock'
 import { fmtDate, isReceived, requestState, useRequests } from '../data/requests'
 import type { DocRequest, RequestClient, RequestDoc } from '../data/requests'
@@ -72,8 +72,7 @@ export default function ClientDetail() {
     () => mine.flatMap((request) => request.clients.filter((c) => c.clientId === id).flatMap((rc) => rc.docs.map((doc) => ({ request, rc, doc })))),
     [mine, id],
   )
-  const masterFiles = useMasterFiles()
-  const folderFiles = useMemo(() => masterFiles.filter((f) => f.folderId?.startsWith(`c:${id}/`)), [masterFiles, id])
+  const folderFiles = useMemo(() => buildMaster(requests).filter((f) => f.folderId?.startsWith(`c:${id}/`)), [requests, id])
 
   if (!client) {
     return (

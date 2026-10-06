@@ -6,8 +6,7 @@ import DueDatePicker from '../components/DueDatePicker'
 import OnFileDialog from '../components/OnFileDialog'
 import WaText from '../components/WaText'
 import { clients, getClient } from '../data/mock'
-import { isPermanent } from '../data/master'
-import { useMasterFiles } from '../data/masterFiles'
+import { buildMaster, isPermanent } from '../data/master'
 import { fmtDate, useRequests } from '../data/requests'
 import { useSetup } from '../data/setup'
 import type { DocRequest } from '../data/requests'
@@ -98,7 +97,7 @@ function Footer({
 
 export default function NewRequest() {
   const navigate = useNavigate()
-  const { create } = useRequests()
+  const { create, requests } = useRequests()
   const { sendRequest } = useMessenger()
   const { groups, templates, messageTemplates, firm, ownNumber, whatsapp } = useSetup()
   const [params] = useSearchParams()
@@ -129,10 +128,10 @@ export default function NewRequest() {
 
   // Documents that never change (PAN, Aadhaar ...) are not asked again from a client who already has them on file.
   // "Ask again" on a document asks everyone, for the times a copy is old or wrong.
-  const master = useMasterFiles()
+  const master = useMemo(() => buildMaster(requests), [requests])
   const [askAgain, setAskAgain] = useState<string[]>([])
   const onFile = (clientId: string, d: { id: string; name: string }) =>
-    isPermanent(d.id) && !askAgain.includes(d.id) ? master.find((f) => f.docId === d.id && f.folderId?.startsWith(`c:${clientId}/`)) : undefined
+    isPermanent(d.name) && !askAgain.includes(d.id) ? master.find((f) => f.name === d.name && f.folderId?.startsWith(`c:${clientId}/`)) : undefined
   const haveCount = (d: { id: string; name: string }) => chosenClients.filter((c) => onFile(c.id, d)).length
   // What "Ask again" does, in words: one client is asked again, several are all asked again (even those who already have it on file).
   const askAgainText = chosenClients.length === 1 ? 'Asking again' : `Asking all ${chosenClients.length} clients again`
@@ -468,7 +467,7 @@ export default function NewRequest() {
                             <Box on={on} />
                             <span className="truncate">{d.name}</span>
                           </button>
-                          {on && isPermanent(d.id) && askAgain.includes(d.id) && (
+                          {on && isPermanent(d.name) && askAgain.includes(d.id) && (
                             <button type="button" onClick={() => setAskAgain((a) => a.filter((x) => x !== d.id))} className="shrink-0 text-xs font-semibold text-muted hover:text-ink hover:underline">
                               {askAgainText} · undo
                             </button>
@@ -521,7 +520,7 @@ export default function NewRequest() {
                       <span className="min-w-0 flex-1">
                         {d.name}
                         {haveCount(d) > 0 && <span className="mt-0.5 block">{onFileChip(d)}</span>}
-                        {isPermanent(d.id) && askAgain.includes(d.id) && <span className="block text-xs font-medium text-muted">{askAgainText}</span>}
+                        {isPermanent(d.name) && askAgain.includes(d.id) && <span className="block text-xs font-medium text-muted">{askAgainText}</span>}
                       </span>
                       <button type="button" onClick={() => toggleDoc(d.id)} className="text-muted hover:text-danger" aria-label={`Remove ${d.name}`}>
                         ✕
