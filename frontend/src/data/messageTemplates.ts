@@ -34,3 +34,12 @@ const raw: MsgTemplate[] = [
 
 // The shared number's name is filled in here, so it follows the product name.
 export const seedMessages: MsgTemplate[] = raw.map((m) => ({ ...m, onBehalf: m.onBehalf.replaceAll('@@SENDER@@', SHARED_NUMBER_NAME) }))
+
+// What kind of message a text is, found by matching it against the templates (the fixed words, with the {names} left open).
+// Anything that matches none of them was typed by hand.
+const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+const matchers = seedMessages.flatMap((m) =>
+  [m.text, m.onBehalf].map((t) => ({ name: m.name, re: new RegExp(`^${t.split(/\{\w+\}/).map(escape).join('[\\s\\S]*?')}$`) })),
+)
+export const messageKind = (text: string) => matchers.find((m) => m.re.test(text.trim()))?.name ?? 'Typed message'
+export const messageKinds = [...new Set(seedMessages.map((m) => m.name)), 'Typed message']

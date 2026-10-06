@@ -18,7 +18,8 @@ export interface Msg {
   photo?: boolean
   matched?: string
   link?: { requestId: string; clientId: string; docId: string } // the request document this file became
-  tick?: 'sent' | 'read'
+  tick?: 'sent' | 'delivered' | 'read' | 'failed'
+  failReason?: string // why a message did not go, when tick is 'failed'
 }
 
 export interface Conversation {
@@ -232,7 +233,7 @@ const rawSeed: Seed[] = [
     clientIds: ['sundaram-auto-parts'],
     via: 'kdk',
     unread: 0,
-    msgs: [{ id: 'su1', from: 'ca', time: 'Tue', tick: 'read', text: say('request', { name: 'Sundaram', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '8 Oct', link: `${LINK_DOMAIN}/u/r-1035-sundaram-auto-parts-v1` }, 'kdk') }],
+    msgs: [{ id: 'su1', from: 'ca', time: 'Tue', tick: 'delivered', text: say('request', { name: 'Sundaram', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '8 Oct', link: `${LINK_DOMAIN}/u/r-1035-sundaram-auto-parts-v1` }, 'kdk') }],
   },
   {
     id: 'c-zenith',
@@ -241,7 +242,7 @@ const rawSeed: Seed[] = [
     clientIds: ['zenith-packaging'],
     via: 'kdk',
     unread: 0,
-    msgs: [{ id: 'ze1', from: 'ca', time: 'Tue', tick: 'read', text: say('request', { name: 'Zenith', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '8 Oct', link: `${LINK_DOMAIN}/u/r-1035-zenith-packaging-v1` }, 'kdk') }],
+    msgs: [{ id: 'ze1', from: 'ca', time: 'Tue', tick: 'failed', failReason: 'This number is not on WhatsApp', text: say('request', { name: 'Zenith', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '8 Oct', link: `${LINK_DOMAIN}/u/r-1035-zenith-packaging-v1` }, 'kdk') }],
   },
   {
     id: 'c-neha',
@@ -318,7 +319,7 @@ export function InboxProvider({ children }: { children: ReactNode }) {
 
   const send = useCallback(
     (id: string, text: string) =>
-      patch(id, (c) => ({ ...c, msgs: [...c.msgs, { id: `s${Date.now()}`, from: 'ca', day: todayISO(), time: nowTime(), tick: 'sent', text }] })),
+      patch(id, (c) => ({ ...c, msgs: [...c.msgs, { id: `s${Date.now()}`, from: 'ca', day: todayISO(), time: nowTime(), tick: 'delivered', text }] })),
     [patch],
   )
 
@@ -332,7 +333,7 @@ export function InboxProvider({ children }: { children: ReactNode }) {
   // A message the app sends for a client (a request, a reminder, a thank-you). It lands in that client's chat,
   // which is found by phone number so clients on a shared number stay in one chat. No chat yet? One is started.
   const postToClient = useCallback((client: { id: string; name: string; phone: string }, text: string, via: 'own' | 'kdk') => {
-    const msg: Msg = { id: `s${Date.now()}${Math.random().toString(36).slice(2, 6)}`, from: 'ca', day: todayISO(), time: nowTime(), tick: 'sent', text }
+    const msg: Msg = { id: `s${Date.now()}${Math.random().toString(36).slice(2, 6)}`, from: 'ca', day: todayISO(), time: nowTime(), tick: 'delivered', text }
     setConversations((prev) => {
       const at = prev.findIndex((c) => !c.unassigned && c.via === via && (c.phone === client.phone || c.clientIds.includes(client.id)))
       if (at < 0) return [{ id: `c-${client.id}-${via}`, title: client.name, phone: client.phone, clientIds: [client.id], via, unread: 0, msgs: [msg] }, ...prev]
@@ -353,7 +354,7 @@ export function InboxProvider({ children }: { children: ReactNode }) {
     (convId: string, docName: string, reason: string) =>
       patch(convId, (c) => ({
         ...c,
-        msgs: [...c.msgs, { id: `s${Date.now()}`, from: 'ca', day: todayISO(), time: nowTime(), tick: 'sent', text: say('rejected', { name: c.title.split(' ')[0], document: docName, reason }) }],
+        msgs: [...c.msgs, { id: `s${Date.now()}`, from: 'ca', day: todayISO(), time: nowTime(), tick: 'delivered', text: say('rejected', { name: c.title.split(' ')[0], document: docName, reason }) }],
       })),
     [patch],
   )

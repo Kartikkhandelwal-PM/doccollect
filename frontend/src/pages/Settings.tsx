@@ -1,15 +1,19 @@
-import { Check, Trash2 } from 'lucide-react'
+import { Check, Search, Trash2 } from 'lucide-react'
 import Page from '../components/Page'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Avatar from '../components/Avatar'
 import ConnectWhatsApp from '../components/ConnectWhatsApp'
 import PhoneInput from '../components/PhoneInput'
 import FirmLogo from '../components/FirmLogo'
 import WhatsAppIcon from '../components/WhatsAppIcon'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
+import Pagination, { usePaging } from '../components/Pagination'
+import StatusBadge from '../components/StatusBadge'
+import { messageKind, messageKinds } from '../data/messageTemplates'
+import { getClient } from '../data/mock'
 import { useInbox } from '../data/inbox'
 import { fmtDate, useRequests } from '../data/requests'
-import { addDays, expiresOn, todayISO } from '../lib/dates'
+import { dayLabel, expiresOn } from '../lib/dates'
 import { useSetup } from '../data/setup'
 import type { Firm, TeamMember } from '../data/setup'
 import { SHARED_NUMBER_NAME } from '../lib/brand'
@@ -34,57 +38,177 @@ function Field({ label, value, onChange }: { label: string; value: string; onCha
   )
 }
 
-// A short summary of the last 30 days, counted from what the app really holds. Delivered and read counts need the WhatsApp provider, so they come with the backend.
-function Usage() {
-  const { conversations } = useInbox()
-  const { requests, unsorted } = useRequests()
-  const since = addDays(todayISO(), -30)
-  const sent = conversations.flatMap((c) => c.msgs.filter((m) => m.from === 'ca' && m.day >= since).map(() => c))
-  const byNumber = { own: sent.filter((c) => c.via === 'own').length, kdk: sent.filter((c) => c.via === 'kdk').length }
-  const messaged = new Set(conversations.flatMap((c) => (c.msgs.some((m) => m.from === 'ca' && m.day >= since) ? c.clientIds : [])))
-  const docs = requests.flatMap((r) => r.clients.flatMap((c) => c.docs.map((d) => ({ ...d, clientId: c.clientId }))))
-  const got = docs.filter((d) => d.status !== 'pending' && d.status !== 'na')
-  const count = (st: string) => docs.filter((d) => d.status === st).length
-  // Of the clients messaged, how many have sent something.
-  const sentFiles = new Set(got.map((d) => d.clientId))
-  const replied = [...messaged].filter((id) => sentFiles.has(id)).length
+const STATUS_NAME = { sent: 'Sent', delivered: 'Delivered', read: 'Read', failed: 'Failed' } as const
+const STATUS_STYLE = { sent: 'bg-canvas text-muted', delivered: 'bg-slate-100 text-slate-600', read: 'bg-[#E3F4FC] text-[#0E7FA8]', failed: 'bg-danger-soft text-danger' } as const
+const selectCls = 'h-10 rounded-xl border border-line bg-white px-3 text-sm font-medium text-ink outline-none focus:border-brand'
 
-  const Card = ({ n, label, note }: { n: number; label: string; note?: string }) => (
-    <div className="rounded-2xl border border-line bg-white p-5">
-      <div className="text-[30px] font-bold leading-none tracking-tight tabular-nums">{n}</div>
-      <div className="mt-1.5 text-[13px] font-medium text-muted">{label}</div>
-      {note && <div className="mt-0.5 text-xs text-faint">{note}</div>}
+// Every message sent from the account: when, to whom, from which number, what kind, and how it went.
+// A message that was read shows as Read, one that arrived as Delivered. Real delivery and read marks come from the WhatsApp provider with the backend.
+function MessageLog() {
+  const { conversations } = useInbox()
+  const { whatsapp } = useSetup()
+  const [query, setQuery] = useState('')
+  const [from, setFrom] = useState<'all' | 'own' | 'kdk'>('all')
+  const [kind, setKind] = useState('all')
+  const [status, setStatus] = useState('all')
+  const rows = useMemo(
+    () =>
+      conversations
+        .flatMap((c) => c.msgs.filter((m) => m.from === 'ca' && m.text).map((m) => ({ id: `${c.id}:${m.id}`, c, m, kind: messageKind(m.text!) })))
+        .sort((a, b) => `${b.m.day} ${b.m.time}`.localeCompare(`${a.m.day} ${a.m.time}`)),
+    [conversations],
+  )
+  const shown = rows.filter(
+    (r) =>
+      (from === 'all' || r.c.via === from) &&
+      (kind === 'all' || r.kind === kind) &&
+      (status === 'all' || (r.m.tick ?? 'sent') === status) &&
+      (!query.trim() || `${r.c.title} ${r.c.phone}`.toLowerCase().includes(query.trim().toLowerCase())),
+  )
+  const paging = usePaging(shown, `${query}|${from}|${kind}|${status}`, [10, 25, 50])
+  const grid = 'grid grid-cols-[130px_minmax(0,1fr)_250px_190px_110px] items-center gap-4 px-6'
+  return (
+    <div className="rounded-[18px] border border-line bg-white">
+      <div className="flex flex-wrap items-center gap-3 border-b border-line px-6 py-4">
+        <label className="flex h-10 min-w-[220px] flex-1 items-center gap-2 rounded-xl bg-canvas px-3.5 text-sm text-muted">
+          <Search size={15} />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search client or number" className="w-full bg-transparent text-ink outline-none placeholder:text-muted" />
+        </label>
+        <select value={from} onChange={(e) => setFrom(e.target.value as typeof from)} className={selectCls} aria-label="Sent from">
+          <option value="all">All numbers</option>
+          <option value="own">{whatsapp?.displayName ?? 'Your WhatsApp'}</option>
+          <option value="kdk">{SHARED_NUMBER_NAME}</option>
+        </select>
+        <select value={kind} onChange={(e) => setKind(e.target.value)} className={selectCls} aria-label="Type">
+          <option value="all">All types</option>
+          {messageKinds.map((k) => (
+            <option key={k}>{k}</option>
+          ))}
+        </select>
+        <select value={status} onChange={(e) => setStatus(e.target.value)} className={selectCls} aria-label="Status">
+          <option value="all">All statuses</option>
+          {Object.entries(STATUS_NAME).map(([k, v]) => (
+            <option key={k} value={k}>
+              {v}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className={`${grid} border-b border-line bg-slate-50 py-2.5 text-xs font-semibold uppercase tracking-wide text-muted`}>
+        <span>Date and time</span>
+        <span>Client</span>
+        <span>Sent from</span>
+        <span>Type</span>
+        <span>Status</span>
+      </div>
+      {paging.rows.length === 0 && <p className="px-6 py-10 text-center text-sm text-muted">No messages match.</p>}
+      {paging.rows.map(({ id, c, m, kind: k }) => {
+        const st = m.tick ?? 'sent'
+        return (
+          <div key={id} className={`${grid} min-h-[60px] border-b border-line py-2.5 text-sm last:border-b-0`}>
+            <span className="tabular-nums">
+              <span className="block font-medium">{dayLabel(m.day)}</span>
+              <span className="text-xs text-muted">{m.time}</span>
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate font-semibold">{c.title}</span>
+              <span className="text-xs text-muted">{c.phone}</span>
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate font-medium">{c.via === 'own' ? (whatsapp?.displayName ?? 'Your WhatsApp') : SHARED_NUMBER_NAME}</span>
+              <span className="text-xs text-muted">{c.via === 'own' ? (whatsapp?.number ?? '') : 'Shared number'}</span>
+            </span>
+            <span className="truncate">{k}</span>
+            <span>
+              <span className={`inline-block rounded-md px-2 py-1 text-[11px] font-bold uppercase tracking-wide ${STATUS_STYLE[st]}`}>{STATUS_NAME[st]}</span>
+              {st === 'failed' && m.failReason && <span className="mt-0.5 block text-xs text-danger">{m.failReason}</span>}
+            </span>
+          </div>
+        )
+      })}
+      <Pagination p={paging} noun="messages" />
     </div>
   )
+}
+
+// Every document a client has sent: when, who, which file, for which request, how it came, and what happened to it.
+function FileLog() {
+  const { requests } = useRequests()
+  const [query, setQuery] = useState('')
+  const [via, setVia] = useState('all')
+  const [status, setStatus] = useState('all')
+  const rows = useMemo(
+    () => requests.flatMap((r) => r.clients.flatMap((c) => c.docs.filter((d) => d.status !== 'pending' && d.status !== 'na').map((d) => ({ id: `${r.id}:${c.clientId}:${d.id}`, r, clientId: c.clientId, d })))),
+    [requests],
+  )
+  const shown = rows.filter(
+    (x) =>
+      (via === 'all' || x.d.source === via) &&
+      (status === 'all' || x.d.status === status) &&
+      (!query.trim() || `${getClient(x.clientId)?.name ?? ''} ${x.d.fileName ?? ''} ${x.d.name}`.toLowerCase().includes(query.trim().toLowerCase())),
+  )
+  const paging = usePaging(shown, `${query}|${via}|${status}`, [10, 25, 50])
+  const grid = 'grid grid-cols-[150px_minmax(0,1fr)_minmax(0,1fr)_150px_110px_130px] items-center gap-4 px-6'
   return (
-    <div className="flex max-w-3xl flex-col gap-8">
-      <section>
-        <h2 className="text-base font-bold tracking-tight">Messages</h2>
-        <p className="mt-0.5 text-sm text-muted">Last 30 days</p>
-        <div className="mt-3 grid grid-cols-3 gap-4">
-          <Card n={sent.length} label="Messages sent" />
-          <Card n={byNumber.own} label="From your WhatsApp" />
-          <Card n={byNumber.kdk} label={`From the ${SHARED_NUMBER_NAME} number`} />
-        </div>
-        <div className="mt-4 grid grid-cols-3 gap-4">
-          <Card n={messaged.size} label="Clients messaged" />
-          <Card n={replied} label="Of them, sent files" />
-          <Card n={messaged.size - replied} label="Not replied yet" />
-        </div>
-      </section>
-      <section>
-        <h2 className="text-base font-bold tracking-tight">Files</h2>
-        <p className="mt-0.5 text-sm text-muted">Across all your requests</p>
-        <div className="mt-3 grid grid-cols-3 gap-4">
-          <Card n={got.length} label="Files received" />
-          <Card n={count('approved')} label="Approved" />
-          <Card n={count('to_review')} label="Waiting for review" />
-        </div>
-        <div className="mt-4 grid grid-cols-3 gap-4">
-          <Card n={count('rejected')} label="Sent back" />
-          <Card n={unsorted.length} label="Not placed yet" />
-        </div>
-      </section>
+    <div className="rounded-[18px] border border-line bg-white">
+      <div className="flex flex-wrap items-center gap-3 border-b border-line px-6 py-4">
+        <label className="flex h-10 min-w-[220px] flex-1 items-center gap-2 rounded-xl bg-canvas px-3.5 text-sm text-muted">
+          <Search size={15} />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search client or file" className="w-full bg-transparent text-ink outline-none placeholder:text-muted" />
+        </label>
+        <select value={via} onChange={(e) => setVia(e.target.value)} className={selectCls} aria-label="Came through">
+          <option value="all">WhatsApp and link</option>
+          <option value="WhatsApp">WhatsApp chat</option>
+          <option value="Link">Upload link</option>
+        </select>
+        <select value={status} onChange={(e) => setStatus(e.target.value)} className={selectCls} aria-label="Status">
+          <option value="all">All statuses</option>
+          <option value="to_review">To review</option>
+          <option value="approved">Approved</option>
+          <option value="rejected">Sent back</option>
+        </select>
+      </div>
+      <div className={`${grid} border-b border-line bg-slate-50 py-2.5 text-xs font-semibold uppercase tracking-wide text-muted`}>
+        <span>Received</span>
+        <span>Client</span>
+        <span>File</span>
+        <span>Request</span>
+        <span>Came through</span>
+        <span>Status</span>
+      </div>
+      {paging.rows.length === 0 && <p className="px-6 py-10 text-center text-sm text-muted">No files match.</p>}
+      {paging.rows.map(({ id, r, clientId, d }) => (
+        <Link key={id} to={`/requests/${r.id}?doc=${clientId}:${d.id}`} className={`${grid} min-h-[60px] border-b border-line py-2.5 text-sm last:border-b-0 hover:bg-slate-50`}>
+          <span className="text-[13px] text-muted">{d.receivedAt}</span>
+          <span className="truncate font-semibold">{getClient(clientId)?.name}</span>
+          <span className="min-w-0">
+            <span className="block truncate font-medium">{d.fileName}</span>
+            <span className="text-xs text-muted">{d.name}</span>
+          </span>
+          <span className="truncate">
+            {r.title} <span className="text-xs text-muted">{r.ref}</span>
+          </span>
+          <span>{d.source === 'WhatsApp' ? 'WhatsApp chat' : 'Upload link'}</span>
+          <StatusBadge status={d.status} />
+        </Link>
+      ))}
+      <Pagination p={paging} noun="files" />
+    </div>
+  )
+}
+
+function Usage() {
+  const [part, setPart] = useState<'messages' | 'files'>('messages')
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex w-fit rounded-xl bg-canvas p-1 text-sm font-semibold">
+        {(['messages', 'files'] as const).map((k) => (
+          <button key={k} type="button" onClick={() => setPart(k)} className={`h-9 rounded-lg px-5 capitalize ${part === k ? 'bg-white shadow-sm' : 'text-muted'}`}>
+            {k}
+          </button>
+        ))}
+      </div>
+      {part === 'messages' ? <MessageLog /> : <FileLog />}
       <p className="text-xs text-muted">We keep a record of every message sent from your account.</p>
     </div>
   )
