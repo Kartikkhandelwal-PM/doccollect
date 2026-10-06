@@ -1,3 +1,4 @@
+import { demoDay } from '../lib/dates'
 import { createContext, useCallback, useContext, useMemo } from 'react'
 import { useSessionState } from '../lib/session'
 import type { ReactNode } from 'react'
@@ -85,8 +86,8 @@ const seed: DocRequest[] = [
     id: 'r1',
     ref: 'R-1042',
     title: 'ITR salaried',
-    createdAt: '2026-09-27',
-    due: '2026-10-05',
+    createdAt: demoDay('2026-09-27'),
+    due: demoDay('2026-10-05'),
     via: 'own',
     clients: [
       {
@@ -107,8 +108,8 @@ const seed: DocRequest[] = [
     id: 'r2',
     ref: 'R-1043',
     title: 'GST monthly',
-    createdAt: '2026-09-28',
-    due: '2026-10-03',
+    createdAt: demoDay('2026-09-28'),
+    due: demoDay('2026-10-03'),
     via: 'own',
     clients: [
       {
@@ -136,8 +137,8 @@ const seed: DocRequest[] = [
     id: 'r3',
     ref: 'R-1039',
     title: 'TDS quarterly',
-    createdAt: '2026-09-20',
-    due: '2026-09-28',
+    createdAt: demoDay('2026-09-20'),
+    due: demoDay('2026-09-28'),
     via: 'own',
     clients: [
       {

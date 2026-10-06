@@ -150,13 +150,20 @@ export default function Dashboard() {
   const visible = items
     .filter((i) => tab === 'all' || i.kind === tab)
 
-  // Requests that are due in the next 7 days, or already late.
-  const dueSoon = requests
+  // Requests that are due in the next 7 days, plus the one or two that are most late. Late ones never crowd out what is coming.
+  const open = requests
     .filter((r) => requestState(r) !== 'completed')
     .map((r) => ({ r, days: daysUntil(r.due) }))
     .filter((x) => x.days <= 7)
-    .sort((a, b) => a.days - b.days)
-    .slice(0, 4)
+  const late = open.filter((x) => x.days < 0).sort((a, b) => a.days - b.days)
+  const coming = open.filter((x) => x.days >= 0).sort((a, b) => a.days - b.days)
+  const lateShown = late.slice(0, Math.min(2, Math.max(1, 4 - coming.length)))
+  // Keep one that is a few days away in the list, so it is not all red and amber.
+  const room = 4 - lateShown.length
+  const next = coming.slice(0, room)
+  const later = coming.find((x) => x.days >= 3)
+  if (later && next.length === room && !next.some((x) => x.days >= 3)) next[room - 1] = later
+  const dueSoon = [...lateShown, ...next]
 
   // Only the first few. The full list, with search and paging, lives on its own page.
   const SHOW = 9

@@ -30,3 +30,8 @@ export function defaultDue(templateId: string) {
 }
 
 export const daysUntil = (day: string) => Math.round((parseISO(day).getTime() - parseISO(todayISO()).getTime()) / 86400000)
+
+// The sample requests were written as of 5 Oct 2026. Their dates move along with today, so the demo always has requests
+// that are late, due today, due this week and due later, whenever it is opened.
+const SAMPLE_DAY = '2026-10-05'
+export const demoDay = (day: string) => addDays(day, Math.round((parseISO(todayISO()).getTime() - parseISO(SAMPLE_DAY).getTime()) / 86400000))
