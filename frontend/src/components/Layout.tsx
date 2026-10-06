@@ -51,10 +51,9 @@ function NavGroup({ items, dots = {}, collapsed }: { items: NavItem[]; dots?: Re
             key={to}
             to={to}
             end={to === '/'}
-            title={collapsed ? label : undefined}
             aria-label={label}
             className={({ isActive }) =>
-              `relative flex items-center rounded-[10px] text-sm font-semibold ${collapsed ? 'h-11 justify-center' : 'gap-3 px-3 py-2.5'} ${
+              `group relative flex items-center rounded-[10px] text-sm font-semibold ${collapsed ? 'h-11 justify-center' : 'gap-3 px-3 py-2.5'} ${
                 isActive ? 'bg-brand-soft text-brand-dark' : 'text-slate-600 hover:bg-canvas'
               }`
             }
@@ -69,6 +68,11 @@ function NavGroup({ items, dots = {}, collapsed }: { items: NavItem[]; dots?: Re
                 title={`${news} new`}
               />
             ) : null}
+            {collapsed && (
+              <span role="tooltip" className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-lg bg-ink px-2.5 py-1.5 text-xs font-semibold text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                {label}
+              </span>
+            )}
           </NavLink>
         )
       })}
