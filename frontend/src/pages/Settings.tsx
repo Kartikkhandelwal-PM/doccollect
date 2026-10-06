@@ -6,8 +6,8 @@ import ConnectWhatsApp from '../components/ConnectWhatsApp'
 import PhoneInput from '../components/PhoneInput'
 import FirmLogo from '../components/FirmLogo'
 import WhatsAppIcon from '../components/WhatsAppIcon'
-import { useInbox } from '../data/inbox'
-import { fmtDate } from '../data/requests'
+import { useSearchParams } from 'react-router-dom'
+import { fmtDate, useRequests } from '../data/requests'
 import { expiresOn } from '../lib/dates'
 import { useSetup } from '../data/setup'
 import type { Firm, TeamMember } from '../data/setup'
@@ -35,8 +35,10 @@ function Field({ label, value, onChange }: { label: string; value: string; onCha
 
 export default function Settings() {
   const { firm, saveFirm, team, invite, setRole, removeMember, whatsapp, connectWhatsApp, graceDays, setGraceDays, readReplies, setReadReplies } = useSetup()
-  const { mode, setMode } = useInbox()
-  const [tab, setTab] = useState<Tab>('firm')
+  const { requests } = useRequests()
+  const [params] = useSearchParams()
+  const [tab, setTab] = useState<Tab>(params.get('tab') === 'whatsapp' ? 'whatsapp' : 'firm')
+  const [disconnecting, setDisconnecting] = useState(false)
   const [draft, setDraft] = useState<Firm>(firm)
   const [toast, setToast] = useState<string | null>(null)
   const [inviteEmail, setInviteEmail] = useState('')
@@ -134,46 +136,28 @@ export default function Settings() {
       {tab === 'whatsapp' && (
         <div className="flex max-w-3xl flex-col gap-8">
           <section>
-            <h2 className="text-base font-bold tracking-tight">Send messages from</h2>
-            <p className="mt-0.5 text-sm text-muted">Choose the number your clients get messages from.</p>
+            <h2 className="text-base font-bold tracking-tight">Your WhatsApp numbers</h2>
+            <p className="mt-0.5 text-sm text-muted">Both numbers work together. You choose the number each time you send a request, and reminders for it go from the same number.</p>
 
-            <div className="mt-4 flex flex-col gap-3" role="radiogroup" aria-label="Send messages from">
-              {/* Your own WhatsApp. Its details open inside the card once it is the one in use. */}
-              <div className={`overflow-hidden rounded-2xl bg-white ${mode === 'own' && whatsapp ? 'border-2 border-brand' : 'border border-line'}`}>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={mode === 'own' && !!whatsapp}
-                  onClick={() => {
-                    if (!whatsapp) return setConnecting(true)
-                    setMode('own')
-                    setToast('Now sending from your WhatsApp')
-                  }}
-                  className="flex w-full items-center gap-4 p-4 text-left hover:bg-canvas/60"
-                >
+            <div className="mt-4 flex flex-col gap-3">
+              <div className={`overflow-hidden rounded-2xl bg-white ${whatsapp ? 'border-2 border-brand' : 'border border-line'}`}>
+                <div className="flex w-full items-center gap-4 p-4">
                   <WhatsAppIcon size={44} />
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center gap-2">
                       <span className="text-[15px] font-semibold">Your own WhatsApp</span>
                       <span className={`rounded-md px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide ${whatsapp ? 'bg-ok-soft text-ok' : 'bg-canvas text-muted'}`}>{whatsapp ? 'Connected' : 'Not connected'}</span>
                     </span>
-                    <span className="block text-[13px] text-muted">{whatsapp ? `Connected through ${whatsapp.provider}` : 'Use your own number. You connect it once.'}</span>
+                    <span className="block text-[13px] text-muted">{whatsapp ? `Connected through ${whatsapp.provider} · clients can reply in the chat` : 'Clients get the message from your own number, and their files come straight to you.'}</span>
                   </span>
-                  <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${mode === 'own' && whatsapp ? 'bg-brand text-white' : 'border-2 border-slate-300'}`} aria-hidden="true">
-                    {mode === 'own' && whatsapp && <Check size={12} strokeWidth={3.5} />}
-                  </span>
-                </button>
-
-                {!whatsapp && (
-                  <div className="flex items-center justify-between gap-4 border-t border-line bg-slate-50/70 px-4 py-3.5">
-                    <p className="text-[13px] leading-snug text-muted">Clients get the message from your own number, and their files come straight to you.</p>
+                  {!whatsapp && (
                     <button type="button" onClick={() => setConnecting(true)} className="h-10 shrink-0 rounded-xl bg-brand px-5 text-sm font-semibold text-white hover:bg-brand-dark">
                       Connect your WhatsApp
                     </button>
-                  </div>
-                )}
+                  )}
+                </div>
 
-                {whatsapp && mode === 'own' && (
+                {whatsapp && (
                   <div className="border-t border-line bg-slate-50/70 px-4 py-4">
                     <dl className="grid grid-cols-3 gap-x-6 text-sm">
                       <div className="min-w-0">
@@ -193,15 +177,7 @@ export default function Settings() {
                       <button type="button" onClick={() => setConnecting(true)} className="h-9 rounded-lg border border-line bg-white px-3.5 text-[13px] font-semibold hover:bg-canvas">
                         Connect a different number
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          connectWhatsApp(null)
-                          setMode('kdk')
-                          setToast(`WhatsApp disconnected. Using the ${SHARED_NUMBER_NAME} number.`)
-                        }}
-                        className="h-9 rounded-lg px-3.5 text-[13px] font-semibold text-danger hover:bg-danger-soft"
-                      >
+                      <button type="button" onClick={() => setDisconnecting(true)} className="h-9 rounded-lg px-3.5 text-[13px] font-semibold text-danger hover:bg-danger-soft">
                         Disconnect
                       </button>
                     </div>
@@ -209,54 +185,41 @@ export default function Settings() {
                 )}
               </div>
 
-              {/* The shared number. Nothing to set up. */}
-              <button
-                type="button"
-                role="radio"
-                aria-checked={mode === 'kdk'}
-                onClick={() => {
-                  setMode('kdk')
-                  setToast(`Now sending from the ${SHARED_NUMBER_NAME} number`)
-                }}
-                className={`flex w-full items-center gap-4 rounded-2xl bg-white p-4 text-left hover:bg-canvas/60 ${mode === 'kdk' ? 'border-2 border-brand' : 'border border-line'}`}
-              >
+              <div className="flex w-full items-center gap-4 rounded-2xl border border-line bg-white p-4">
                 <WhatsAppIcon size={44} />
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2">
                     <span className="text-[15px] font-semibold">{SHARED_NUMBER_NAME} number</span>
-                    <span className="rounded-md bg-canvas px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-muted">No setup</span>
+                    <span className="rounded-md bg-ok-soft px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-ok">Always available</span>
                   </span>
-                  <span className="block text-[13px] text-muted">Shared number from KDK, sent in your firm’s name · clients upload through the link</span>
+                  <span className="block text-[13px] text-muted">Shared number from KDK, sent in your firm’s name · clients upload through the link, replies are not read</span>
                 </span>
-                <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${mode === 'kdk' ? 'bg-brand text-white' : 'border-2 border-slate-300'}`} aria-hidden="true">
-                  {mode === 'kdk' && <Check size={12} strokeWidth={3.5} />}
-                </span>
-              </button>
+              </div>
             </div>
           </section>
 
           <section>
             <h2 className="text-base font-bold tracking-tight">Client replies</h2>
             <p className="mt-0.5 text-sm text-muted">What happens to the files clients send you on WhatsApp.</p>
-            <div className={`mt-4 rounded-2xl border border-line bg-white ${whatsapp && mode === 'own' ? '' : 'opacity-60'}`}>
+            <div className={`mt-4 rounded-2xl border border-line bg-white ${whatsapp ? '' : 'opacity-60'}`}>
               <button
                 type="button"
                 role="switch"
                 aria-checked={readReplies}
-                disabled={!whatsapp || mode !== 'own'}
+                disabled={!whatsapp}
                 onClick={() => {
                   setReadReplies(!readReplies)
                   setToast(readReplies ? 'Replies are off. Clients upload through the link.' : 'Now reading replies to your requests')
                 }}
                 className="flex w-full items-center gap-4 p-4 text-left disabled:cursor-not-allowed"
               >
-                <span className={`relative h-[24px] w-[42px] shrink-0 rounded-full ${readReplies && whatsapp && mode === 'own' ? 'bg-brand' : 'bg-slate-300'}`}>
-                  <span className={`absolute top-[3px] h-[18px] w-[18px] rounded-full bg-white transition-all ${readReplies && whatsapp && mode === 'own' ? 'left-[21px]' : 'left-[3px]'}`} />
+                <span className={`relative h-[24px] w-[42px] shrink-0 rounded-full ${readReplies && whatsapp ? 'bg-brand' : 'bg-slate-300'}`}>
+                  <span className={`absolute top-[3px] h-[18px] w-[18px] rounded-full bg-white transition-all ${readReplies && whatsapp ? 'left-[21px]' : 'left-[3px]'}`} />
                 </span>
                 <span className="flex-1">
                   <span className="block text-sm font-semibold">Read client replies on WhatsApp</span>
                   <span className="text-[13px] leading-snug text-muted">
-                    {whatsapp && mode === 'own' ? 'Turn this off and clients can only upload through the link.' : 'Only available when you send from your own WhatsApp.'}
+                    {whatsapp ? 'Turn this off and clients can only upload through the link.' : 'Only available when your own WhatsApp is connected.'}
                   </span>
                 </span>
               </button>
@@ -394,12 +357,43 @@ export default function Settings() {
         </section>
       )}
 
+      {disconnecting && (
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="Disconnect your WhatsApp">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <h2 className="text-lg font-bold">Disconnect your WhatsApp?</h2>
+            <p className="mt-2 text-sm leading-relaxed text-muted">From now, all communication with your clients will go from the {SHARED_NUMBER_NAME} number.</p>
+            <ul className="mt-3 flex list-disc flex-col gap-1.5 pl-5 text-sm leading-relaxed text-slate-700">
+              <li>
+                {requests.filter((r) => r.via === 'own').length} requests were sent from your WhatsApp. Their reminders will go from the {SHARED_NUMBER_NAME} number, as a link.
+              </li>
+              <li>Clients can no longer reply in the chat. They upload through the link, and replies to the {SHARED_NUMBER_NAME} number are not read.</li>
+              <li>Your old chats stay in the Inbox to read.</li>
+            </ul>
+            <div className="mt-6 flex justify-end gap-3">
+              <button type="button" onClick={() => setDisconnecting(false)} className="h-11 rounded-xl border border-line px-5 text-sm font-semibold hover:bg-canvas">
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  connectWhatsApp(null)
+                  setDisconnecting(false)
+                  setToast(`WhatsApp disconnected. Messages now go from the ${SHARED_NUMBER_NAME} number.`)
+                }}
+                className="h-11 rounded-xl bg-danger px-5 text-sm font-semibold text-white"
+              >
+                Disconnect
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {connecting && (
         <ConnectWhatsApp
           onClose={() => setConnecting(false)}
           onConnected={(link) => {
             connectWhatsApp(link)
-            setMode('own')
             setConnecting(false)
             setToast(`WhatsApp connected through ${link.provider}`)
           }}

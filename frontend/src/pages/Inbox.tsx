@@ -332,9 +332,9 @@ function RightPanel({ conv, onReview }: { conv: Conversation; onReview: () => vo
 }
 
 export default function Inbox() {
-  const { conversations: allConversations, mode, setMode, markRead, send, markPlaced } = useInbox()
+  const { conversations: allConversations, markRead, send, markPlaced } = useInbox()
   const { messageTemplates, firm, readReplies, ownNumber } = useSetup()
-  const accounts = { own: ownNumber ?? 'Your WhatsApp', kdk: SHARED_NUMBER_NAME } as const
+  const accounts = { own: ownNumber ?? 'Your WhatsApp', kdk: `${SHARED_NUMBER_NAME} number` } as const
   const { requests, setDocStatus, unsorted, useUnsorted, dropUnsorted } = useRequests()
   // Everything except the first-request message can be dropped into a chat.
   const templates = messageTemplates.filter((m) => m.id !== 'request')
@@ -342,7 +342,10 @@ export default function Inbox() {
   const [params] = useSearchParams()
   const wanted = params.get('client')
   const wantedChat = params.get('chat')
-  const [activeId, setActiveId] = useState(() => allConversations.find((c) => c.id === wantedChat)?.id ?? allConversations.find((c) => wanted && c.clientIds.includes(wanted))?.id ?? allConversations[0]?.id ?? '')
+  // Opens on the chat that was asked for (and the number it is on). Otherwise on the chat with the newest message, so what you just sent is right there.
+  const target = allConversations.find((c) => c.id === wantedChat) ?? (wanted ? (allConversations.find((c) => c.via === 'own' && c.clientIds.includes(wanted)) ?? allConversations.find((c) => c.clientIds.includes(wanted))) : allConversations[0])
+  const [mode, setMode] = useState<'own' | 'kdk'>(() => target?.via ?? 'own')
+  const [activeId, setActiveId] = useState(() => target?.id ?? '')
   const [filter, setFilter] = useState<Filter>('all')
   const [query, setQuery] = useState('')
   const [text, setText] = useState('')
@@ -363,7 +366,9 @@ export default function Inbox() {
     return () => clearTimeout(t)
   }, [toast])
 
-  const own = mode === 'own'
+  // The firm's own number can be disconnected. Its old chats stay readable, but nothing can be sent from it.
+  const connected = !!ownNumber
+  const own = mode === 'own' && connected
   // Are client replies being read at all? Not on the shared number, and not when the switch in Settings is off.
   const reading = own && readReplies
   // Only work shows up here: what the firm sent, and the files a client sends back that look like documents.
@@ -372,13 +377,14 @@ export default function Inbox() {
   const conversations = useMemo(
     () =>
       allConversations
+        .filter((c) => c.via === mode)
         .filter((c) => reading || !c.unassigned)
         .map((c) => {
           const msgs = c.msgs.filter((m) => isWork(m) && (reading || m.from === 'ca'))
           return reading ? { ...c, msgs } : { ...c, msgs, unread: 0 }
         })
         .filter((c) => c.msgs.length > 0),
-    [reading, allConversations],
+    [reading, mode, allConversations],
   )
   const active = conversations.find((c) => c.id === activeId) ?? conversations[0]
   const taRef = useRef<HTMLTextAreaElement>(null)
@@ -481,25 +487,38 @@ export default function Inbox() {
                 <button type="button" aria-label="Close menu" className="fixed inset-0 z-10 cursor-default" onClick={() => setShowAccounts(false)} />
                 <div role="menu" className="absolute left-0 right-0 z-20 mt-1.5 overflow-hidden rounded-xl border border-line bg-white py-1 shadow-xl">
                   <div className="px-3.5 pb-1 pt-2 text-[11px] font-bold uppercase tracking-widest text-faint">Switch account</div>
-                  {(['own', 'kdk'] as const).map((k) => (
-                    <button
-                      key={k}
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setMode(k)
-                        setShowAccounts(false)
-                      }}
-                      className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left hover:bg-canvas"
-                    >
-                      <WhatsAppIcon size={36} />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-semibold">{accounts[k]}</span>
-                      </span>
-                      {mode === k && <Check size={16} className="shrink-0 text-brand" />}
-                    </button>
-                  ))}
-                  <div className="mt-1 border-t border-line px-3.5 py-2.5 text-[13px] font-semibold text-brand">+ Connect another number</div>
+                  {(['own', 'kdk'] as const).map((k) => {
+                    const chats = allConversations.filter((c) => c.via === k && !c.unassigned)
+                    const fresh = k === 'own' && connected && readReplies ? chats.reduce((n, c) => n + (c.unread > 0 ? 1 : 0), 0) : 0
+                    return (
+                      <button
+                        key={k}
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setMode(k)
+                          setActiveId(allConversations.find((c) => c.via === k)?.id ?? '')
+                          setFilter('all')
+                          setShowAccounts(false)
+                        }}
+                        className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left hover:bg-canvas"
+                      >
+                        <WhatsAppIcon size={36} />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-semibold">{accounts[k]}</span>
+                          <span className="block truncate text-xs text-muted">
+                            {k === 'own' && !connected ? 'Not connected' : `${chats.length} ${chats.length === 1 ? 'chat' : 'chats'}${fresh ? ` · ${fresh} unread` : ''}`}
+                          </span>
+                        </span>
+                        {mode === k && <Check size={16} className="shrink-0 text-brand" />}
+                      </button>
+                    )
+                  })}
+                  {!connected && (
+                    <Link to="/settings?tab=whatsapp" className="mt-1 block border-t border-line px-3.5 py-2.5 text-[13px] font-semibold text-brand hover:bg-canvas">
+                      Connect your WhatsApp
+                    </Link>
+                  )}
                 </div>
               </>
             )}
@@ -602,9 +621,16 @@ export default function Inbox() {
           <div ref={endRef} />
         </div>
 
-        {!own ? (
+        {mode === 'kdk' ? (
           <div className="shrink-0 border-t border-[#E9EDEF] bg-[#FFF8E1] px-5 py-3 text-[13px] leading-relaxed text-[#7A3B00]">
-            <b>You are sending from the {SHARED_NUMBER_NAME} number.</b> Clients reply through the upload link, so their messages are not read here. Files they upload show up directly in the request.
+            <b>These messages go from the {SHARED_NUMBER_NAME} number.</b> Clients upload through the link, so their replies are not read here. If a client writes to this number anyway, they get an automatic reply asking them to use the link.
+          </div>
+        ) : !connected ? (
+          <div className="shrink-0 border-t border-[#E9EDEF] bg-[#FFF8E1] px-5 py-3 text-[13px] leading-relaxed text-[#7A3B00]">
+            <b>Your WhatsApp is not connected.</b> You can read these chats, but nothing can be sent from here. Reminders now go from the {SHARED_NUMBER_NAME} number.{' '}
+            <Link to="/settings?tab=whatsapp" className="font-semibold underline">
+              Connect again
+            </Link>
           </div>
         ) : !readReplies ? (
           <div className="shrink-0 border-t border-[#E9EDEF] bg-[#FFF8E1] px-5 py-3 text-[13px] leading-relaxed text-[#7A3B00]">
@@ -653,7 +679,7 @@ export default function Inbox() {
                 submit()
               }
             }}
-            placeholder={own ? 'Type a message' : `Replies are not read on the ${SHARED_NUMBER_NAME} number`}
+            placeholder={own ? 'Type a message' : mode === 'kdk' ? `Replies are not read on the ${SHARED_NUMBER_NAME} number` : 'Your WhatsApp is not connected'}
             className="max-h-[168px] min-h-11 flex-1 resize-none rounded-[10px] bg-white px-4 py-[11px] text-[15px] leading-[22px] outline-none placeholder:text-[#667781] disabled:bg-slate-100"
           />
           <button type="button" onClick={submit} aria-label="Send" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#008069] text-white disabled:opacity-40" disabled={!text.trim() || !own}>

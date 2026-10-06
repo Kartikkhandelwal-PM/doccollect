@@ -1,7 +1,8 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useMemo } from 'react'
 import type { ReactNode } from 'react'
 import { formatList, fillTemplate } from '../lib/template'
 import { seedMessages } from './messageTemplates'
+import { getClient } from './mock'
 import { useSetup } from './setup'
 import { useSessionState } from '../lib/session'
 import { LINK_DOMAIN } from '../lib/brand'
@@ -26,15 +27,20 @@ export interface Conversation {
   unread: number
   msgs: Msg[]
   unassigned?: boolean
+  via: 'own' | 'kdk' // which WhatsApp number this chat is on: the firm's own, or the shared CA Connect number
 }
 
 // The text a template produces for a client. The chat shows exactly this, never a hand-written copy.
-const say = (id: string, values: Record<string, string>) =>
-  fillTemplate(seedMessages.find((m) => m.id === id)?.text ?? '', { firm: 'Kartik Khandelwal & Associates', link: `${LINK_DOMAIN}/u/r-1042-ramesh-itr-v1`, ...values })
+const say = (id: string, values: Record<string, string>, via: 'own' | 'kdk' = 'own') => {
+  const t = seedMessages.find((m) => m.id === id)
+  return fillTemplate((via === 'kdk' ? t?.onBehalf : t?.text) ?? '', { firm: 'Kartik Khandelwal & Associates', link: `${LINK_DOMAIN}/u/r-1042-ramesh-itr-v1`, ...values })
+}
 
 const nowTime = () => new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false })
 
-const seed: Conversation[] = [
+type Seed = Omit<Conversation, 'via'> & { via?: Conversation['via'] }
+
+const rawSeed: Seed[] = [
   {
     id: 'c-ramesh',
     title: 'Ramesh Kumar',
@@ -205,10 +211,29 @@ const seed: Conversation[] = [
     title: 'Lotus Interiors',
     phone: '+91 99880 31742',
     clientIds: ['lotus-interiors'],
+    via: 'kdk',
     unread: 0,
     msgs: [
-      { id: 'lo1', from: 'ca', time: 'Tue', tick: 'sent', text: say('request', { name: 'Lotus', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '8 Oct', link: `${LINK_DOMAIN}/u/r-1035-lotus-interiors-v1` }) },
+      { id: 'lo1', from: 'ca', time: 'Tue', tick: 'sent', text: say('request', { name: 'Lotus', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '8 Oct', link: `${LINK_DOMAIN}/u/r-1035-lotus-interiors-v1` }, 'kdk') },
     ],
+  },
+  {
+    id: 'c-sundaram',
+    title: 'Sundaram Auto Parts',
+    phone: getClient('sundaram-auto-parts')?.phone ?? '',
+    clientIds: ['sundaram-auto-parts'],
+    via: 'kdk',
+    unread: 0,
+    msgs: [{ id: 'su1', from: 'ca', time: 'Tue', tick: 'read', text: say('request', { name: 'Sundaram', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '8 Oct', link: `${LINK_DOMAIN}/u/r-1035-sundaram-auto-parts-v1` }, 'kdk') }],
+  },
+  {
+    id: 'c-zenith',
+    title: 'Zenith Packaging',
+    phone: getClient('zenith-packaging')?.phone ?? '',
+    clientIds: ['zenith-packaging'],
+    via: 'kdk',
+    unread: 0,
+    msgs: [{ id: 'ze1', from: 'ca', time: 'Tue', tick: 'read', text: say('request', { name: 'Zenith', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '8 Oct', link: `${LINK_DOMAIN}/u/r-1035-zenith-packaging-v1` }, 'kdk') }],
   },
   {
     id: 'c-neha',
@@ -244,14 +269,14 @@ const seed: Conversation[] = [
   },
 ]
 
+const seed: Conversation[] = rawSeed.map((c) => ({ ...c, via: c.via ?? 'own' }))
+
 interface Store {
   conversations: Conversation[]
   unreadTotal: number
-  mode: 'own' | 'kdk'
-  setMode: (m: 'own' | 'kdk') => void
   markRead: (id: string) => void
   send: (id: string, text: string) => void
-  postToClient: (client: { id: string; name: string; phone: string }, text: string) => void
+  postToClient: (client: { id: string; name: string; phone: string }, text: string, via: 'own' | 'kdk') => void
   settle: (id: string, note: string, keep: boolean) => void
   markPlaced: (id: string, fileName: string, note: string, link?: NonNullable<Msg['link']>) => void
   notifyRejected: (convId: string, docName: string, reason: string) => void
@@ -262,9 +287,6 @@ const Ctx = createContext<Store | null>(null)
 export function InboxProvider({ children }: { children: ReactNode }) {
   const { readReplies } = useSetup()
   const [conversations, setConversations] = useSessionState<Conversation[]>('inbox', seed)
-  // 'own': CA connected their own WhatsApp, so client replies are read here.
-  // 'kdk': messages go from the shared number; clients reply through the upload link, so nothing is read here.
-  const [mode, setMode] = useState<'own' | 'kdk'>('own')
 
   const patch = useCallback((id: string, fn: (c: Conversation) => Conversation) => {
     setConversations((prev) => prev.map((c) => (c.id === id ? fn(c) : c)))
@@ -287,11 +309,11 @@ export function InboxProvider({ children }: { children: ReactNode }) {
 
   // A message the app sends for a client (a request, a reminder, a thank-you). It lands in that client's chat,
   // which is found by phone number so clients on a shared number stay in one chat. No chat yet? One is started.
-  const postToClient = useCallback((client: { id: string; name: string; phone: string }, text: string) => {
+  const postToClient = useCallback((client: { id: string; name: string; phone: string }, text: string, via: 'own' | 'kdk') => {
     const msg: Msg = { id: `s${Date.now()}${Math.random().toString(36).slice(2, 6)}`, from: 'ca', time: nowTime(), tick: 'sent', text }
     setConversations((prev) => {
-      const at = prev.findIndex((c) => !c.unassigned && (c.phone === client.phone || c.clientIds.includes(client.id)))
-      if (at < 0) return [{ id: `c-${client.id}`, title: client.name, phone: client.phone, clientIds: [client.id], unread: 0, msgs: [msg] }, ...prev]
+      const at = prev.findIndex((c) => !c.unassigned && c.via === via && (c.phone === client.phone || c.clientIds.includes(client.id)))
+      if (at < 0) return [{ id: `c-${client.id}-${via}`, title: client.name, phone: client.phone, clientIds: [client.id], via, unread: 0, msgs: [msg] }, ...prev]
       const c = prev[at]
       const next = { ...c, clientIds: c.clientIds.includes(client.id) ? c.clientIds : [...c.clientIds, client.id], msgs: [...c.msgs, msg] }
       return [next, ...prev.slice(0, at), ...prev.slice(at + 1)]
@@ -314,10 +336,11 @@ export function InboxProvider({ children }: { children: ReactNode }) {
     [patch],
   )
 
-  const unreadTotal = mode === 'kdk' || !readReplies ? 0 : conversations.reduce((n, c) => n + c.unread, 0)
+  // Only the firm's own number is read, so only its chats can have something new.
+  const unreadTotal = !readReplies ? 0 : conversations.filter((c) => c.via === 'own').reduce((n, c) => n + c.unread, 0)
   const value = useMemo(
-    () => ({ conversations, unreadTotal, mode, setMode, markRead, send, postToClient, settle, markPlaced, notifyRejected }),
-    [conversations, unreadTotal, mode, markRead, send, postToClient, settle, markPlaced, notifyRejected],
+    () => ({ conversations, unreadTotal, markRead, send, postToClient, settle, markPlaced, notifyRejected }),
+    [conversations, unreadTotal, markRead, send, postToClient, settle, markPlaced, notifyRejected],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

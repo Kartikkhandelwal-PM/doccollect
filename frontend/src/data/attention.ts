@@ -9,8 +9,8 @@ import type { AttentionItem } from './types'
 // What the CA has to look at. One row is one client in one request, so 100 clients stay 100 rows, never 400 documents.
 export function useAttention() {
   const { requests } = useRequests()
-  const { conversations, mode } = useInbox()
-  const { readReplies } = useSetup()
+  const { conversations } = useInbox()
+  const { readReplies, ownNumber } = useSetup()
 
   return useMemo(() => {
     const today = todayISO()
@@ -64,7 +64,7 @@ export function useAttention() {
 
     // Files from a WhatsApp number we could not match to a client. Only exists when the CA's own WhatsApp is connected.
     const unassigned: AttentionItem[] =
-      mode !== 'own' || !readReplies
+      !ownNumber || !readReplies
         ? []
         : conversations
             .filter((c) => c.unassigned)
@@ -84,5 +84,5 @@ export function useAttention() {
             }))
 
     return { items: [...review, ...silent, ...unassigned], stats }
-  }, [requests, conversations, mode, readReplies])
+  }, [requests, conversations, ownNumber, readReplies])
 }

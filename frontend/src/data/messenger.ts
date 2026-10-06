@@ -24,9 +24,26 @@ const SENT_BACK: Record<string, 'blurry' | 'wrongdoc' | 'pages' | 'wrongyear'> =
 }
 
 export function useMessenger() {
-  const { firm } = useSetup()
+  const { firm, ownNumber } = useSetup()
   const { getRequest, remind, newLink } = useRequests()
-  const { postToClient } = useInbox()
+  const { conversations, postToClient } = useInbox()
+
+  // A request keeps the number it was sent from. If the firm's own WhatsApp has been disconnected since, everything goes from the shared number.
+  const viaOf = useCallback((r: DocRequest): 'own' | 'kdk' => (r.via === 'own' && !ownNumber ? 'kdk' : r.via), [ownNumber])
+
+  // Sends to the client on a number. If this client has only heard from the firm on the other number so far, a short introduction goes first.
+  const post = useCallback(
+    (client: { id: string; name: string; phone: string }, text: string, via: 'own' | 'kdk') => {
+      const here = conversations.some((c) => c.via === via && (c.phone === client.phone || c.clientIds.includes(client.id)))
+      const there = conversations.some((c) => c.via !== via && (c.phone === client.phone || c.clientIds.includes(client.id)))
+      if (!here && there) {
+        const t = seedMessages.find((m) => m.id === 'newnumber')!
+        postToClient(client, fillTemplate(via === 'kdk' ? t.onBehalf : t.text, { name: client.name.split(' ')[0], firm: firm.name }), via)
+      }
+      postToClient(client, text, via)
+    },
+    [conversations, postToClient, firm.name],
+  )
 
   const build = useCallback(
     (r: DocRequest, rc: RequestClient, id: 'request' | 'update' | 'rejected' | 'newlink' | 'blurry' | 'wrongdoc' | 'pages' | 'wrongyear', extra: Record<string, string> = {}): string => {
@@ -37,7 +54,7 @@ export function useMessenger() {
       const approved = counted.filter((d) => d.status === 'approved').length
       const tid = id !== 'update' ? id : missing.length === 0 ? 'thanks' : approved > 0 ? 'update' : 'pendinglist'
       const tpl = seedMessages.find((m) => m.id === tid)!
-      return fillTemplate(r.via === 'kdk' ? tpl.onBehalf : tpl.text, {
+      return fillTemplate(viaOf(r) === 'kdk' ? tpl.onBehalf : tpl.text, {
         name: client.name.split(' ')[0],
         firm: firm.name,
         request: r.title,
@@ -50,7 +67,7 @@ export function useMessenger() {
         ...extra,
       })
     },
-    [firm.name],
+    [firm.name, viaOf],
   )
 
   // Every client of a new request gets their own message.
@@ -58,9 +75,9 @@ export function useMessenger() {
     (r: DocRequest) =>
       r.clients.forEach((rc) => {
         const client = getClient(rc.clientId)
-        if (client) postToClient(client, build(r, rc, 'request'))
+        if (client) post(client, build(r, rc, 'request'), viaOf(r))
       }),
-    [build, postToClient],
+    [build, post, viaOf],
   )
 
   const sendUpdate = useCallback(
@@ -69,10 +86,10 @@ export function useMessenger() {
       const rc = r?.clients.find((c) => c.clientId === clientId)
       const client = getClient(clientId)
       if (!r || !rc || !client) return
-      postToClient(client, build(r, rc, 'update'))
+      post(client, build(r, rc, 'update'), viaOf(r))
       remind(requestId, clientId)
     },
-    [getRequest, build, postToClient, remind],
+    [getRequest, build, post, viaOf, remind],
   )
 
   // The old link stops working and the client gets a fresh one.
@@ -82,10 +99,10 @@ export function useMessenger() {
       const rc = r?.clients.find((c) => c.clientId === clientId)
       const client = getClient(clientId)
       if (!r || !rc || !client) return
-      postToClient(client, build(r, { ...rc, linkVersion: (rc.linkVersion ?? 1) + 1 }, 'newlink'))
+      post(client, build(r, { ...rc, linkVersion: (rc.linkVersion ?? 1) + 1 }, 'newlink'), viaOf(r))
       newLink(requestId, clientId)
     },
-    [getRequest, build, postToClient, newLink],
+    [getRequest, build, post, viaOf, newLink],
   )
 
   // A document was sent back: the client is told which one and why. (Approving one document sends nothing.)
@@ -98,9 +115,9 @@ export function useMessenger() {
       // A ready-made reason with no note of your own uses its own message; anything else goes out as "we could not accept ...: <your words>".
       const ready = remark ? undefined : SENT_BACK[reason]
       const words = [reason, remark].filter(Boolean).join(' · ') || 'please send it again'
-      postToClient(client, build(r, rc, ready ?? 'rejected', { document: docName, reason: words.charAt(0).toLowerCase() + words.slice(1) }))
+      post(client, build(r, rc, ready ?? 'rejected', { document: docName, reason: words.charAt(0).toLowerCase() + words.slice(1) }), viaOf(r))
     },
-    [getRequest, build, postToClient],
+    [getRequest, build, post, viaOf],
   )
 
   // The exact text a client would get right now, for the preview before sending.

@@ -17,8 +17,8 @@ const MAX_OVERDUE = 3
 // Only what needs a look right now. The full list of work is on the Dashboard, so it is not repeated here.
 export function useNotifications(): Notice[] {
   const { requests } = useRequests()
-  const { conversations, mode } = useInbox()
-  const { readReplies } = useSetup()
+  const { conversations } = useInbox()
+  const { readReplies, ownNumber } = useSetup()
 
   return useMemo(() => {
     const today = todayISO()
@@ -37,7 +37,7 @@ export function useNotifications(): Notice[] {
     }
 
     // WhatsApp files that could not be matched to a client.
-    if (mode === 'own' && readReplies) {
+    if (ownNumber && readReplies) {
       const files = conversations.filter((c) => c.unassigned).reduce((n, c) => n + c.msgs.filter((m) => m.file).length, 0)
       if (files > 0) out.push({ id: `u:${files}`, kind: 'unmatched', title: `${files} ${files === 1 ? 'file' : 'files'} could not be matched`, sub: 'Choose which client they belong to', href: `/inbox?chat=${conversations.find((c) => c.unassigned)?.id ?? ''}` })
     }
@@ -55,5 +55,5 @@ export function useNotifications(): Notice[] {
     if (docs > 0) out.push({ id: `d:${docs}`, kind: 'documents', title: `${docs} new ${docs === 1 ? 'document' : 'documents'} today`, sub: `From ${who.size} ${who.size === 1 ? 'client' : 'clients'}, ready to review`, href: '/requests?tab=review' })
 
     return out
-  }, [requests, conversations, mode, readReplies])
+  }, [requests, conversations, ownNumber, readReplies])
 }

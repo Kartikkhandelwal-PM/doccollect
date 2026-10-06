@@ -4,8 +4,8 @@ const env = import.meta.env
 // What the product is called (sidebar, browser tab).
 export const APP_NAME: string = env.VITE_APP_NAME ?? 'DocCollect'
 
-// The name clients see when a message comes from the shared WhatsApp number.
-export const SHARED_NUMBER_NAME: string = env.VITE_SHARED_NUMBER_NAME ?? APP_NAME
+// The name clients see when a message comes from the shared WhatsApp number. This is KDK's number, and it is called CA Connect, not the name of this module.
+export const SHARED_NUMBER_NAME: string = env.VITE_SHARED_NUMBER_NAME ?? 'CA Connect'
 
 // The web address that upload links start with.
 export const LINK_DOMAIN: string = env.VITE_LINK_DOMAIN ?? 'doccollect.in'

@@ -97,7 +97,7 @@ export default function NewRequest() {
   const navigate = useNavigate()
   const { create } = useRequests()
   const { sendRequest } = useMessenger()
-  const { groups, templates, messageTemplates, firm } = useSetup()
+  const { groups, templates, messageTemplates, firm, ownNumber } = useSetup()
   const [params] = useSearchParams()
   const preselected = params.get('client')
 
@@ -112,7 +112,9 @@ export default function NewRequest() {
   const [custom, setCustom] = useState<CatalogDoc[]>([])
   const [customText, setCustomText] = useState('')
 
-  const [via, setVia] = useState<'own' | 'kdk'>('own')
+  // Starts on whatever is connected in Settings. Your own number is only there once it is connected.
+  const [picked, setVia] = useState<'own' | 'kdk'>(ownNumber ? 'own' : 'kdk')
+  const via = picked === 'own' && !ownNumber ? 'kdk' : picked
   const [due, setDue] = useState('')
   const [dueTouched, setDueTouched] = useState(false)
   const [created, setCreated] = useState<DocRequest | null>(null)
@@ -485,10 +487,17 @@ export default function NewRequest() {
             <section className="rounded-[18px] border border-line bg-white px-6 py-5">
               <h2 className="text-base font-bold tracking-tight">Send from</h2>
               <div className="mt-3 grid grid-cols-2 gap-3">
-                <button type="button" onClick={() => setVia('own')} className={`rounded-2xl p-3.5 text-left ${via === 'own' ? 'border-2 border-brand bg-[#EEF8F5]' : 'border border-line'}`}>
-                  <div className={`text-sm font-semibold ${via === 'own' ? 'text-brand-dark' : ''}`}>Your WhatsApp</div>
-                  <div className="text-[13px] text-slate-600">+91 98765 43210 · replies are read here</div>
-                </button>
+                {ownNumber ? (
+                  <button type="button" onClick={() => setVia('own')} className={`rounded-2xl p-3.5 text-left ${via === 'own' ? 'border-2 border-brand bg-[#EEF8F5]' : 'border border-line'}`}>
+                    <div className={`text-sm font-semibold ${via === 'own' ? 'text-brand-dark' : ''}`}>Your WhatsApp</div>
+                    <div className="text-[13px] text-slate-600">{ownNumber} · replies are read here</div>
+                  </button>
+                ) : (
+                  <Link to="/settings?tab=whatsapp" className="rounded-2xl border border-dashed border-slate-300 p-3.5 text-left hover:border-brand">
+                    <div className="text-sm font-semibold text-muted">Your WhatsApp</div>
+                    <div className="text-[13px] text-muted">Not connected · <span className="font-semibold text-brand">Connect it in Settings</span></div>
+                  </Link>
+                )}
                 <button type="button" onClick={() => setVia('kdk')} className={`rounded-2xl p-3.5 text-left ${via === 'kdk' ? 'border-2 border-brand bg-[#EEF8F5]' : 'border border-line'}`}>
                   <div className={`text-sm font-semibold ${via === 'kdk' ? 'text-brand-dark' : ''}`}>{SHARED_NUMBER_NAME} number</div>
                   <div className="text-[13px] text-muted">Link only · replies are not read</div>

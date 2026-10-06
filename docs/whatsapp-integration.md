@@ -4,7 +4,7 @@ How a firm connects its WhatsApp to DocCollect, what we found out while planning
 
 ## The two ways messages go out
 
-| | DocCollect number | Your own WhatsApp |
+| | CA Connect number | Your own WhatsApp |
 |---|---|---|
 | Sent from | KDK's shared number, on behalf of the firm | The firm's own number |
 | Setup | None | Connect once (below) |

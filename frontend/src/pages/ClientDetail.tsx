@@ -59,8 +59,8 @@ export default function ClientDetail() {
   const { id } = useParams()
   const [params, setParams] = useSearchParams()
   const { requests } = useRequests()
-  const { conversations, mode } = useInbox()
-  const { readReplies } = useSetup()
+  const { conversations } = useInbox()
+  const { readReplies, ownNumber } = useSetup()
   const client = id ? getClient(id) : undefined
   const tab = (tabs.find((t) => t.key === params.get('tab'))?.key ?? 'overview') as Tab
 
@@ -365,7 +365,7 @@ export default function ClientDetail() {
         <MessagesTab
           clientId={client.id}
           conversations={conversations}
-          reading={mode === 'own' && readReplies}
+          reading={!!ownNumber && readReplies}
         />
       )}
 
@@ -410,8 +410,10 @@ export default function ClientDetail() {
 
 // The WhatsApp messages that belong to this client: what the firm sent, and the files the client sent back.
 function MessagesTab({ clientId, conversations, reading }: { clientId: string; conversations: ReturnType<typeof useInbox>['conversations']; reading: boolean }) {
-  const conv = conversations.find((c) => c.clientIds.includes(clientId))
-  const msgs = (conv?.msgs ?? []).filter((m) => m.from === 'ca' || (reading && m.from === 'client' && m.file))
+  // A client can be on both numbers. The firm's own chat comes first, because that is the one where files arrive.
+  const mine = conversations.filter((c) => c.clientIds.includes(clientId))
+  const conv = mine.find((c) => c.via === 'own') ?? mine[0]
+  const msgs = (conv?.msgs ?? []).filter((m) => m.from === 'ca' || (reading && conv?.via === 'own' && m.from === 'client' && m.file))
   if (!conv || msgs.length === 0) return <Empty title="No messages yet" hint="Messages you send for requests will show here." />
   return (
     <section className="rounded-[18px] border border-line bg-white p-5">

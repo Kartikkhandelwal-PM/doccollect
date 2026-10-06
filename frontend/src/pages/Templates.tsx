@@ -1,7 +1,6 @@
 import { BadgeCheck } from 'lucide-react'
 import { useState } from 'react'
 import Page from '../components/Page'
-import { useInbox } from '../data/inbox'
 import { useSetup } from '../data/setup'
 import WaText from '../components/WaText'
 import { fillTemplate, sample, variables } from '../lib/template'
@@ -9,10 +8,9 @@ import { SHARED_NUMBER_NAME } from '../lib/brand'
 
 // Phase 1: read-only. Every message is approved by WhatsApp once, so firms use them as they are.
 export default function Templates() {
-  const { messageTemplates } = useSetup()
-  const { mode } = useInbox()
+  const { messageTemplates, ownNumber } = useSetup()
   // Which number the messages are for: your own WhatsApp ("we") or the shared number (names the firm).
-  const [voice, setVoice] = useState<'own' | 'kdk'>(mode)
+  const [voice, setVoice] = useState<'own' | 'kdk'>(ownNumber ? 'own' : 'kdk')
   const [selectedId, setSelectedId] = useState(messageTemplates[0].id)
   const selected = messageTemplates.find((m) => m.id === selectedId) ?? messageTemplates[0]
 
