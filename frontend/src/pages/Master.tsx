@@ -132,6 +132,13 @@ export default function Master() {
   const nodes = useMemo<Node[]>(() => {
     const map = new Map<string, Node>()
     for (const f of files) {
+      const perm = f.folderId?.match(/^c:([^/]+)\/Permanent documents$/)
+      if (perm) {
+        const [, clientId] = perm
+        map.set(`c:${clientId}`, { id: `c:${clientId}`, name: getClient(clientId)?.name ?? clientId, parentId: null, kind: 'client', clientId })
+        map.set(f.folderId!, { id: f.folderId!, name: folderNames[f.folderId!] ?? 'Permanent documents', parentId: `c:${clientId}`, kind: 'compliance', clientId })
+        continue
+      }
       const m = f.folderId?.match(/^c:([^/]+)\/([^/]+)\/(.+)$/)
       if (!m) continue
       const [, clientId, fy, comp] = m

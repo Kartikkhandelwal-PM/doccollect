@@ -12,6 +12,7 @@ export interface RequestDoc {
   source?: 'WhatsApp' | 'Link'
   receivedAt?: string
   fileName?: string
+  reused?: boolean // already on file from an earlier filing, so it was not asked for again
   moreFiles?: string[] // a document can be several files: the front and back of a card, the sheets of a workbook
   reason?: string
 }
@@ -49,6 +50,8 @@ export interface NewRequestInput {
   via: 'own' | 'kdk'
   clientIds: string[]
   docs: { id: string; name: string }[]
+  // Documents the client already has on file: client -> document -> the file. They start out approved and are not asked for.
+  onFile?: Record<string, Record<string, { fileName: string; receivedAt: string }>>
 }
 
 export type RequestState = 'completed' | 'review' | 'waiting'
@@ -197,7 +200,10 @@ export function RequestsProvider({ children }: { children: ReactNode }) {
         via: input.via,
         clients: input.clientIds.map((clientId) => ({
           clientId,
-          docs: input.docs.map((d) => ({ id: d.id, name: d.name, status: 'pending' as Status })),
+          docs: input.docs.map((d): RequestDoc => {
+            const have = input.onFile?.[clientId]?.[d.id]
+            return have ? { id: d.id, name: d.name, status: 'approved', reused: true, fileName: have.fileName, receivedAt: have.receivedAt } : { id: d.id, name: d.name, status: 'pending' }
+          }),
         })),
       }
       setRequests((prev) => [r, ...prev])

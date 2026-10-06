@@ -55,7 +55,7 @@ export default function DocPreviewDrawer({ client, doc, position, total, onClose
         <div className="min-w-0 flex-1">
           <div className="truncate text-base font-bold">{doc.name}</div>
           <div className="truncate text-[13px] text-muted">
-            {client.name} · {doc.receivedAt} · via {doc.source === 'Link' ? 'upload link' : 'WhatsApp'}
+            {client.name} · {doc.receivedAt} · {doc.reused ? 'already on file' : `via ${doc.source === 'Link' ? 'upload link' : 'WhatsApp'}`}
           </div>
         </div>
         <button type="button" onClick={onClose} aria-label="Close preview" className="flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-canvas">
