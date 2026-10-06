@@ -1,4 +1,4 @@
-import { Check, CheckCheck, ChevronDown, CircleAlert, Image as ImageIcon, Info, Lock, PanelRightOpen, Search, Send, X } from 'lucide-react'
+import { Check, CheckCheck, ChevronDown, Image as ImageIcon, Info, Lock, PanelRightOpen, Search, Send, X } from 'lucide-react'
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
@@ -33,10 +33,8 @@ function preview(c: Conversation) {
   return line.replace(/\*/g, '')
 }
 
-function Ticks({ tick }: { tick?: Msg['tick'] }) {
+function Ticks({ tick }: { tick?: 'sent' | 'read' }) {
   if (!tick) return null
-  if (tick === 'failed') return <CircleAlert size={14} className="text-danger" aria-label="Not sent" />
-  if (tick === 'sent') return <Check size={15} className="text-slate-400" />
   return tick === 'read' ? <CheckCheck size={15} className="text-[#53BDEB]" /> : <CheckCheck size={15} className="text-slate-400" />
 }
 
@@ -92,7 +90,6 @@ function Bubble({ m, onOpen }: { m: Msg; onOpen: (m: Msg) => void }) {
           {mine && <Ticks tick={m.tick} />}
         </div>
       </div>
-      {m.tick === 'failed' && <div className="text-[12px] font-medium text-danger">Not sent{m.failReason ? `: ${m.failReason}` : ''}</div>}
     </div>
   )
 }
