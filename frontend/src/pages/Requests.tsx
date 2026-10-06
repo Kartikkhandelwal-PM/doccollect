@@ -119,7 +119,9 @@ export default function Requests() {
       </div>
       }
     >
-      <div className="overflow-hidden rounded-[18px] border border-line bg-white">
+      <div className="overflow-clip rounded-[18px] border border-line bg-white">
+        {/* The filters and the column names stay in view while the list scrolls under them */}
+        <div className="sticky -top-5 z-10 bg-white">
         <div className="flex flex-wrap items-center gap-3 border-b border-line px-6 py-4">
           <label className="flex h-10 min-w-[240px] flex-1 items-center gap-2 rounded-xl bg-canvas px-3.5 text-sm text-muted">
             <Search size={15} />
@@ -153,6 +155,7 @@ export default function Requests() {
           <span>Documents</span>
           <span>Status</span>
         </div>
+        </div>
 
         {list.length === 0 && <p className="p-8 text-sm text-muted">No requests match.</p>}
         {listPaging.rows.map((r) => {
@@ -164,6 +167,9 @@ export default function Requests() {
           return (
             <Fragment key={r.id}>
               <div onClick={() => navigate(`/requests/${r.id}`)} className={`${GRID} min-h-[68px] cursor-pointer border-b border-line py-3 hover:bg-slate-50 ${isOpen ? 'bg-slate-50' : ''}`}>
+                {people.length <= 1 ? (
+                  <span />
+                ) : (
                 <button
                   type="button"
                   aria-expanded={isOpen}
@@ -176,6 +182,7 @@ export default function Requests() {
                 >
                   <ChevronRight size={18} className={`transition ${isOpen ? 'rotate-90' : ''}`} />
                 </button>
+                )}
                 <div className="flex min-w-0 items-center gap-3">
                   <div className="min-w-0">
                     <div className="truncate text-[15px] font-semibold">{r.title}</div>
