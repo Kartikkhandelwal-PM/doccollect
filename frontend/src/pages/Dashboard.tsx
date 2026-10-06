@@ -262,6 +262,13 @@ export default function Dashboard() {
               <Bell size={14} />
               Remind{toRemind.length ? ` (${toRemind.length})` : ''}
             </button>
+            {picked.length > toRemind.length && (
+              <span className="text-[13px] text-brand-dark">
+                {toRemind.length === 0
+                  ? 'Reminders are for clients who still owe documents. These have sent documents that wait for your review.'
+                  : `${picked.length - toRemind.length} ${picked.length - toRemind.length === 1 ? 'client is' : 'clients are'} skipped: their documents wait for your review.`}
+              </span>
+            )}
             <button type="button" onClick={() => setSelected(new Set())} className="ml-auto flex h-9 items-center gap-1 rounded-lg px-3 text-[13px] font-semibold text-slate-600 hover:bg-white">
               <X size={14} />
               Clear
