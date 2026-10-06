@@ -7,8 +7,9 @@ import PhoneInput from '../components/PhoneInput'
 import FirmLogo from '../components/FirmLogo'
 import WhatsAppIcon from '../components/WhatsAppIcon'
 import { useSearchParams } from 'react-router-dom'
+import { useInbox } from '../data/inbox'
 import { fmtDate, useRequests } from '../data/requests'
-import { expiresOn } from '../lib/dates'
+import { addDays, expiresOn, todayISO } from '../lib/dates'
 import { useSetup } from '../data/setup'
 import type { Firm, TeamMember } from '../data/setup'
 import { SHARED_NUMBER_NAME } from '../lib/brand'
@@ -30,6 +31,62 @@ function Field({ label, value, onChange }: { label: string; value: string; onCha
       {label}
       <input value={value} onChange={(e) => onChange(e.target.value)} className="mt-1 block h-11 w-full rounded-xl border border-line px-3.5 text-[15px] font-medium text-ink outline-none focus:border-brand" />
     </label>
+  )
+}
+
+// A short summary of the last 30 days, counted from what the app really holds. Delivered and read counts need the WhatsApp provider, so they come with the backend.
+function Usage() {
+  const { conversations } = useInbox()
+  const { requests, unsorted } = useRequests()
+  const since = addDays(todayISO(), -30)
+  const sent = conversations.flatMap((c) => c.msgs.filter((m) => m.from === 'ca' && m.day >= since).map(() => c))
+  const byNumber = { own: sent.filter((c) => c.via === 'own').length, kdk: sent.filter((c) => c.via === 'kdk').length }
+  const messaged = new Set(conversations.flatMap((c) => (c.msgs.some((m) => m.from === 'ca' && m.day >= since) ? c.clientIds : [])))
+  const docs = requests.flatMap((r) => r.clients.flatMap((c) => c.docs.map((d) => ({ ...d, clientId: c.clientId }))))
+  const got = docs.filter((d) => d.status !== 'pending' && d.status !== 'na')
+  const count = (st: string) => docs.filter((d) => d.status === st).length
+  // Of the clients messaged, how many have sent something.
+  const sentFiles = new Set(got.map((d) => d.clientId))
+  const replied = [...messaged].filter((id) => sentFiles.has(id)).length
+
+  const Card = ({ n, label, note }: { n: number; label: string; note?: string }) => (
+    <div className="rounded-2xl border border-line bg-white p-5">
+      <div className="text-[30px] font-bold leading-none tracking-tight tabular-nums">{n}</div>
+      <div className="mt-1.5 text-[13px] font-medium text-muted">{label}</div>
+      {note && <div className="mt-0.5 text-xs text-faint">{note}</div>}
+    </div>
+  )
+  return (
+    <div className="flex max-w-3xl flex-col gap-8">
+      <section>
+        <h2 className="text-base font-bold tracking-tight">Messages</h2>
+        <p className="mt-0.5 text-sm text-muted">Last 30 days</p>
+        <div className="mt-3 grid grid-cols-3 gap-4">
+          <Card n={sent.length} label="Messages sent" />
+          <Card n={byNumber.own} label="From your WhatsApp" />
+          <Card n={byNumber.kdk} label={`From the ${SHARED_NUMBER_NAME} number`} />
+        </div>
+        <div className="mt-4 grid grid-cols-3 gap-4">
+          <Card n={messaged.size} label="Clients messaged" />
+          <Card n={replied} label="Of them, sent files" />
+          <Card n={messaged.size - replied} label="Not replied yet" />
+        </div>
+      </section>
+      <section>
+        <h2 className="text-base font-bold tracking-tight">Files</h2>
+        <p className="mt-0.5 text-sm text-muted">Across all your requests</p>
+        <div className="mt-3 grid grid-cols-3 gap-4">
+          <Card n={got.length} label="Files received" />
+          <Card n={count('approved')} label="Approved" />
+          <Card n={count('to_review')} label="Waiting for review" />
+        </div>
+        <div className="mt-4 grid grid-cols-3 gap-4">
+          <Card n={count('rejected')} label="Sent back" />
+          <Card n={unsorted.length} label="Not placed yet" />
+        </div>
+      </section>
+      <p className="text-xs text-muted">We keep a record of every message sent from your account.</p>
+    </div>
   )
 }
 
@@ -321,41 +378,7 @@ export default function Settings() {
         </section>
       )}
 
-      {tab === 'usage' && (
-        <section className="max-w-2xl">
-          <div className="grid grid-cols-3 gap-4">
-            {[
-              ['312', 'Messages sent this month'],
-              ['298', 'Delivered'],
-              ['187', 'Files received'],
-            ].map(([n, l]) => (
-              <div key={l} className="rounded-2xl border border-line bg-white p-5">
-                <div className="text-[30px] font-bold leading-none tracking-tight">{n}</div>
-                <div className="mt-1.5 text-[13px] font-medium text-muted">{l}</div>
-              </div>
-            ))}
-          </div>
-          <div className="mt-4 overflow-hidden rounded-[18px] border border-line bg-white">
-            <div className="grid grid-cols-3 bg-slate-50 px-6 py-2.5 text-xs font-semibold uppercase tracking-wide text-muted">
-              <span>Month</span>
-              <span>Messages sent</span>
-              <span>Files received</span>
-            </div>
-            {[
-              ['September 2026', '312', '187'],
-              ['August 2026', '274', '161'],
-              ['July 2026', '198', '120'],
-            ].map(([m, a, b]) => (
-              <div key={m} className="grid grid-cols-3 border-t border-line px-6 py-3.5 text-sm">
-                <span className="font-semibold">{m}</span>
-                <span>{a}</span>
-                <span>{b}</span>
-              </div>
-            ))}
-          </div>
-          <p className="mt-3 text-xs text-muted">We keep a record of every message sent from your account.</p>
-        </section>
-      )}
+      {tab === 'usage' && <Usage />}
 
       {disconnecting && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="Disconnect your WhatsApp">
