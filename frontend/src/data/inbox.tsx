@@ -5,12 +5,14 @@ import { seedMessages } from './messageTemplates'
 import { getClient } from './mock'
 import { useSetup } from './setup'
 import { useSessionState } from '../lib/session'
+import { addDays, todayISO } from '../lib/dates'
 import { LINK_DOMAIN } from '../lib/brand'
 
 export interface Msg {
   id: string
   from: 'ca' | 'client' | 'system'
-  time: string
+  day: string // the date, like 2026-10-05. The chat shows it as Today, Yesterday, a weekday or a date.
+  time: string // always the clock time, like 09:12
   text?: string
   file?: { name: string; size: string }
   photo?: boolean
@@ -38,7 +40,13 @@ const say = (id: string, values: Record<string, string>, via: 'own' | 'kdk' = 'o
 
 const nowTime = () => new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false })
 
-type Seed = Omit<Conversation, 'via'> & { via?: Conversation['via'] }
+// A seed message has no `day` of its own when its time is a clock time (today).
+type SeedMsg = Omit<Msg, 'day'> & { day?: string }
+
+// The seed chats say when things happened in words. They are counted back from today, so the demo always looks current.
+const AGO: Record<string, number> = { Yesterday: 1, Sun: 1, Sat: 2, Fri: 3, Wed: 5, Tue: 6, Mon: 7 }
+const daysAgo = (label: string) => AGO[label] ?? (/^Sep (\d+)$/.test(label) ? 35 - Number(label.slice(4)) : 0)
+type Seed = Omit<Conversation, 'via' | 'msgs'> & { via?: Conversation['via']; msgs: SeedMsg[] }
 
 const rawSeed: Seed[] = [
   {
@@ -105,7 +113,7 @@ const rawSeed: Seed[] = [
       { id: 'p0', from: 'ca', time: 'Sep 28', tick: 'read', text: say('request', { name: 'Priya', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '3 Oct', link: `${LINK_DOMAIN}/u/r-1043-priya-v1` }) },
       { id: 'p0a', from: 'client', time: 'Sep 29', file: { name: 'GSTR2B_092026.pdf', size: '4 pages · 510 KB' }, matched: 'Filed as GSTR-2B · Approved', link: { requestId: 'r2', clientId: 'priya', docId: 'gstr2b' } },
       { id: 'p0b', from: 'ca', time: 'Sep 29', tick: 'read', text: say('approved', { name: 'Priya', document: 'GSTR-2B', pending_count: '2' }) },
-      { id: 'p1', from: 'ca', time: 'Mon', tick: 'read', text: say('reminder', { name: 'Priya', link: `${LINK_DOMAIN}/u/r-1043-priya-v1` }) },
+      { id: 'p1', from: 'ca', time: 'Fri', tick: 'read', text: say('reminder', { name: 'Priya', link: `${LINK_DOMAIN}/u/r-1043-priya-v1` }) },
       { id: 'p2', from: 'client', time: '09:58', file: { name: 'Purchase register.xlsx', size: '240 KB' }, matched: 'Filed as Purchase register · To review', link: { requestId: 'r2', clientId: 'priya', docId: 'purchase' } },
     ],
   },
@@ -269,7 +277,21 @@ const rawSeed: Seed[] = [
   },
 ]
 
-const seed: Conversation[] = rawSeed.map((c) => ({ ...c, via: c.via ?? 'own' }))
+// Seeds are written with either a clock time (that is today) or just a day. Every message ends up with both:
+// the day, and a clock time. A day with no time gets believable ones, in order through the day.
+const CLOCK = ['09:12', '10:26', '11:48', '13:05', '14:32', '15:50', '16:41', '17:20']
+const seed: Conversation[] = rawSeed.map((c) => {
+  let last = ''
+  let n = 0
+  const msgs = c.msgs.map((m): Msg => {
+    if (m.day) return m as Msg
+    if (/^\d\d:\d\d$/.test(m.time)) return { ...m, day: todayISO() }
+    n = m.time === last ? n + 1 : 0
+    last = m.time
+    return { ...m, day: addDays(todayISO(), -daysAgo(m.time)), time: CLOCK[Math.min(n, CLOCK.length - 1)] }
+  })
+  return { ...c, via: c.via ?? 'own', msgs }
+})
 
 interface Store {
   conversations: Conversation[]
@@ -296,7 +318,7 @@ export function InboxProvider({ children }: { children: ReactNode }) {
 
   const send = useCallback(
     (id: string, text: string) =>
-      patch(id, (c) => ({ ...c, msgs: [...c.msgs, { id: `s${Date.now()}`, from: 'ca', time: nowTime(), tick: 'sent', text }] })),
+      patch(id, (c) => ({ ...c, msgs: [...c.msgs, { id: `s${Date.now()}`, from: 'ca', day: todayISO(), time: nowTime(), tick: 'sent', text }] })),
     [patch],
   )
 
@@ -310,7 +332,7 @@ export function InboxProvider({ children }: { children: ReactNode }) {
   // A message the app sends for a client (a request, a reminder, a thank-you). It lands in that client's chat,
   // which is found by phone number so clients on a shared number stay in one chat. No chat yet? One is started.
   const postToClient = useCallback((client: { id: string; name: string; phone: string }, text: string, via: 'own' | 'kdk') => {
-    const msg: Msg = { id: `s${Date.now()}${Math.random().toString(36).slice(2, 6)}`, from: 'ca', time: nowTime(), tick: 'sent', text }
+    const msg: Msg = { id: `s${Date.now()}${Math.random().toString(36).slice(2, 6)}`, from: 'ca', day: todayISO(), time: nowTime(), tick: 'sent', text }
     setConversations((prev) => {
       const at = prev.findIndex((c) => !c.unassigned && c.via === via && (c.phone === client.phone || c.clientIds.includes(client.id)))
       if (at < 0) return [{ id: `c-${client.id}-${via}`, title: client.name, phone: client.phone, clientIds: [client.id], via, unread: 0, msgs: [msg] }, ...prev]
@@ -331,7 +353,7 @@ export function InboxProvider({ children }: { children: ReactNode }) {
     (convId: string, docName: string, reason: string) =>
       patch(convId, (c) => ({
         ...c,
-        msgs: [...c.msgs, { id: `s${Date.now()}`, from: 'ca', time: nowTime(), tick: 'sent', text: say('rejected', { name: c.title.split(' ')[0], document: docName, reason }) }],
+        msgs: [...c.msgs, { id: `s${Date.now()}`, from: 'ca', day: todayISO(), time: nowTime(), tick: 'sent', text: say('rejected', { name: c.title.split(' ')[0], document: docName, reason }) }],
       })),
     [patch],
   )

@@ -35,3 +35,13 @@ export const daysUntil = (day: string) => Math.round((parseISO(day).getTime() - 
 // that are late, due today, due this week and due later, whenever it is opened.
 const SAMPLE_DAY = '2026-10-05'
 export const demoDay = (day: string) => addDays(day, Math.round((parseISO(todayISO()).getTime() - parseISO(SAMPLE_DAY).getTime()) / 86400000))
+
+// How a day reads in a chat: Today, Yesterday, a weekday for the last week, then the date.
+export function dayLabel(day: string) {
+  const ago = -daysUntil(day)
+  if (ago <= 0) return 'Today'
+  if (ago === 1) return 'Yesterday'
+  const d = parseISO(day)
+  if (ago < 7) return d.toLocaleDateString('en-IN', { weekday: 'long' })
+  return d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })
+}

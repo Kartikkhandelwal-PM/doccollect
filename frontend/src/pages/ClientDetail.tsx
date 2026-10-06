@@ -1,3 +1,4 @@
+import { dayLabel, todayISO } from '../lib/dates'
 import { FolderOpen, MessageCircle, Plus } from 'lucide-react'
 import { useMemo } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
@@ -438,7 +439,7 @@ function MessagesTab({ clientId, conversations, reading }: { clientId: string; c
                 </div>
               )}
               {m.text && <WaText text={m.text} />}
-              <div className="pt-0.5 text-right text-[11px] text-slate-500">{m.time}</div>
+              <div className="pt-0.5 text-right text-[11px] text-slate-500">{m.day === todayISO() ? m.time : `${dayLabel(m.day)}, ${m.time}`}</div>
             </div>
           )
         })}

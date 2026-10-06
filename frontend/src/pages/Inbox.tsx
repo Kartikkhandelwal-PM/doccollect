@@ -1,5 +1,5 @@
 import { Check, CheckCheck, ChevronDown, Image as ImageIcon, Info, Lock, PanelRightOpen, Search, Send, X } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
 import DocPreviewDrawer from '../components/DocPreviewDrawer'
@@ -19,6 +19,7 @@ import { useRequests } from '../data/requests'
 import type { RequestDoc } from '../data/requests'
 import { useSetup } from '../data/setup'
 import { fillTemplate, sample } from '../lib/template'
+import { dayLabel, todayISO } from '../lib/dates'
 import { SHARED_NUMBER_NAME } from '../lib/brand'
 
 type Filter = 'all' | 'unread' | 'unassigned'
@@ -123,7 +124,7 @@ function FileViewer({
           <div className="min-w-0 flex-1">
             <div className="truncate text-base font-bold">{file.name}</div>
             <div className="truncate text-[13px] text-muted">
-              {who} · {file.size} · {msg.time}
+              {who} · {file.size} · {msg.day === todayISO() ? msg.time : `${dayLabel(msg.day)}, ${msg.time}`}
             </div>
           </div>
           <OpenInTab iconOnly href={fileLink({ name: doc?.name ?? file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' '), fileName: file.name, client: who, pan, from: msg.time })} />
@@ -383,7 +384,12 @@ export default function Inbox() {
           const msgs = c.msgs.filter((m) => isWork(m) && (reading || m.from === 'ca'))
           return reading ? { ...c, msgs } : { ...c, msgs, unread: 0 }
         })
-        .filter((c) => c.msgs.length > 0),
+        .filter((c) => c.msgs.length > 0)
+        // newest message first, like WhatsApp
+        .sort((a, b) => {
+          const key = (c: Conversation) => `${c.msgs[c.msgs.length - 1].day} ${c.msgs[c.msgs.length - 1].time}`
+          return key(b).localeCompare(key(a))
+        }),
     [reading, mode, allConversations],
   )
   const active = conversations.find((c) => c.id === activeId) ?? conversations[0]
@@ -560,7 +566,7 @@ export default function Inbox() {
                 <div className="min-w-0 flex-1 border-b border-[#F0F2F5] pb-3 pt-0.5">
                   <div className="flex items-baseline justify-between">
                     <span className="truncate text-base font-semibold">{c.title}</span>
-                    <span className={`ml-2 shrink-0 text-xs ${c.unread ? 'font-semibold text-[#008069]' : 'text-[#54656F]'}`}>{last.time}</span>
+                    <span className={`ml-2 shrink-0 text-xs ${c.unread ? 'font-semibold text-[#008069]' : 'text-[#54656F]'}`}>{last.day === todayISO() ? last.time : dayLabel(last.day)}</span>
                   </div>
                   <div className="flex items-center justify-between gap-2">
                     <span className="flex min-w-0 items-center gap-1 truncate text-sm text-[#54656F]">
@@ -606,17 +612,18 @@ export default function Inbox() {
         </div>
 
         <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-5 py-5">
-          <div className="mx-auto mb-2 rounded-lg bg-white px-3 py-1 text-xs font-semibold text-[#54656F] shadow-sm">TODAY</div>
-          {active.msgs.map((m) => (
-            <Bubble
-              key={m.id}
-              m={m}
-              onOpen={(x) => {
-                const u = x.link ? undefined : unsorted.find((f) => f.phone === active.phone && f.fileName === x.file?.name)
-                if (u) setReviewing(u.id)
-                else setViewing(x)
-              }}
-            />
+          {active.msgs.map((m, i) => (
+            <Fragment key={m.id}>
+              {(i === 0 || active.msgs[i - 1].day !== m.day) && <div className="mx-auto my-2 rounded-lg bg-white px-3 py-1 text-xs font-semibold uppercase text-[#54656F] shadow-sm">{dayLabel(m.day)}</div>}
+              <Bubble
+                m={m}
+                onOpen={(x) => {
+                  const u = x.link ? undefined : unsorted.find((f) => f.phone === active.phone && f.fileName === x.file?.name)
+                  if (u) setReviewing(u.id)
+                  else setViewing(x)
+                }}
+              />
+            </Fragment>
           ))}
           <div ref={endRef} />
         </div>
