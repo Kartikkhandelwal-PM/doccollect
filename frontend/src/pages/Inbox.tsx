@@ -296,31 +296,36 @@ function RightPanel({ conv, onReview }: { conv: Conversation; onReview: () => vo
   return (
     <div className="flex flex-col gap-3 p-5">
       {mine.length === 0 && <p className="text-sm text-muted">No open requests for this client.</p>}
-      {mine.map((r) => {
-        const docs = r.clients.filter((c) => conv.clientIds.includes(c.clientId)).flatMap((c) => c.docs.filter((d) => d.status !== 'na'))
-        const got = docs.filter((d) => d.status !== 'pending' && d.status !== 'rejected').length
-        // When one number belongs to several clients (a father filing for his daughters, one owner with many firms), say whose request it is.
-        const owner = r.clients.find((c) => conv.clientIds.includes(c.clientId))?.clientId
-        const who = new Set(conv.clientIds.map((id) => getClient(id)?.name)).size > 1 && owner ? getClient(owner)?.name : undefined
-        return (
-          <Link key={r.id} to={`/requests/${r.id}?client=${conv.clientIds.find((id) => r.clients.some((c) => c.clientId === id)) ?? ''}`} className="block rounded-xl border border-line p-3.5 hover:border-brand">
-            {who && <div className="mb-0.5 text-[13px] font-semibold text-brand-dark">{who}</div>}
-            <div className="flex items-baseline justify-between">
-              <span className="text-[15px] font-semibold">{r.title}</span>
-              <span className="text-[13px] text-muted">{r.ref}</span>
-            </div>
-            <div className="mt-2 flex items-center gap-3">
-              <span className="block h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
-                <span className="block h-full rounded-full bg-brand" style={{ width: `${docs.length ? (got / docs.length) * 100 : 0}%` }} />
-              </span>
-              <span className="text-[13px] font-semibold tabular-nums">
-                {got} <span className="font-medium text-muted">of {docs.length}</span>
-              </span>
-            </div>
-            <div className="mt-2 text-[13px] font-semibold text-brand-dark">Open request</div>
-          </Link>
-        )
-      })}
+      {/* One card for each client in each request. When a number belongs to several clients, the card says whose it is. */}
+      {mine
+        .flatMap((r) => r.clients.filter((c) => conv.clientIds.includes(c.clientId)).map((c) => ({ r, c })))
+        .map(({ r, c }) => {
+          const docs = c.docs.filter((d) => d.status !== 'na')
+          const got = docs.filter((d) => d.status !== 'pending' && d.status !== 'rejected').length
+          const several = conv.clientIds.length > 1
+          return (
+            <Link key={`${r.id}-${c.clientId}`} to={`/requests/${r.id}?client=${c.clientId}`} className="block rounded-xl border border-line p-3.5 hover:border-brand">
+              {several && (
+                <div className="mb-0.5 text-[13px] font-semibold text-brand-dark">
+                  {getClient(c.clientId)?.name} · {getClient(c.clientId)?.service}
+                </div>
+              )}
+              <div className="flex items-baseline justify-between">
+                <span className="text-[15px] font-semibold">{r.title}</span>
+                <span className="text-[13px] text-muted">{r.ref}</span>
+              </div>
+              <div className="mt-2 flex items-center gap-3">
+                <span className="block h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+                  <span className="block h-full rounded-full bg-brand" style={{ width: `${docs.length ? (got / docs.length) * 100 : 0}%` }} />
+                </span>
+                <span className="text-[13px] font-semibold tabular-nums">
+                  {got} <span className="font-medium text-muted">of {docs.length}</span>
+                </span>
+              </div>
+              <div className="mt-2 text-[13px] font-semibold text-brand-dark">Open request</div>
+            </Link>
+          )
+        })}
 
       {waiting.length > 0 && (
         <div className="rounded-xl border border-[#F5DFA8] bg-[#FEF6E4] p-3.5">
@@ -450,7 +455,7 @@ export default function Inbox() {
   const placeable = requests.flatMap((r) => r.clients.filter((c) => active.clientIds.includes(c.clientId)).map((c) => ({ r, c })))
   // With more than one request on this number, the list is split by request: ITR on its own, GST on its own.
   const placeOptions = placeable.flatMap(({ r, c }) => {
-    const group = (extra: boolean) => (placeable.length > 1 ? r.title : extra ? 'Add as another file of' : 'Not received yet')
+    const group = (extra: boolean) => (placeable.length > 1 ? (active.clientIds.length > 1 ? `${getClient(c.clientId)?.name} · ${r.title}` : r.title) : extra ? 'Add as another file of' : 'Not received yet')
     return [
       ...c.docs.filter((d) => d.status === 'pending' || d.status === 'rejected').map((d) => ({ id: `${r.id}|${c.clientId}|${d.id}`, label: d.name, group: group(false) })),
       ...c.docs.filter((d) => d.status === 'to_review').map((d) => ({ id: `${r.id}|${c.clientId}|${d.id}`, label: d.name, group: group(true), extra: true })),

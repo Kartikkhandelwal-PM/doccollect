@@ -12,6 +12,10 @@ const core: Client[] = [
   { id: 'meera', name: 'Meera Iyer', kind: 'person', service: 'ITR', phone: '+91 96444 55577', email: 'meera.iyer@example.com', pan: 'BDEPI9087K', source: 'KDK sync', openRequests: 0 },
   { id: 'kapoor', name: 'Kapoor Logistics', kind: 'firm', service: 'GST', phone: '+91 90555 66663', email: 'kapoor@logistics.example', pan: 'AABCK1122M', gstin: '06AABCK1122M1Z8', source: 'Added manually', openRequests: 0 },
   { id: 'sunita', name: 'Sunita Desai', kind: 'person', service: 'ITR', phone: '+91 95666 77730', email: 'sunita.d@example.com', pan: 'CXDPD5566L', source: 'KDK sync', openRequests: 0 },
+  // One father who handles the filing for his two daughters, all on his phone.
+  { id: 'ram-sharma', name: 'Ram Sharma', kind: 'person', service: 'ITR', phone: '+91 98230 51147', email: 'ram.sharma@example.com', pan: 'AKTPS3321D', source: 'Added manually', openRequests: 0, sharedWith: 'reeta-sharma' },
+  { id: 'reeta-sharma', name: 'Reeta Sharma', kind: 'person', service: 'ITR', phone: '+91 98230 51147', email: 'ram.sharma@example.com', pan: 'BQRPS7712F', source: 'Added manually', openRequests: 0, sharedWith: 'ram-sharma' },
+  { id: 'seeta-sharma', name: 'Seeta Sharma', kind: 'person', service: 'ITR', phone: '+91 98230 51147', email: 'ram.sharma@example.com', pan: 'CMSPS4409H', source: 'Added manually', openRequests: 0, sharedWith: 'ram-sharma' },
   { id: 'vikram', name: 'Vikram Enterprises', kind: 'firm', service: 'TDS', phone: '+91 93777 88809', email: 'vikram@enterprises.example', pan: 'AAGFV3344R', source: 'KDK sync', openRequests: 0 },
 ]
 
@@ -117,7 +121,7 @@ for (const r of initialRequests) {
 export const clients: Client[] = base.map((c) => ({
   ...c,
   openRequests: open.get(c.id) ?? 0,
-  note: c.sharedWith ? 'Shares number with 1 client' : late.has(c.id) ? 'Overdue' : !open.get(c.id) && finished.has(c.id) ? 'All approved' : undefined,
+  note: c.sharedWith ? `Shares number with ${base.filter((o) => o.id !== c.id && o.phone === c.phone).length || 1} ${base.filter((o) => o.id !== c.id && o.phone === c.phone).length > 1 ? 'clients' : 'client'}` : late.has(c.id) ? 'Overdue' : !open.get(c.id) && finished.has(c.id) ? 'All approved' : undefined,
 }))
 
 export const getClient = (id: string) => clients.find((c) => c.id === id)

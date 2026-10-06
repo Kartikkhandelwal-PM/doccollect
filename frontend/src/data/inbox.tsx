@@ -250,6 +250,21 @@ const rawSeed: Seed[] = [
     msgs: [{ id: 'ze1', from: 'ca', time: 'Tue', tick: 'read', text: say('request', { name: 'Zenith Packaging', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '8 Oct', link: `${LINK_DOMAIN}/u/r-1035-zenith-packaging-v1` }, 'kdk') }],
   },
   {
+    id: 'c-sharma',
+    title: 'Ram Sharma',
+    phone: '+91 98230 51147',
+    clientIds: ['ram-sharma', 'reeta-sharma', 'seeta-sharma'],
+    unread: 2,
+    msgs: [
+      { id: 'sh1', clientId: 'ram-sharma', from: 'ca', time: 'Sep 30', tick: 'read', text: say('request', { name: 'Ram Sharma', request: 'ITR salaried', documents: formatList(['PAN card', 'Aadhaar card', 'Form 16 (Part A & B)', 'Form 26AS / AIS', 'Bank statement Apr–Mar', 'Home loan interest certificate', 'LIC premium receipts']), due_date: '12 Oct', link: `${LINK_DOMAIN}/u/r-1045-ram-sharma-v1` }) },
+      { id: 'sh2', clientId: 'reeta-sharma', from: 'ca', time: 'Sep 30', tick: 'read', text: say('request', { name: 'Reeta Sharma', request: 'ITR salaried', documents: formatList(['PAN card', 'Aadhaar card', 'Form 16 (Part A & B)', 'Form 26AS / AIS', 'Bank statement Apr–Mar', 'Home loan interest certificate', 'LIC premium receipts']), due_date: '12 Oct', link: `${LINK_DOMAIN}/u/r-1045-reeta-sharma-v1` }) },
+      { id: 'sh3', clientId: 'seeta-sharma', from: 'ca', time: 'Sep 30', tick: 'read', text: say('request', { name: 'Seeta Sharma', request: 'ITR salaried', documents: formatList(['PAN card', 'Aadhaar card', 'Form 16 (Part A & B)', 'Form 26AS / AIS', 'Bank statement Apr–Mar', 'Home loan interest certificate', 'LIC premium receipts']), due_date: '12 Oct', link: `${LINK_DOMAIN}/u/r-1045-seeta-sharma-v1` }) },
+      { id: 'sh4', from: 'client', time: 'Yesterday', file: { name: 'Ram_PAN_Aadhaar.pdf', size: '2 pages · 340 KB' }, matched: 'Filed as PAN card · Approved', link: { requestId: 'r16', clientId: 'ram-sharma', docId: 'pan' } },
+      { id: 'sh5', from: 'client', time: '10:58', file: { name: 'Reeta_Form16.pdf', size: '2 pages · 395 KB' }, matched: 'Filed as Form 16 · To review', link: { requestId: 'r16', clientId: 'reeta-sharma', docId: 'form16' } },
+      { id: 'sh6', from: 'client', time: '11:20', file: { name: 'scan_0522.pdf', size: '1 page · 260 KB' }, matched: 'Not placed yet' },
+    ],
+  },
+  {
     id: 'c-neha',
     title: 'Neha Kulkarni',
     phone: '+91 98230 77015',
