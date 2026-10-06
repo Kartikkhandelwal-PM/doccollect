@@ -2,6 +2,7 @@ import { ChevronRight, Plus, Search } from 'lucide-react'
 import Page from '../components/Page'
 import { Fragment, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import Avatar from '../components/Avatar'
 import Pagination, { usePaging } from '../components/Pagination'
 import { getClient } from '../data/mock'
 import { fmtDate, isReceived, progress, requestState, useRequests } from '../data/requests'
@@ -26,7 +27,7 @@ const kindStyle: Record<string, string> = {
   Other: 'bg-canvas text-slate-600',
 }
 
-const GRID = 'grid grid-cols-[28px_minmax(0,1.5fr)_minmax(0,1fr)_150px_130px_190px_150px] items-center gap-4 px-6'
+const GRID = 'grid grid-cols-[28px_minmax(0,1fr)_minmax(0,1.5fr)_130px_110px_170px_150px] items-center gap-4 px-6'
 const selectCls = 'h-10 rounded-xl border border-line bg-white px-3 text-sm font-medium text-ink outline-none focus:border-brand'
 const SHOW_CLIENTS = 5
 
@@ -189,14 +190,27 @@ export default function Requests() {
                     <div className="text-xs text-muted">{r.ref}</div>
                   </div>
                 </div>
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-semibold">{people.length === 1 ? people[0].name : `${people.length} clients`}</div>
-                  {people.length > 1 && (
-                    <div className="truncate text-xs text-muted">
-                      {people.slice(0, 2).map((c) => c.name).join(', ')}
-                      {people.length > 2 && ` +${people.length - 2}`}
+                <div className="flex min-w-0 items-center gap-2.5">
+                  {people.length === 1 ? (
+                    <Avatar name={people[0].name} size={32} />
+                  ) : (
+                    <div className="flex shrink-0 -space-x-2">
+                      {people.slice(0, 3).map((c) => (
+                        <span key={c.id} className="rounded-full ring-2 ring-white">
+                          <Avatar name={c.name} size={32} />
+                        </span>
+                      ))}
                     </div>
                   )}
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-semibold">{people.length === 1 ? people[0].name : `${people.length} clients`}</div>
+                    {people.length > 1 && (
+                      <div className="truncate text-xs text-muted">
+                        {people.slice(0, 2).map((c) => c.name).join(', ')}
+                        {people.length > 2 && ` +${people.length - 2}`}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <div className="text-sm font-semibold">{fmtDate(r.createdAt)}</div>
@@ -238,7 +252,10 @@ export default function Requests() {
                     const tone = toReview > 0 ? 'bg-warn-soft text-warn' : missing > 0 ? 'bg-info-soft text-info' : 'bg-ok-soft text-ok'
                     return (
                       <Link key={rc.clientId} to={`/requests/${r.id}?client=${rc.clientId}`} className="grid grid-cols-[minmax(0,1.4fr)_150px_150px_170px] items-center gap-4 rounded-lg px-3 py-2 text-sm hover:bg-white">
-                        <span className="truncate font-semibold">{c?.name}</span>
+                        <span className="flex min-w-0 items-center gap-2.5">
+                          {c && <Avatar name={c.name} size={28} />}
+                          <span className="truncate font-semibold">{c?.name}</span>
+                        </span>
                         <span className="text-[13px] text-muted">
                           <b className="font-semibold text-slate-700">{got}</b> of {counted.length}
                         </span>
