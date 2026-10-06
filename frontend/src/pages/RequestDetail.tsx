@@ -512,7 +512,7 @@ function RequestView({ request }: { request: DocRequest }) {
                         <div className="min-w-0 flex-1">
                           <div className={`text-sm font-semibold ${gotIt ? '' : 'text-muted'}`}>{d.name}</div>
                           <div className="text-xs text-muted">
-                            {gotIt ? d.reused ? `Already on file · ${d.receivedAt}` : `${d.receivedAt} · via ${d.source === 'Link' ? 'upload link' : 'WhatsApp'}${d.moreFiles?.length ? ` · ${d.moreFiles.length + 1} files` : ''}` : d.status === 'na' ? 'Client says this does not apply to them' : 'Not received yet'}
+                            {gotIt ? `${d.receivedAt} · via ${d.source === 'Link' ? 'upload link' : 'WhatsApp'}${d.moreFiles?.length ? ` · ${d.moreFiles.length + 1} files` : ''}` : d.status === 'na' ? 'Client says this does not apply to them' : 'Not received yet'}
                             {d.status === 'rejected' && d.reason && <span className="ml-1.5 font-semibold text-danger">· {d.reason}</span>}
                           </div>
                         </div>

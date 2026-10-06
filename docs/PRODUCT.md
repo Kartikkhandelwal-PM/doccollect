@@ -86,15 +86,11 @@ Two numbers can work at the same time.
 - Files that cannot be matched wait for the CA to place them.
 - Sample data: **Ram Sharma** (with Reeta and Seeta) and **Suresh Agarwal** (three firms).
 
-## 8. Documents we already have ("On file")
+## 8. Documents we already have
 
-- Some documents never change: **PAN card, Aadhaar card, GST registration certificate, Udyam registration**. They are matched by name.
-- When one of them is approved, it goes to the client's **Permanent documents** folder in Document Master.
-- In a new request, a client who already has it on file is **not asked again**. The row shows "On file" with a View button (opens the copy). "Ask again" asks everyone, including those who have it.
-- With many clients the chip says "On file for 12 of 14". Only the others are asked.
-- Request page: those documents show as approved, "Already on file". They are not filed a second time.
-- If a client has everything on file, no message is sent to them.
-- **Known limit:** the match is by name. If the document or the file is renamed, "On file" stops matching and the document is asked again. This was kept on purpose. If a file is deleted, it is asked again, which is right.
+**For now every document is asked every time.** A client who already sent a PAN card in an earlier request is asked for it again.
+
+This was tried ("On file": PAN, Aadhaar and similar are kept and not asked again) and taken out. Nobody is sure which documents never change, and the first ideas (a fixed list, a switch per document) did not feel right. How to handle it is **still to be decided**.
 
 ## 9. Links
 
@@ -136,7 +132,7 @@ Two numbers can work at the same time.
 
 - No bulk approve on the Dashboard.
 - The client is never asked which request a file belongs to. The CA places it.
-- "On file" is matched by name (see section 8).
+- Every document is asked every time for now (see section 8). Reusing an older copy is to be decided later.
 - The Requests table has no Type filter, because the type of a request is not reliable.
 - Keep things simple. Add a feature only when it is clearly needed.
 

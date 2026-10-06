@@ -1,12 +1,10 @@
-import { Check, ChevronDown, FileCheck2, Plus, Search } from 'lucide-react'
+import { Check, ChevronDown, Plus, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
 import DueDatePicker from '../components/DueDatePicker'
-import OnFileDialog from '../components/OnFileDialog'
 import WaText from '../components/WaText'
 import { clients, getClient } from '../data/mock'
-import { buildMaster, isPermanent } from '../data/master'
 import { fmtDate, useRequests } from '../data/requests'
 import { useSetup } from '../data/setup'
 import type { DocRequest } from '../data/requests'
@@ -97,7 +95,7 @@ function Footer({
 
 export default function NewRequest() {
   const navigate = useNavigate()
-  const { create, requests } = useRequests()
+  const { create } = useRequests()
   const { sendRequest } = useMessenger()
   const { groups, templates, messageTemplates, firm, ownNumber, whatsapp } = useSetup()
   const [params] = useSearchParams()
@@ -126,29 +124,7 @@ export default function NewRequest() {
   const chosenDocs = docIds.map((id) => allDocs.find((d) => d.id === id)).filter((d): d is CatalogDoc => !!d)
   const chosenClients = selected.map((id) => getClient(id)).filter((c) => c !== undefined)
 
-  // Documents that never change (PAN, Aadhaar ...) are not asked again from a client who already has them on file.
-  // "Ask again" on a document asks everyone, for the times a copy is old or wrong.
-  const master = useMemo(() => buildMaster(requests), [requests])
-  const [askAgain, setAskAgain] = useState<string[]>([])
-  const onFile = (clientId: string, d: { id: string; name: string }) =>
-    isPermanent(d.name) && !askAgain.includes(d.id) ? master.find((f) => f.name === d.name && f.folderId?.startsWith(`c:${clientId}/`)) : undefined
-  const haveCount = (d: { id: string; name: string }) => chosenClients.filter((c) => onFile(c.id, d)).length
-  // What "Ask again" does, in words: one client is asked again, several are all asked again (even those who already have it on file).
-  const askAgainText = chosenClients.length === 1 ? 'Asking again' : `Asking all ${chosenClients.length} clients again`
-  const [viewOnFile, setViewOnFile] = useState<{ id: string; name: string } | null>(null)
   const [allChecklists, setAllChecklists] = useState(false)
-  // The chip that opens the copy we hold. Same look in the list and in the "Selected documents" box.
-  const onFileChip = (d: { id: string; name: string }) => {
-    const n = haveCount(d)
-    if (n === 0) return null
-    return (
-      <button type="button" onClick={() => setViewOnFile(d)} title="See the copy we have" className="flex shrink-0 items-center gap-1.5 rounded-full bg-[#DDF3EC] px-2.5 py-1 text-xs font-semibold text-brand-dark hover:bg-[#cdeee4]">
-        <FileCheck2 size={13} />
-        {chosenClients.length === 1 ? 'On file' : `On file for ${n} of ${chosenClients.length}`}
-        <span className="font-medium text-brand-dark/70">· View</span>
-      </button>
-    )
-  }
 
   // Every client gets their own message and their own link, even when two of them use the same number.
   const sharedCount = chosenClients.filter((c) => chosenClients.some((o) => o.id !== c.id && o.phone === c.phone)).length
@@ -197,7 +173,7 @@ export default function NewRequest() {
     {
       name: first?.name ?? 'there',
       firm: firm.name,
-      documents: formatList(chosenDocs.filter((d) => !(first && onFile(first.id, d))).map((d) => d.name)),
+      documents: formatList(chosenDocs.map((d) => d.name)),
       request: templateId === 'custom' ? 'your request' : title,
       due_date: due ? fmtDate(due) : 'the last date',
     },
@@ -210,9 +186,6 @@ export default function NewRequest() {
       via,
       clientIds: selected,
       docs: chosenDocs,
-      onFile: Object.fromEntries(
-        chosenClients.map((c) => [c.id, Object.fromEntries(chosenDocs.flatMap((d) => { const f = onFile(c.id, d); return f ? [[d.id, { fileName: f.fileName, receivedAt: f.date }]] : [] }))]),
-      ),
     })
     sendRequest(r)
     setMessageCount(chosenClients.length)
@@ -460,27 +433,18 @@ export default function NewRequest() {
                   <div className="flex flex-col gap-1.5">
                     {g.docs.map((d) => {
                       const on = docIds.includes(d.id)
-                      const have = on ? haveCount(d) : 0
-                                            return (
-                        <div key={d.id} className={`flex flex-wrap items-center rounded-xl pr-3 ${on ? 'bg-[#EEF8F5]' : 'border border-line hover:bg-canvas'}`}>
-                          <button type="button" role="checkbox" aria-checked={on} onClick={() => toggleDoc(d.id)} className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-left text-sm font-medium">
-                            <Box on={on} />
-                            <span className="truncate">{d.name}</span>
-                          </button>
-                          {on && isPermanent(d.name) && askAgain.includes(d.id) && (
-                            <button type="button" onClick={() => setAskAgain((a) => a.filter((x) => x !== d.id))} className="shrink-0 text-xs font-semibold text-muted hover:text-ink hover:underline">
-                              {askAgainText} · undo
-                            </button>
-                          )}
-                          {have > 0 && (
-                            <div className="flex basis-full items-center gap-3 pb-2.5 pl-[44px] text-xs">
-                              {onFileChip(d)}
-                              <button type="button" onClick={() => setAskAgain((a) => [...a, d.id])} className="font-semibold text-muted hover:text-ink hover:underline">
-                                Ask again
-                              </button>
-                            </div>
-                          )}
-                        </div>
+                      return (
+                        <button
+                          key={d.id}
+                          type="button"
+                          role="checkbox"
+                          aria-checked={on}
+                          onClick={() => toggleDoc(d.id)}
+                          className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium ${on ? 'bg-[#EEF8F5]' : 'border border-line hover:bg-canvas'}`}
+                        >
+                          <Box on={on} />
+                          {d.name}
+                        </button>
                       )
                     })}
                   </div>
@@ -517,11 +481,7 @@ export default function NewRequest() {
                   {chosenDocs.map((d, i) => (
                     <li key={d.id} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-canvas">
                       <span className="w-5 shrink-0 text-xs text-muted">{i + 1}.</span>
-                      <span className="min-w-0 flex-1">
-                        {d.name}
-                        {haveCount(d) > 0 && <span className="mt-0.5 block">{onFileChip(d)}</span>}
-                        {isPermanent(d.name) && askAgain.includes(d.id) && <span className="block text-xs font-medium text-muted">{askAgainText}</span>}
-                      </span>
+                      <span className="flex-1">{d.name}</span>
                       <button type="button" onClick={() => toggleDoc(d.id)} className="text-muted hover:text-danger" aria-label={`Remove ${d.name}`}>
                         ✕
                       </button>
@@ -532,21 +492,6 @@ export default function NewRequest() {
             </div>
           </div>
         </div>
-      )}
-
-      {viewOnFile && (
-        <OnFileDialog
-          docName={viewOnFile.name}
-          entries={chosenClients.flatMap((c) => {
-            const f = onFile(c.id, viewOnFile)
-            return f ? [{ clientId: c.id, clientName: c.name, pan: c.pan, fileName: f.fileName, date: f.date }] : []
-          })}
-          onAskAgain={() => {
-            setAskAgain((a) => [...a, viewOnFile.id])
-            setViewOnFile(null)
-          }}
-          onClose={() => setViewOnFile(null)}
-        />
       )}
 
       {/* ---------- Step 3: review and send ---------- */}
@@ -606,7 +551,6 @@ export default function NewRequest() {
                 <div className="flex justify-between"><dt className="text-muted">Clients</dt><dd className="font-semibold">{chosenClients.length}</dd></div>
                 <div className="flex justify-between"><dt className="text-muted">WhatsApp messages</dt><dd className="font-semibold">{chosenClients.length}</dd></div>
                 <div className="flex justify-between"><dt className="text-muted">Documents each</dt><dd className="font-semibold">{chosenDocs.length}</dd></div>
-                {chosenDocs.some((d) => haveCount(d) > 0) && <div className="flex justify-between"><dt className="text-muted">Already on file, not asked</dt><dd className="font-semibold">{chosenDocs.reduce((n, d) => n + haveCount(d), 0)}</dd></div>}
                 <div className="flex justify-between"><dt className="text-muted">Due</dt><dd className="font-semibold">{fmtDate(due)}</dd></div>
               </dl>
             </section>

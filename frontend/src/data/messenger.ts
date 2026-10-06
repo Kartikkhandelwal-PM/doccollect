@@ -58,7 +58,7 @@ export function useMessenger() {
         name: client.name,
         firm: firm.name,
         request: r.title,
-        documents: formatList(counted.filter((d) => !d.reused).map((d) => d.name)),
+        documents: formatList(counted.map((d) => d.name)),
         pending_documents: formatList(missing.map((d) => d.name)),
         pending_count: String(missing.length),
         approved_count: String(approved),
@@ -75,8 +75,7 @@ export function useMessenger() {
     (r: DocRequest) =>
       r.clients.forEach((rc) => {
         const client = getClient(rc.clientId)
-        // a client who already has everything on file has nothing to be asked
-        if (client && rc.docs.some((d) => !d.reused)) post(client, build(r, rc, 'request'), viaOf(r))
+        if (client) post(client, build(r, rc, 'request'), viaOf(r))
       }),
     [build, post, viaOf],
   )

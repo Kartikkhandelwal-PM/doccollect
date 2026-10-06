@@ -4,12 +4,6 @@ import type { Service } from './types'
 
 export const folderIdOf = (clientId: string, fy: string, compliance: string) => `c:${clientId}/${fy}/${compliance}`
 
-// Some documents never change from one filing to the next. Once approved they are kept in the client's own "Permanent documents" folder,
-// and later requests do not ask for them again.
-const PERMANENT_DOCS = ['PAN card', 'Aadhaar card', 'GST registration certificate', 'Udyam registration']
-export const isPermanent = (name: string) => PERMANENT_DOCS.includes(name)
-const permanentFolder = (clientId: string) => `c:${clientId}/Permanent documents`
-
 export interface MasterFile {
   id: string
   // The folder the file sits in. null means the top level.
@@ -54,15 +48,6 @@ const earlier: Record<Service, { fy: string; month: string; docs: string[] }[]> 
   ],
 }
 
-// PAN for most clients, and Aadhaar for people filing ITR. Some are missing on purpose, as in a real office.
-const permanentFiles: MasterFile[] = clients.flatMap((c, i) =>
-  [...(i % 5 !== 3 ? ['PAN card'] : []), ...(c.service === 'ITR' && i % 4 !== 1 ? ['Aadhaar card'] : [])].map((name) => ({
-    ...file(c.id, 'FY 2024-25', c.service, name, 'Jul 2025'),
-    id: `${c.id}-permanent-${name}`,
-    folderId: permanentFolder(c.id),
-  })),
-)
-
 const archive: MasterFile[] = clients.flatMap((c, i) =>
   earlier[c.service].flatMap((y) =>
     y.docs
@@ -82,11 +67,10 @@ export function buildMaster(requests: DocRequest[]): MasterFile[] {
       const client = getClient(rc.clientId)
       if (!client) return []
       return rc.docs
-        // a document that was already on file is not filed a second time
-        .filter((d) => d.status === 'approved' && !d.reused)
+        .filter((d) => d.status === 'approved')
         .map((d) => ({
           id: `${r.id}-${rc.clientId}-${d.id}`,
-          folderId: isPermanent(d.name) ? permanentFolder(rc.clientId) : folderIdOf(rc.clientId, 'FY 2025-26', complianceOf(r.title, client.service)),
+          folderId: folderIdOf(rc.clientId, 'FY 2025-26', complianceOf(r.title, client.service)),
           name: d.name,
           fileName: d.fileName ?? `${d.name}.pdf`,
           size: sizeOf(d.name + rc.clientId),
@@ -95,5 +79,5 @@ export function buildMaster(requests: DocRequest[]): MasterFile[] {
         }))
     }),
   )
-  return [...fromRequests, ...permanentFiles, ...archive]
+  return [...fromRequests, ...archive]
 }
