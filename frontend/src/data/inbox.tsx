@@ -19,7 +19,11 @@ export interface Msg {
   matched?: string
   link?: { requestId: string; clientId: string; docId: string } // the request document this file became
   tick?: 'sent' | 'read'
+  clientId?: string // which client a message sent by the firm was for. Matters when one number belongs to several clients.
 }
+
+// The client a message is about: the one it was sent for, or the one its file was placed with.
+export const msgClient = (m: Msg) => m.clientId ?? m.link?.clientId
 
 export interface Conversation {
   id: string
@@ -58,11 +62,12 @@ const rawSeed: Seed[] = [
     msgs: [
       {
         id: 'm1',
+        clientId: 'ramesh-itr',
         from: 'ca',
         time: 'Sep 27',
         tick: 'read',
         text: say('request', {
-          name: 'Ramesh',
+          name: 'Ramesh Kumar',
           request: 'ITR salaried',
           documents: formatList(['PAN card', 'Aadhaar card', 'Form 16 (Part A & B)', 'Form 26AS / AIS', 'Bank statement Apr–Mar', 'Home loan interest certificate', 'LIC premium receipts']),
           due_date: '5 Oct',
@@ -70,11 +75,12 @@ const rawSeed: Seed[] = [
       },
       {
         id: 'm1g',
+        clientId: 'ramesh-gst',
         from: 'ca',
         time: 'Sep 27',
         tick: 'read',
         text: say('request', {
-          name: 'Ramesh',
+          name: 'Ramesh Kumar',
           request: 'GST monthly',
           documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']),
           due_date: '7 Oct',
@@ -332,7 +338,7 @@ export function InboxProvider({ children }: { children: ReactNode }) {
   // A message the app sends for a client (a request, a reminder, a thank-you). It lands in that client's chat,
   // which is found by phone number so clients on a shared number stay in one chat. No chat yet? One is started.
   const postToClient = useCallback((client: { id: string; name: string; phone: string }, text: string, via: 'own' | 'kdk') => {
-    const msg: Msg = { id: `s${Date.now()}${Math.random().toString(36).slice(2, 6)}`, from: 'ca', day: todayISO(), time: nowTime(), tick: 'sent', text }
+    const msg: Msg = { id: `s${Date.now()}${Math.random().toString(36).slice(2, 6)}`, from: 'ca', day: todayISO(), time: nowTime(), tick: 'sent', text, clientId: client.id }
     setConversations((prev) => {
       const at = prev.findIndex((c) => !c.unassigned && c.via === via && (c.phone === client.phone || c.clientIds.includes(client.id)))
       if (at < 0) return [{ id: `c-${client.id}-${via}`, title: client.name, phone: client.phone, clientIds: [client.id], via, unread: 0, msgs: [msg] }, ...prev]

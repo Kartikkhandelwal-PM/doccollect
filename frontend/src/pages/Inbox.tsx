@@ -10,7 +10,7 @@ import WaText from '../components/WaText'
 import WhatsAppIcon from '../components/WhatsAppIcon'
 import FileTypeIcon from '../components/FileTypeIcon'
 import StatusBadge from '../components/StatusBadge'
-import { useInbox } from '../data/inbox'
+import { msgClient, useInbox } from '../data/inbox'
 import type { Conversation, Msg } from '../data/inbox'
 import { clients, getClient } from '../data/mock'
 import { folderIdOf } from '../data/master'
@@ -38,7 +38,7 @@ function Ticks({ tick }: { tick?: 'sent' | 'read' }) {
   return tick === 'read' ? <CheckCheck size={15} className="text-[#53BDEB]" /> : <CheckCheck size={15} className="text-slate-400" />
 }
 
-function Bubble({ m, onOpen }: { m: Msg; onOpen: (m: Msg) => void }) {
+function Bubble({ m, onOpen, who }: { m: Msg; onOpen: (m: Msg) => void; who?: string }) {
   const mine = m.from === 'ca'
   if (m.from === 'system')
     return (
@@ -54,6 +54,7 @@ function Bubble({ m, onOpen }: { m: Msg; onOpen: (m: Msg) => void }) {
           mine ? 'rounded-tr-none bg-[#D9FDD3]' : 'rounded-tl-none bg-white'
         }`}
       >
+        {who && <div className="mb-1 text-[12px] font-semibold text-brand-dark">{who}</div>}
         {m.file &&
           (m.photo ? (
             <button
@@ -362,6 +363,7 @@ export default function Inbox() {
   const [reviewing, setReviewing] = useState<string | null>(null)
   const { addUploads } = useMasterStore()
   const [keeping, setKeeping] = useState(false)
+  const [only, setOnly] = useState<string | null>(null) // show just one client of a shared number
   const [showInfo, setShowInfo] = useState(false)
   const [showPanel, setShowPanel] = useState(true)
   const [toast, setToast] = useState<string | null>(null)
@@ -405,9 +407,11 @@ export default function Inbox() {
     markRead(active.id)
   }, [active.id, markRead])
 
+  useEffect(() => setOnly(null), [active.id])
+
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: 'end' })
-  }, [active.id, active.msgs.length])
+  }, [active.id, active.msgs.length, only])
 
   useEffect(() => {
     const el = taRef.current
@@ -432,6 +436,12 @@ export default function Inbox() {
   }
 
   const client = active.clientIds[0] ? getClient(active.clientIds[0]) : undefined
+
+  // One number can belong to several clients (a father filing for his daughters, one owner with many firms).
+  // Each message says whose it is, and you can look at one client at a time.
+  const shared = active.clientIds.length > 1
+  const labelOf = (id: string) => `${getClient(id)?.name} · ${getClient(id)?.service}`
+  const shownMsgs = shared && only ? active.msgs.filter((m) => msgClient(m) === only) : active.msgs
 
   // Files in this chat that no document claimed yet, one at a time. Open from the panel or by tapping the file in the chat.
   const waitingList = unsorted.filter((u) => u.phone === active.phone)
@@ -601,7 +611,7 @@ export default function Inbox() {
             <div className="text-base font-semibold leading-tight">{active.title}</div>
             <div className="text-[13px] text-[#54656F]">
               {active.phone}
-              {client && ` · ${active.clientIds.length > 1 ? 'ITR and GST' : client.service}`}
+              {client && ` · ${[...new Set(active.clientIds.map((id) => getClient(id)?.service))].join(' and ')}`}
             </div>
           </div>
           {!showPanel && (
@@ -618,12 +628,23 @@ export default function Inbox() {
           )}
         </div>
 
+        {shared && (
+          <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-[#E9EDEF] bg-white px-5 py-2.5 text-[13px] font-semibold">
+            <span className="text-muted">Show</span>
+            {[null, ...active.clientIds].map((id) => (
+              <button key={id ?? 'all'} type="button" onClick={() => setOnly(id)} className={`rounded-full px-3.5 py-1.5 ${only === id ? 'bg-[#D9FDD3] text-brand-dark' : 'bg-[#F0F2F5] text-[#54656F]'}`}>
+                {id ? labelOf(id) : 'Everyone'}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-5 py-5">
-          {active.msgs.map((m, i) => (
+          {shownMsgs.map((m, i) => (
             <Fragment key={m.id}>
-              {(i === 0 || active.msgs[i - 1].day !== m.day) && <div className="mx-auto my-2 rounded-lg bg-white px-3 py-1 text-xs font-semibold uppercase text-[#54656F] shadow-sm">{dayLabel(m.day)}</div>}
+              {(i === 0 || shownMsgs[i - 1].day !== m.day) && <div className="mx-auto my-2 rounded-lg bg-white px-3 py-1 text-xs font-semibold uppercase text-[#54656F] shadow-sm">{dayLabel(m.day)}</div>}
               <Bubble
                 m={m}
+                who={shared && m.from !== 'system' && msgClient(m) ? labelOf(msgClient(m)!) : undefined}
                 onOpen={(x) => {
                   const u = x.link ? undefined : unsorted.find((f) => f.phone === active.phone && f.fileName === x.file?.name)
                   if (u) setReviewing(u.id)

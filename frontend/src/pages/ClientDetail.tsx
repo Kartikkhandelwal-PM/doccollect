@@ -7,7 +7,8 @@ import ClientRepository from '../components/ClientRepository'
 import FileTypeIcon from '../components/FileTypeIcon'
 import StatusBadge from '../components/StatusBadge'
 import WaText from '../components/WaText'
-import { useInbox } from '../data/inbox'
+import { msgClient, useInbox } from '../data/inbox'
+import type { Msg } from '../data/inbox'
 import { buildMaster } from '../data/master'
 import { getClient } from '../data/mock'
 import { fmtDate, isReceived, requestState, useRequests } from '../data/requests'
@@ -414,7 +415,9 @@ function MessagesTab({ clientId, conversations, reading }: { clientId: string; c
   // A client can be on both numbers. The firm's own chat comes first, because that is the one where files arrive.
   const mine = conversations.filter((c) => c.clientIds.includes(clientId))
   const conv = mine.find((c) => c.via === 'own') ?? mine[0]
-  const msgs = (conv?.msgs ?? []).filter((m) => m.from === 'ca' || (reading && conv?.via === 'own' && m.from === 'client' && m.file))
+  // On a number shared with other clients, only this client's own messages and the files placed with them.
+  const ofThisClient = (m: Msg) => (conv?.clientIds.length ?? 0) <= 1 || msgClient(m) === clientId
+  const msgs = (conv?.msgs ?? []).filter((m) => ofThisClient(m) && (m.from === 'ca' || (reading && conv?.via === 'own' && m.from === 'client' && m.file)))
   if (!conv || msgs.length === 0) return <Empty title="No messages yet" hint="Messages you send for requests will show here." />
   return (
     <section className="rounded-[18px] border border-line bg-white p-5">
