@@ -1,3 +1,4 @@
+import { useSessionState } from '../lib/session'
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { groups as seedGroups, templates as seedTemplates } from './catalog'
@@ -99,15 +100,15 @@ export function SetupProvider({ children }: { children: ReactNode }) {
     gstin: '07AAAFS1234K1Z9',
   })
   const [team, setTeam] = useState(seedTeam)
-  const [whatsapp, connectWhatsApp] = useState<WhatsAppLink | null>({
+  const [whatsapp, connectWhatsApp] = useSessionState<WhatsAppLink | null>('whatsapp', {
     number: '+91 98765 43210',
     displayName: 'Kartik Khandelwal & Associates',
     provider: 'Ramwin',
     route: 'ramwin',
     channelId: 'ch_7q2m9xk4',
   })
-  const [graceDays, setGraceDays] = useState(7)
-  const [readReplies, setReadReplies] = useState(true)
+  const [graceDays, setGraceDays] = useSessionState('graceDays', 7)
+  const [readReplies, setReadReplies] = useSessionState('readReplies', true)
 
   const addDocument = useCallback((name: string, group: string) => {
     setDocuments((p) => [...p, { id: `d-${Date.now()}`, name, group }])

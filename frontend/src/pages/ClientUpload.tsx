@@ -39,7 +39,7 @@ export default function ClientUpload() {
     )
   }
 
-  const first = client.name.split(' ')[0]
+  const first = client.name
   const total = rc.docs.length
   const done = rc.docs.filter((d) => d.status !== 'pending' && d.status !== 'rejected').length
   const left = total - done
