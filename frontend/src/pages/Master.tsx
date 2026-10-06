@@ -81,6 +81,9 @@ function ItemMenu({ label, actions, compact }: { label: string; actions: Action[
 type Target = { kind: 'folder' | 'file'; id: string; name: string }
 type Dialog = { type: 'rename' | 'move' | 'delete'; target: Target } | null
 
+const PAGE = 12 // folders shown at first in the main area, and added with each "Show more"
+const SIDE_PAGE = 15 // client folders shown at first in the left list
+
 export default function Master() {
   const { requests } = useRequests()
   const { folders: custom, uploads, fileEdits, folderNames, addFolder, addUploads, renameFolder, renameAutoFolder, moveFolder, deleteFolder, renameUpload, moveUpload, deleteUpload, editFile } = useMasterStore()
@@ -114,6 +117,10 @@ export default function Master() {
   const [dlgText, setDlgText] = useState('')
   const [dlgError, setDlgError] = useState('')
   const [dest, setDest] = useState<string | null>(null)
+  // A firm can have thousands of client folders, so lists start short and grow with "Show more".
+  const [gridLimit, setGridLimit] = useState(PAGE)
+  const [sideLimit, setSideLimit] = useState(SIDE_PAGE)
+  const [clientQuery, setClientQuery] = useState('')
 
   useEffect(() => {
     if (!toast) return
@@ -171,6 +178,8 @@ export default function Master() {
 
   const go = (id: string | null) => {
     setCurrent(id)
+    setGridLimit(PAGE)
+    setClientQuery('')
     if (id) setExpanded((s) => new Set([...s, ...trail(id).map((n) => n.id)]))
   }
   const toggle = (id: string) =>
@@ -361,9 +370,10 @@ export default function Master() {
   }
 
   // ---- left tree
-  const renderTree = (parent: string | null, depth: number, pick: (n: Node) => boolean = () => true): ReactNode =>
-    childrenOf(parent)
-      .filter((n) => (depth > 0 || (pick(n) && n.name.toLowerCase().includes(query.toLowerCase()))))
+  const topMatches = (pick: (n: Node) => boolean) => childrenOf(null).filter((n) => pick(n) && n.name.toLowerCase().includes(query.toLowerCase()))
+  const renderTree = (parent: string | null, depth: number, pick: (n: Node) => boolean = () => true, limit = Infinity): ReactNode =>
+    (depth > 0 ? childrenOf(parent) : topMatches(pick))
+      .slice(0, limit)
       .map((n) => {
         const kids = childrenOf(n.id)
         const isOpen = expanded.has(n.id)
@@ -436,7 +446,12 @@ export default function Master() {
           <div className="px-3 pb-1 pt-3 text-[11px] font-bold uppercase tracking-widest text-faint">Firm</div>
           {renderTree(null, 0, (n) => n.kind === 'firm' || n.kind === 'custom')}
           <div className="px-3 pb-1 pt-4 text-[11px] font-bold uppercase tracking-widest text-faint">Clients</div>
-          {renderTree(null, 0, (n) => n.kind === 'client')}
+          {renderTree(null, 0, (n) => n.kind === 'client', sideLimit)}
+          {topMatches((n) => n.kind === 'client').length > sideLimit && (
+            <button type="button" onClick={() => setSideLimit((l) => l + SIDE_PAGE)} className="mx-1 mt-1 w-[calc(100%-8px)] rounded-[10px] px-3 py-2 text-left text-[13px] font-semibold text-brand-dark hover:bg-canvas">
+              Show {Math.min(SIDE_PAGE, topMatches((n) => n.kind === 'client').length - sideLimit)} more · {topMatches((n) => n.kind === 'client').length - sideLimit} left
+            </button>
+          )}
           {drag && (
             <div className="pointer-events-none sticky bottom-2 mx-1 mt-3 rounded-xl border border-line bg-ink px-3 py-2.5 text-xs leading-relaxed text-white shadow-lg">
               Drop on a folder to move it inside. Drop on <b>All folders</b> or an empty space to move it to the top level.
@@ -536,9 +551,15 @@ export default function Master() {
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-8 py-5">
-        {subFolders.length > 0 && (
-          <div className="grid grid-cols-3 gap-4">
-            {subFolders.map((n) => (
+        {(() => {
+          // At the top, the firm's own folders stay in their own short block above the (possibly huge) list of clients.
+          const atTop = current === null
+          const firmFolders = atTop ? subFolders.filter((n) => n.kind !== 'client') : []
+          const q = clientQuery.trim().toLowerCase()
+          const shownFolders = (atTop ? subFolders.filter((n) => n.kind === 'client') : subFolders).filter((n) => !q || n.name.toLowerCase().includes(q))
+          const grid = (list: Node[]) => (
+            <div className="grid grid-cols-3 gap-4">
+            {list.map((n) => (
               <div key={n.id} className="group relative" {...dropProps(n.id)} {...(movable(n) ? dragProps('folder', n.id) : {})}>
                 <button
                   type="button"
@@ -562,8 +583,39 @@ export default function Master() {
                 </div>
               </div>
             ))}
-          </div>
-        )}
+            </div>
+          )
+          const more = shownFolders.length - gridLimit
+          return (
+            <>
+              {firmFolders.length > 0 && (
+                <section>
+                  <h3 className="mb-2.5 text-[11px] font-bold uppercase tracking-widest text-faint">Firm folders</h3>
+                  {grid(firmFolders)}
+                </section>
+              )}
+              {(shownFolders.length > 0 || q) && (
+                <section>
+                  <div className="mb-2.5 flex items-center justify-between gap-4">
+                    <h3 className="text-[11px] font-bold uppercase tracking-widest text-faint">{atTop ? `Client folders · ${subFolders.filter((n) => n.kind === 'client').length}` : 'Folders'}</h3>
+                    {(atTop ? subFolders.length > PAGE : subFolders.length > 12) && (
+                      <label className="flex h-9 w-60 items-center gap-2 rounded-xl bg-white px-3 text-sm text-muted ring-1 ring-line focus-within:ring-brand">
+                        <Search size={14} />
+                        <input value={clientQuery} onChange={(e) => { setClientQuery(e.target.value); setGridLimit(PAGE) }} placeholder={atTop ? 'Search client folders' : 'Search folders'} className="w-full bg-transparent text-ink outline-none placeholder:text-muted" />
+                      </label>
+                    )}
+                  </div>
+                  {shownFolders.length === 0 ? <p className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-8 text-center text-sm text-muted">No folder found.</p> : grid(shownFolders.slice(0, gridLimit))}
+                  {more > 0 && (
+                    <button type="button" onClick={() => setGridLimit((l) => l + PAGE)} className="mx-auto mt-4 flex h-10 items-center rounded-xl border border-line bg-white px-5 text-sm font-semibold hover:border-brand hover:text-brand-dark">
+                      Show {Math.min(PAGE, more)} more · {more} left
+                    </button>
+                  )}
+                </section>
+              )}
+            </>
+          )
+        })()}
 
         {direct.length > 0 && (
           <div className="rounded-[18px] border border-line bg-white p-5">
