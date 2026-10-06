@@ -298,8 +298,12 @@ function RightPanel({ conv, onReview }: { conv: Conversation; onReview: () => vo
       {mine.map((r) => {
         const docs = r.clients.filter((c) => conv.clientIds.includes(c.clientId)).flatMap((c) => c.docs.filter((d) => d.status !== 'na'))
         const got = docs.filter((d) => d.status !== 'pending' && d.status !== 'rejected').length
+        // When one number belongs to several clients (a father filing for his daughters, one owner with many firms), say whose request it is.
+        const owner = r.clients.find((c) => conv.clientIds.includes(c.clientId))?.clientId
+        const who = new Set(conv.clientIds.map((id) => getClient(id)?.name)).size > 1 && owner ? getClient(owner)?.name : undefined
         return (
           <Link key={r.id} to={`/requests/${r.id}?client=${conv.clientIds.find((id) => r.clients.some((c) => c.clientId === id)) ?? ''}`} className="block rounded-xl border border-line p-3.5 hover:border-brand">
+            {who && <div className="mb-0.5 text-[13px] font-semibold text-brand-dark">{who}</div>}
             <div className="flex items-baseline justify-between">
               <span className="text-[15px] font-semibold">{r.title}</span>
               <span className="text-[13px] text-muted">{r.ref}</span>
@@ -655,7 +659,7 @@ export default function Inbox() {
                   key={t.id}
                   type="button"
                   onClick={() => {
-                    setText(fillTemplate(t.text, { name: active.unassigned ? 'there' : active.title.split(' ')[0], firm: firm.name, link: sample.link }, false))
+                    setText(fillTemplate(t.text, { name: active.unassigned ? 'there' : active.title, firm: firm.name, link: sample.link }, false))
                     setShowTemplates(false)
                     taRef.current?.focus()
                   }}

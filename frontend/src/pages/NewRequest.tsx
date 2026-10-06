@@ -172,7 +172,7 @@ export default function NewRequest() {
   const message = fillTemplate(
     requestTemplate,
     {
-      name: (first?.name ?? 'there').split(' ')[0],
+      name: first?.name ?? 'there',
       firm: firm.name,
       documents: formatList(chosenDocs.filter((d) => !(first && onFile(first.id, d))).map((d) => d.name)),
       request: templateId === 'custom' ? 'your request' : title,

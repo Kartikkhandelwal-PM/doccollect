@@ -110,10 +110,10 @@ const rawSeed: Seed[] = [
     clientIds: ['priya'],
     unread: 3,
     msgs: [
-      { id: 'p0', from: 'ca', time: 'Sep 28', tick: 'read', text: say('request', { name: 'Priya', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '3 Oct', link: `${LINK_DOMAIN}/u/r-1043-priya-v1` }) },
+      { id: 'p0', from: 'ca', time: 'Sep 28', tick: 'read', text: say('request', { name: 'Priya Textiles', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '3 Oct', link: `${LINK_DOMAIN}/u/r-1043-priya-v1` }) },
       { id: 'p0a', from: 'client', time: 'Sep 29', file: { name: 'GSTR2B_092026.pdf', size: '4 pages · 510 KB' }, matched: 'Filed as GSTR-2B · Approved', link: { requestId: 'r2', clientId: 'priya', docId: 'gstr2b' } },
-      { id: 'p0b', from: 'ca', time: 'Sep 29', tick: 'read', text: say('approved', { name: 'Priya', document: 'GSTR-2B', pending_count: '2' }) },
-      { id: 'p1', from: 'ca', time: 'Fri', tick: 'read', text: say('reminder', { name: 'Priya', link: `${LINK_DOMAIN}/u/r-1043-priya-v1` }) },
+      { id: 'p0b', from: 'ca', time: 'Sep 29', tick: 'read', text: say('approved', { name: 'Priya Textiles', document: 'GSTR-2B', pending_count: '2' }) },
+      { id: 'p1', from: 'ca', time: 'Fri', tick: 'read', text: say('reminder', { name: 'Priya Textiles', link: `${LINK_DOMAIN}/u/r-1043-priya-v1` }) },
       { id: 'p2', from: 'client', time: '09:58', file: { name: 'Purchase register.xlsx', size: '240 KB' }, matched: 'Filed as Purchase register · To review', link: { requestId: 'r2', clientId: 'priya', docId: 'purchase' } },
     ],
   },
@@ -124,10 +124,10 @@ const rawSeed: Seed[] = [
     clientIds: ['anand'],
     unread: 0,
     msgs: [
-      { id: 'a0', from: 'ca', time: 'Sep 20', tick: 'read', text: say('request', { name: 'Anand', request: 'TDS quarterly', documents: formatList(['TDS challans', 'Deductee list', 'Form 16A', 'Bank statement Apr–Mar']), due_date: '28 Sep', link: `${LINK_DOMAIN}/u/r-1039-anand-v1` }) },
+      { id: 'a0', from: 'ca', time: 'Sep 20', tick: 'read', text: say('request', { name: 'Anand Traders', request: 'TDS quarterly', documents: formatList(['TDS challans', 'Deductee list', 'Form 16A', 'Bank statement Apr–Mar']), due_date: '28 Sep', link: `${LINK_DOMAIN}/u/r-1039-anand-v1` }) },
       { id: 'a0a', from: 'client', time: 'Sep 22', file: { name: 'TDS_challans_Q2.pdf', size: '3 pages · 640 KB' }, matched: 'Filed as TDS challans · Approved', link: { requestId: 'r3', clientId: 'anand', docId: 'challans' } },
       { id: 'a0b', from: 'client', time: 'Sep 22', file: { name: 'Deductee_list.xlsx', size: '96 KB' }, matched: 'Filed as Deductee list · Approved', link: { requestId: 'r3', clientId: 'anand', docId: 'deductees' } },
-      { id: 'a1', from: 'ca', time: 'Yesterday', tick: 'read', text: say('pendinglist', { name: 'Anand', request: 'TDS quarterly', pending_count: '2', pending_documents: formatList(['Form 16A', 'Bank statement Apr–Mar']), due_date: '28 Sep' }) },
+      { id: 'a1', from: 'ca', time: 'Yesterday', tick: 'read', text: say('pendinglist', { name: 'Anand Traders', request: 'TDS quarterly', pending_count: '2', pending_documents: formatList(['Form 16A', 'Bank statement Apr–Mar']), due_date: '28 Sep' }) },
     ],
   },
   {
@@ -136,7 +136,7 @@ const rawSeed: Seed[] = [
     phone: '+91 96444 55577',
     clientIds: ['meera'],
     unread: 0,
-    msgs: [{ id: 'e1', from: 'ca', time: 'Yesterday', tick: 'read', text: say('thanks', { name: 'Meera' }) }],
+    msgs: [{ id: 'e1', from: 'ca', time: 'Yesterday', tick: 'read', text: say('thanks', { name: 'Meera Iyer' }) }],
   },
   {
     id: 'c-kapoor',
@@ -145,8 +145,8 @@ const rawSeed: Seed[] = [
     clientIds: ['kapoor'],
     unread: 0,
     msgs: [
-      { id: 'k1', from: 'ca', time: 'Sep 28', tick: 'read', text: say('request', { name: 'Kapoor', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '3 Oct', link: `${LINK_DOMAIN}/u/r-1043-kapoor-v1` }) },
-      { id: 'k2', from: 'ca', time: 'Sep 29', tick: 'read', text: say('pendinglist', { name: 'Kapoor', request: 'GST monthly', pending_count: '4', pending_documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '3 Oct', link: `${LINK_DOMAIN}/u/r-1043-kapoor-v1` }) },
+      { id: 'k1', from: 'ca', time: 'Sep 28', tick: 'read', text: say('request', { name: 'Kapoor Logistics', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '3 Oct', link: `${LINK_DOMAIN}/u/r-1043-kapoor-v1` }) },
+      { id: 'k2', from: 'ca', time: 'Sep 29', tick: 'read', text: say('pendinglist', { name: 'Kapoor Logistics', request: 'GST monthly', pending_count: '4', pending_documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '3 Oct', link: `${LINK_DOMAIN}/u/r-1043-kapoor-v1` }) },
     ],
   },
   {
@@ -156,7 +156,7 @@ const rawSeed: Seed[] = [
     clientIds: ['mehta-foods-pvt-ltd'],
     unread: 2,
     msgs: [
-      { id: 'mf1', from: 'ca', time: 'Mon', tick: 'read', text: say('request', { name: 'Mehta', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '5 Oct' }) },
+      { id: 'mf1', from: 'ca', time: 'Mon', tick: 'read', text: say('request', { name: 'Mehta Foods Pvt Ltd', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '5 Oct' }) },
       { id: 'mf2', from: 'client', time: 'Tue', file: { name: 'Sales_register_Sep.xlsx', size: '310 KB' }, matched: 'Filed as Sales register · Approved' },
       { id: 'mf3', from: 'client', time: '08:32', text: 'Sir, purchase register aur GSTR-2B bhej raha hoon, ek minute.' },
       { id: 'mf4', from: 'client', time: '08:34', file: { name: 'Purchase_register_Sep.xlsx', size: '280 KB' }, matched: 'Filed as Purchase register · To review', link: { requestId: 'r4', clientId: 'mehta-foods-pvt-ltd', docId: 'purchase' } },
@@ -170,7 +170,7 @@ const rawSeed: Seed[] = [
     clientIds: ['arjun-mehta'],
     unread: 1,
     msgs: [
-      { id: 'ar1', from: 'ca', time: 'Fri', tick: 'read', text: say('request', { name: 'Arjun', request: 'ITR salaried', documents: formatList(['PAN card', 'Aadhaar card', 'Form 16 (Part A & B)', 'Form 26AS / AIS', 'Bank statement Apr–Mar', 'Home loan interest certificate', 'LIC premium receipts']), due_date: '10 Oct' }) },
+      { id: 'ar1', from: 'ca', time: 'Fri', tick: 'read', text: say('request', { name: 'Arjun Mehta', request: 'ITR salaried', documents: formatList(['PAN card', 'Aadhaar card', 'Form 16 (Part A & B)', 'Form 26AS / AIS', 'Bank statement Apr–Mar', 'Home loan interest certificate', 'LIC premium receipts']), due_date: '10 Oct' }) },
       { id: 'ar2', from: 'client', time: 'Sat', photo: true, matched: 'Filed as PAN card · Approved' },
       { id: 'ar3', from: 'client', time: '09:20', text: 'Form 16 office se mil gaya, bhej diya.' },
       { id: 'ar4', from: 'client', time: '09:21', file: { name: 'Form16_2025-26.pdf', size: '2 pages · 388 KB' }, matched: 'Filed as Form 16 · To review', link: { requestId: 'r5', clientId: 'arjun-mehta', docId: 'form16' } },
@@ -183,9 +183,9 @@ const rawSeed: Seed[] = [
     clientIds: ['rohit-bansal'],
     unread: 1,
     msgs: [
-      { id: 'ro1', from: 'ca', time: 'Wed', tick: 'read', text: say('reminder', { name: 'Rohit' }) },
+      { id: 'ro1', from: 'ca', time: 'Wed', tick: 'read', text: say('reminder', { name: 'Rohit Bansal' }) },
       { id: 'ro2', from: 'client', time: 'Yesterday', text: 'Sir kal tak bhej dunga, bank statement download kar raha hoon.' },
-      { id: 'ro3', from: 'ca', time: 'Yesterday', tick: 'read', text: say('thanks', { name: 'Rohit' }) },
+      { id: 'ro3', from: 'ca', time: 'Yesterday', tick: 'read', text: say('thanks', { name: 'Rohit Bansal' }) },
       { id: 'ro4', from: 'client', time: '07:58', text: 'Net banking down hai aaj, kal pakka.' },
     ],
   },
@@ -196,9 +196,9 @@ const rawSeed: Seed[] = [
     clientIds: ['pooja-nair'],
     unread: 0,
     msgs: [
-      { id: 'po1', from: 'ca', time: 'Fri', tick: 'read', text: say('request', { name: 'Pooja', request: 'ITR salaried', documents: formatList(['PAN card', 'Aadhaar card', 'Form 16 (Part A & B)', 'Form 26AS / AIS']), due_date: '10 Oct' }) },
+      { id: 'po1', from: 'ca', time: 'Fri', tick: 'read', text: say('request', { name: 'Pooja Nair', request: 'ITR salaried', documents: formatList(['PAN card', 'Aadhaar card', 'Form 16 (Part A & B)', 'Form 26AS / AIS']), due_date: '10 Oct' }) },
       { id: 'po2', from: 'client', time: 'Sat', file: { name: 'Bank_stmt.pdf', size: '5 pages · 900 KB' } },
-      { id: 'po3', from: 'ca', time: 'Sat', tick: 'read', text: say('blurry', { name: 'Pooja', document: 'Bank statement Apr–Mar' }) },
+      { id: 'po3', from: 'ca', time: 'Sat', tick: 'read', text: say('blurry', { name: 'Pooja Nair', document: 'Bank statement Apr–Mar' }) },
       { id: 'po4', from: 'client', time: 'Sun', text: 'Ok, dobara bhejti hoon.' },
     ],
   },
@@ -209,8 +209,8 @@ const rawSeed: Seed[] = [
     clientIds: ['metro-constructions'],
     unread: 1,
     msgs: [
-      { id: 'me1', from: 'ca', time: 'Mon', tick: 'read', text: say('pendinglist', { name: 'Metro', request: 'TDS quarterly', pending_count: '2', pending_documents: formatList(['Form 16A', 'Bank statement Apr–Mar']), due_date: '30 Sep' }) },
-      { id: 'me2', from: 'ca', time: 'Yesterday', tick: 'read', text: say('overdue', { name: 'Metro', request: 'TDS quarterly', pending_documents: formatList(['Form 16A', 'Bank statement Apr–Mar']) }) },
+      { id: 'me1', from: 'ca', time: 'Mon', tick: 'read', text: say('pendinglist', { name: 'Metro Constructions', request: 'TDS quarterly', pending_count: '2', pending_documents: formatList(['Form 16A', 'Bank statement Apr–Mar']), due_date: '30 Sep' }) },
+      { id: 'me2', from: 'ca', time: 'Yesterday', tick: 'read', text: say('overdue', { name: 'Metro Constructions', request: 'TDS quarterly', pending_documents: formatList(['Form 16A', 'Bank statement Apr–Mar']) }) },
       { id: 'me3', from: 'client', time: '09:05', text: 'Accountant chhutti par hai, Monday tak mil jayega.' },
     ],
   },
@@ -222,7 +222,7 @@ const rawSeed: Seed[] = [
     via: 'kdk',
     unread: 0,
     msgs: [
-      { id: 'lo1', from: 'ca', time: 'Tue', tick: 'sent', text: say('request', { name: 'Lotus', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '8 Oct', link: `${LINK_DOMAIN}/u/r-1035-lotus-interiors-v1` }, 'kdk') },
+      { id: 'lo1', from: 'ca', time: 'Tue', tick: 'sent', text: say('request', { name: 'Lotus Interiors', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '8 Oct', link: `${LINK_DOMAIN}/u/r-1035-lotus-interiors-v1` }, 'kdk') },
     ],
   },
   {
@@ -232,7 +232,7 @@ const rawSeed: Seed[] = [
     clientIds: ['sundaram-auto-parts'],
     via: 'kdk',
     unread: 0,
-    msgs: [{ id: 'su1', from: 'ca', time: 'Tue', tick: 'read', text: say('request', { name: 'Sundaram', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '8 Oct', link: `${LINK_DOMAIN}/u/r-1035-sundaram-auto-parts-v1` }, 'kdk') }],
+    msgs: [{ id: 'su1', from: 'ca', time: 'Tue', tick: 'read', text: say('request', { name: 'Sundaram Auto Parts', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '8 Oct', link: `${LINK_DOMAIN}/u/r-1035-sundaram-auto-parts-v1` }, 'kdk') }],
   },
   {
     id: 'c-zenith',
@@ -241,7 +241,7 @@ const rawSeed: Seed[] = [
     clientIds: ['zenith-packaging'],
     via: 'kdk',
     unread: 0,
-    msgs: [{ id: 'ze1', from: 'ca', time: 'Tue', tick: 'read', text: say('request', { name: 'Zenith', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '8 Oct', link: `${LINK_DOMAIN}/u/r-1035-zenith-packaging-v1` }, 'kdk') }],
+    msgs: [{ id: 'ze1', from: 'ca', time: 'Tue', tick: 'read', text: say('request', { name: 'Zenith Packaging', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '8 Oct', link: `${LINK_DOMAIN}/u/r-1035-zenith-packaging-v1` }, 'kdk') }],
   },
   {
     id: 'c-neha',
@@ -250,9 +250,9 @@ const rawSeed: Seed[] = [
     clientIds: ['neha-kulkarni'],
     unread: 0,
     msgs: [
-      { id: 'ne1', from: 'ca', time: 'Sep 26', tick: 'read', text: say('request', { name: 'Neha', request: 'ITR salaried', documents: formatList(['PAN card', 'Aadhaar card', 'Form 16 (Part A & B)']), due_date: '10 Oct' }) },
+      { id: 'ne1', from: 'ca', time: 'Sep 26', tick: 'read', text: say('request', { name: 'Neha Kulkarni', request: 'ITR salaried', documents: formatList(['PAN card', 'Aadhaar card', 'Form 16 (Part A & B)']), due_date: '10 Oct' }) },
       { id: 'ne2', from: 'client', time: 'Sep 27', file: { name: 'Form16.pdf', size: '2 pages · 402 KB' }, matched: 'Filed as Form 16 · Approved' },
-      { id: 'ne3', from: 'ca', time: 'Sep 29', tick: 'read', text: say('approved', { name: 'Neha', request: 'ITR salaried' }) },
+      { id: 'ne3', from: 'ca', time: 'Sep 29', tick: 'read', text: say('approved', { name: 'Neha Kulkarni', request: 'ITR salaried' }) },
     ],
   },
   {
@@ -262,7 +262,7 @@ const rawSeed: Seed[] = [
     clientIds: ['singhania-steels'],
     unread: 1,
     msgs: [
-      { id: 'si1', from: 'ca', time: 'Mon', tick: 'read', text: say('request', { name: 'Singhania', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '5 Oct' }) },
+      { id: 'si1', from: 'ca', time: 'Mon', tick: 'read', text: say('request', { name: 'Singhania Steels', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '5 Oct' }) },
       { id: 'si2', from: 'client', time: '10:12', file: { name: 'Bank_statement_FY26.pdf', size: '8 pages · 1.4 MB' }, matched: 'Filed as Bank statement · To review', link: { requestId: 'r4', clientId: 'singhania-steels', docId: 'bank' } },
     ],
   },
@@ -353,7 +353,7 @@ export function InboxProvider({ children }: { children: ReactNode }) {
     (convId: string, docName: string, reason: string) =>
       patch(convId, (c) => ({
         ...c,
-        msgs: [...c.msgs, { id: `s${Date.now()}`, from: 'ca', day: todayISO(), time: nowTime(), tick: 'sent', text: say('rejected', { name: c.title.split(' ')[0], document: docName, reason }) }],
+        msgs: [...c.msgs, { id: `s${Date.now()}`, from: 'ca', day: todayISO(), time: nowTime(), tick: 'sent', text: say('rejected', { name: c.title, document: docName, reason }) }],
       })),
     [patch],
   )

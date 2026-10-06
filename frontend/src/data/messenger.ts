@@ -38,7 +38,7 @@ export function useMessenger() {
       const there = conversations.some((c) => c.via !== via && (c.phone === client.phone || c.clientIds.includes(client.id)))
       if (!here && there) {
         const t = seedMessages.find((m) => m.id === 'newnumber')!
-        postToClient(client, fillTemplate(via === 'kdk' ? t.onBehalf : t.text, { name: client.name.split(' ')[0], firm: firm.name }), via)
+        postToClient(client, fillTemplate(via === 'kdk' ? t.onBehalf : t.text, { name: client.name, firm: firm.name }), via)
       }
       postToClient(client, text, via)
     },
@@ -55,7 +55,7 @@ export function useMessenger() {
       const tid = id !== 'update' ? id : missing.length === 0 ? 'thanks' : approved > 0 ? 'update' : 'pendinglist'
       const tpl = seedMessages.find((m) => m.id === tid)!
       return fillTemplate(viaOf(r) === 'kdk' ? tpl.onBehalf : tpl.text, {
-        name: client.name.split(' ')[0],
+        name: client.name,
         firm: firm.name,
         request: r.title,
         documents: formatList(counted.filter((d) => !d.reused).map((d) => d.name)),
