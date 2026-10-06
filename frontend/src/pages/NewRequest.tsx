@@ -133,6 +133,8 @@ export default function NewRequest() {
   const onFile = (clientId: string, d: { id: string; name: string }) =>
     isPermanent(d.name) && !askAgain.includes(d.id) ? master.find((f) => f.name === d.name && f.folderId?.startsWith(`c:${clientId}/`)) : undefined
   const haveCount = (d: { id: string; name: string }) => chosenClients.filter((c) => onFile(c.id, d)).length
+  // What "Ask again" does, in words: one client is asked again, several are all asked again (even those who already have it on file).
+  const askAgainText = chosenClients.length === 1 ? 'Asking again' : `Asking all ${chosenClients.length} clients again`
   const [viewOnFile, setViewOnFile] = useState<{ id: string; name: string } | null>(null)
   const [allChecklists, setAllChecklists] = useState(false)
   // The chip that opens the copy we hold. Same look in the list and in the "Selected documents" box.
@@ -467,7 +469,7 @@ export default function NewRequest() {
                           </button>
                           {on && isPermanent(d.name) && askAgain.includes(d.id) && (
                             <button type="button" onClick={() => setAskAgain((a) => a.filter((x) => x !== d.id))} className="shrink-0 text-xs font-semibold text-muted hover:text-ink hover:underline">
-                              Asking everyone · undo
+                              {askAgainText} · undo
                             </button>
                           )}
                           {have > 0 && (
@@ -518,7 +520,7 @@ export default function NewRequest() {
                       <span className="min-w-0 flex-1">
                         {d.name}
                         {haveCount(d) > 0 && <span className="mt-0.5 block">{onFileChip(d)}</span>}
-                        {isPermanent(d.name) && askAgain.includes(d.id) && <span className="block text-xs font-medium text-muted">Asking everyone</span>}
+                        {isPermanent(d.name) && askAgain.includes(d.id) && <span className="block text-xs font-medium text-muted">{askAgainText}</span>}
                       </span>
                       <button type="button" onClick={() => toggleDoc(d.id)} className="text-muted hover:text-danger" aria-label={`Remove ${d.name}`}>
                         ✕

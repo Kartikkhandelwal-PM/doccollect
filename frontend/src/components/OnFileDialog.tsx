@@ -55,7 +55,7 @@ export default function OnFileDialog({ docName, entries, onAskAgain, onClose }: 
         </div>
         <div className="flex items-center justify-between gap-3 border-t border-line px-5 py-3.5">
           <button type="button" onClick={onAskAgain} className="text-[13px] font-semibold text-muted hover:text-ink hover:underline">
-            Ask {entries.length === 1 ? 'again' : 'everyone again'}
+            {entries.length === 1 ? 'Ask again' : 'Ask all clients again'}
           </button>
           <button type="button" onClick={onClose} className="h-11 rounded-xl bg-brand px-6 text-sm font-semibold text-white">
             Done
