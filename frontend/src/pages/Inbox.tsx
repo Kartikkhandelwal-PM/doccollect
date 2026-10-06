@@ -208,6 +208,10 @@ function KeepFile({ fileName, clientName, onSave, onRemove, onClose }: { fileNam
   )
 }
 
+// One person with two kinds of work (Ramesh Kumar for ITR and for GST) is still one person. Names and chips for telling clients apart
+// are only for a number that really belongs to different people or firms.
+const differentPeople = (ids: string[]) => new Set(ids.map((id) => getClient(id)?.name)).size > 1
+
 function RightPanel({ conv, onReview }: { conv: Conversation; onReview: () => void }) {
   const { requests, unsorted } = useRequests()
   const { settle } = useInbox()
@@ -302,7 +306,7 @@ function RightPanel({ conv, onReview }: { conv: Conversation; onReview: () => vo
         .map(({ r, c }) => {
           const docs = c.docs.filter((d) => d.status !== 'na')
           const got = docs.filter((d) => d.status !== 'pending' && d.status !== 'rejected').length
-          const several = conv.clientIds.length > 1
+          const several = differentPeople(conv.clientIds)
           return (
             <Link key={`${r.id}-${c.clientId}`} to={`/requests/${r.id}?client=${c.clientId}`} className="block rounded-xl border border-line p-3.5 hover:border-brand">
               {several && (
@@ -444,7 +448,7 @@ export default function Inbox() {
 
   // One number can belong to several clients (a father filing for his daughters, one owner with many firms).
   // Each message says whose it is, and you can look at one client at a time.
-  const shared = active.clientIds.length > 1
+  const shared = differentPeople(active.clientIds)
   const labelOf = (id: string) => `${getClient(id)?.name} · ${getClient(id)?.service}`
   const shownMsgs = shared && only ? active.msgs.filter((m) => msgClient(m) === only) : active.msgs
 
@@ -455,7 +459,7 @@ export default function Inbox() {
   const placeable = requests.flatMap((r) => r.clients.filter((c) => active.clientIds.includes(c.clientId)).map((c) => ({ r, c })))
   // With more than one request on this number, the list is split by request: ITR on its own, GST on its own.
   const placeOptions = placeable.flatMap(({ r, c }) => {
-    const group = (extra: boolean) => (placeable.length > 1 ? (active.clientIds.length > 1 ? `${getClient(c.clientId)?.name} · ${r.title}` : r.title) : extra ? 'Add as another file of' : 'Not received yet')
+    const group = (extra: boolean) => (placeable.length > 1 ? (differentPeople(active.clientIds) ? `${getClient(c.clientId)?.name} · ${r.title}` : r.title) : extra ? 'Add as another file of' : 'Not received yet')
     return [
       ...c.docs.filter((d) => d.status === 'pending' || d.status === 'rejected').map((d) => ({ id: `${r.id}|${c.clientId}|${d.id}`, label: d.name, group: group(false) })),
       ...c.docs.filter((d) => d.status === 'to_review').map((d) => ({ id: `${r.id}|${c.clientId}|${d.id}`, label: d.name, group: group(true), extra: true })),
