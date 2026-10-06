@@ -108,7 +108,7 @@ export default function RequestDetail() {
 function RequestView({ request }: { request: DocRequest }) {
   const [params] = useSearchParams()
   const { setDocStatus, simulateReply, changeDue, unsorted, useUnsorted } = useRequests()
-  const { graceDays, ownNumber } = useSetup()
+  const { graceDays, ownNumber, whatsapp } = useSetup()
 
   const [openDoc, setOpenDoc] = useState<{ clientId: string; docId: string } | null>(() => {
     const [clientId, docId] = (params.get('doc') ?? '').split(':')
@@ -275,7 +275,7 @@ function RequestView({ request }: { request: DocRequest }) {
         <div>
           <h1 className="text-[24px] font-bold tracking-tight">{request.title}</h1>
           <p className="mt-0.5 text-sm text-muted">
-            {request.ref} · sent {fmtDate(request.createdAt)} from {request.via === 'own' ? 'your WhatsApp' : `the ${SHARED_NUMBER_NAME} number`} · due {fmtDate(request.due)}{request.via === 'own' && !ownNumber && ` · your WhatsApp is not connected, reminders go from the ${SHARED_NUMBER_NAME} number`}
+            {request.ref} · sent {fmtDate(request.createdAt)} from {request.via === 'own' ? (whatsapp?.displayName ?? 'your WhatsApp') : `the ${SHARED_NUMBER_NAME} number`} · due {fmtDate(request.due)}{request.via === 'own' && !ownNumber && ` · your WhatsApp is not connected, reminders go from the ${SHARED_NUMBER_NAME} number`}
             <button
               type="button"
               onClick={() => {

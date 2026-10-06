@@ -97,7 +97,7 @@ export default function NewRequest() {
   const navigate = useNavigate()
   const { create } = useRequests()
   const { sendRequest } = useMessenger()
-  const { groups, templates, messageTemplates, firm, ownNumber } = useSetup()
+  const { groups, templates, messageTemplates, firm, ownNumber, whatsapp } = useSetup()
   const [params] = useSearchParams()
   const preselected = params.get('client')
 
@@ -489,7 +489,7 @@ export default function NewRequest() {
               <div className="mt-3 grid grid-cols-2 gap-3">
                 {ownNumber ? (
                   <button type="button" onClick={() => setVia('own')} className={`rounded-2xl p-3.5 text-left ${via === 'own' ? 'border-2 border-brand bg-[#EEF8F5]' : 'border border-line'}`}>
-                    <div className={`text-sm font-semibold ${via === 'own' ? 'text-brand-dark' : ''}`}>Your WhatsApp</div>
+                    <div className={`text-sm font-semibold ${via === 'own' ? 'text-brand-dark' : ''}`}>{whatsapp?.displayName ?? 'Your WhatsApp'}</div>
                     <div className="text-[13px] text-slate-600">{ownNumber} · replies are read here</div>
                   </button>
                 ) : (
@@ -499,8 +499,8 @@ export default function NewRequest() {
                   </Link>
                 )}
                 <button type="button" onClick={() => setVia('kdk')} className={`rounded-2xl p-3.5 text-left ${via === 'kdk' ? 'border-2 border-brand bg-[#EEF8F5]' : 'border border-line'}`}>
-                  <div className={`text-sm font-semibold ${via === 'kdk' ? 'text-brand-dark' : ''}`}>{SHARED_NUMBER_NAME} number</div>
-                  <div className="text-[13px] text-muted">Link only · replies are not read</div>
+                  <div className={`text-sm font-semibold ${via === 'kdk' ? 'text-brand-dark' : ''}`}>{SHARED_NUMBER_NAME}</div>
+                  <div className="text-[13px] text-muted">Shared number · link only · replies are not read</div>
                 </button>
               </div>
             </section>

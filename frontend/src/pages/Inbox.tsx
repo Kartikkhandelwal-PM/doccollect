@@ -334,8 +334,10 @@ function RightPanel({ conv, onReview }: { conv: Conversation; onReview: () => vo
 
 export default function Inbox() {
   const { conversations: allConversations, markRead, send, markPlaced } = useInbox()
-  const { messageTemplates, firm, readReplies, ownNumber } = useSetup()
-  const accounts = { own: ownNumber ?? 'Your WhatsApp', kdk: `${SHARED_NUMBER_NAME} number` } as const
+  const { messageTemplates, firm, readReplies, ownNumber, whatsapp } = useSetup()
+  // Each WhatsApp number is shown by its name, with the number under it.
+  const accounts = { own: whatsapp?.displayName ?? 'Your WhatsApp', kdk: SHARED_NUMBER_NAME } as const
+  const accountSub = { own: whatsapp?.number ?? 'Not connected', kdk: 'Shared number · link only' } as const
   const { requests, setDocStatus, unsorted, useUnsorted, dropUnsorted } = useRequests()
   // Everything except the first-request message can be dropped into a chat.
   const templates = messageTemplates.filter((m) => m.id !== 'request')
@@ -485,6 +487,7 @@ export default function Inbox() {
               <WhatsAppIcon size={36} />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-semibold">{accounts[mode]}</span>
+                <span className="block truncate text-xs text-muted">{accountSub[mode]}</span>
               </span>
               <ChevronDown size={16} className="shrink-0 text-[#54656F]" />
             </button>
@@ -513,7 +516,7 @@ export default function Inbox() {
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-semibold">{accounts[k]}</span>
                           <span className="block truncate text-xs text-muted">
-                            {k === 'own' && !connected ? 'Not connected' : `${chats.length} ${chats.length === 1 ? 'chat' : 'chats'}${fresh ? ` · ${fresh} unread` : ''}`}
+                            {accountSub[k]} · {chats.length} {chats.length === 1 ? 'chat' : 'chats'}{fresh ? ` · ${fresh} unread` : ''}
                           </span>
                         </span>
                         {mode === k && <Check size={16} className="shrink-0 text-brand" />}

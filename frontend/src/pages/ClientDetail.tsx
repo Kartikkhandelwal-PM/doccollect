@@ -61,7 +61,7 @@ export default function ClientDetail() {
   const [params, setParams] = useSearchParams()
   const { requests } = useRequests()
   const { conversations } = useInbox()
-  const { readReplies, ownNumber } = useSetup()
+  const { readReplies, ownNumber, whatsapp } = useSetup()
   const client = id ? getClient(id) : undefined
   const tab = (tabs.find((t) => t.key === params.get('tab'))?.key ?? 'overview') as Tab
 
@@ -292,7 +292,7 @@ export default function ClientDetail() {
                         {r.title} <span className="ml-1 text-xs font-medium text-muted">{r.ref}</span>
                       </div>
                       <div className="text-[13px] text-muted">
-                        Sent {fmtDate(r.createdAt)} from {r.via === 'own' ? 'your WhatsApp' : `the ${SHARED_NUMBER_NAME} number`}
+                        Sent {fmtDate(r.createdAt)} from {r.via === 'own' ? (whatsapp?.displayName ?? 'your WhatsApp') : `the ${SHARED_NUMBER_NAME} number`}
                       </div>
                     </div>
                     <div className="flex w-44 items-center gap-2.5">
