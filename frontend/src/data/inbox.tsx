@@ -7,6 +7,7 @@ import { useSetup } from './setup'
 import { useSessionState } from '../lib/session'
 import { addDays, todayISO } from '../lib/dates'
 import { LINK_DOMAIN } from '../lib/brand'
+import type { DocRead } from './docRead'
 
 export interface Msg {
   id: string
@@ -17,13 +18,11 @@ export interface Msg {
   file?: { name: string; size: string }
   photo?: boolean
   matched?: string
+  read?: DocRead // what we read from the file: what it is, whose it is
   link?: { requestId: string; clientId: string; docId: string } // the request document this file became
   tick?: 'sent' | 'read'
   clientId?: string // which client a message sent by the firm was for. Matters when one number belongs to several clients.
 }
-
-// The client a message is about: the one it was sent for, or the one its file was placed with.
-export const msgClient = (m: Msg) => m.clientId ?? m.link?.clientId
 
 export interface Conversation {
   id: string
@@ -105,8 +104,8 @@ const rawSeed: Seed[] = [
     unassigned: true,
     unread: 2,
     msgs: [
-      { id: 'u1', from: 'client', time: '09:12', file: { name: 'scan_001.pdf', size: '3 pages · 1.1 MB' } },
-      { id: 'u2', from: 'client', time: '09:12', file: { name: 'scan_002.pdf', size: '2 pages · 640 KB' } },
+      { id: 'u1', from: 'client', time: '09:12', file: { name: 'scan_001.pdf', size: '3 pages · 1.1 MB' }, read: { kind: 'Bank statement', name: 'Agarwal Traders', idNo: 'A/c XXXX4821', note: 'Apr–Sep 2026' } },
+      { id: 'u2', from: 'client', time: '09:12', file: { name: 'scan_002.pdf', size: '2 pages · 640 KB' }, read: { kind: 'Bank statement', name: 'Agarwal Exports Pvt Ltd', idNo: 'A/c XXXX9937', note: 'Apr–Sep 2026' } },
     ],
   },
   {
@@ -303,6 +302,21 @@ const rawSeed: Seed[] = [
     ],
   },
   {
+    id: 'c-unassigned3',
+    title: '+91 98010 33471',
+    phone: '+91 98010 33471',
+    clientIds: [],
+    unassigned: true,
+    unread: 5,
+    msgs: [
+      { id: 'u4', from: 'client', time: '11:02', file: { name: 'IMG_0021.jpg', size: '1 page · 220 KB' }, photo: true, read: { kind: 'PAN card', name: 'Ram Sharma', idNo: 'AKTPS3321D' } },
+      { id: 'u5', from: 'client', time: '11:02', file: { name: 'IMG_0022.jpg', size: '1 page · 231 KB' }, photo: true, read: { kind: 'PAN card', name: 'Reeta Sharma', idNo: 'BQRPS7712F' } },
+      { id: 'u6', from: 'client', time: '11:03', file: { name: 'IMG_0023.jpg', size: '1 page · 208 KB' }, photo: true, read: { kind: 'PAN card', name: 'Seeta Sharma', idNo: 'CMSPS4409H' } },
+      { id: 'u7', from: 'client', time: '11:03', file: { name: 'IMG_0024.jpg', size: '1 page · 226 KB' }, photo: true, read: { kind: 'PAN card', name: 'Reeta Sharma', idNo: 'BQRPS7712F' } },
+      { id: 'u8', from: 'client', time: '11:04', file: { name: 'IMG_0025.jpg', size: '1 page · 199 KB' }, photo: true, read: { kind: 'PAN card', name: 'Vinod Patel', idNo: 'ADPPP5521K' } },
+    ],
+  },
+  {
     id: 'c-unassigned2',
     title: '+91 90044 18273',
     phone: '+91 90044 18273',
@@ -336,6 +350,8 @@ interface Store {
   send: (id: string, text: string) => void
   postToClient: (client: { id: string; name: string; phone: string }, text: string, via: 'own' | 'kdk') => void
   settle: (id: string, note: string, keep: boolean) => void
+  linkChat: (convId: string, clientIds: string[], title: string) => void
+  resolveFile: (convId: string, msgId: string, note: string) => void
   markPlaced: (id: string, fileName: string, note: string, link?: NonNullable<Msg['link']>) => void
   notifyRejected: (convId: string, docName: string, reason: string) => void
 }
@@ -381,8 +397,27 @@ export function InboxProvider({ children }: { children: ReactNode }) {
   // The files were put in Document Master, or dropped. Either way they are no longer waiting for a place.
   const settle = useCallback(
     (id: string, note: string, keep: boolean) =>
-      setConversations((prev) => (keep ? prev.map((c) => (c.id === id ? { ...c, unassigned: false, unread: 0, msgs: c.msgs.map((m) => (m.file ? { ...m, matched: note } : m)) } : c)) : prev.filter((c) => c.id !== id))),
+      setConversations((prev) => (keep ? prev.map((c) => (c.id === id ? { ...c, unassigned: false, unread: 0, msgs: c.msgs.map((m) => (m.file && !m.matched ? { ...m, matched: note } : m)) } : c)) : prev.filter((c) => c.id !== id))),
     [],
+  )
+
+  // One file out of an unassigned chat was saved or dropped. When none is left waiting, the chat is no longer unassigned.
+  const resolveFile = useCallback(
+    (convId: string, msgId: string, note: string) =>
+      patch(convId, (c) => {
+        const msgs = c.msgs.map((m) => (m.id === msgId ? { ...m, matched: note } : m))
+        const left = msgs.some((m) => m.file && !m.matched)
+        return { ...c, msgs, unassigned: left, unread: left ? c.unread : 0 }
+      }),
+    [patch],
+  )
+
+  // The number now belongs to a client. The chat stops being unassigned and becomes that client's chat.
+  // Files that were still waiting stay in it, marked as not placed yet.
+  const linkChat = useCallback(
+    (convId: string, clientIds: string[], title: string) =>
+      patch(convId, (c) => ({ ...c, title, clientIds, unassigned: false, unread: 0, msgs: c.msgs.map((m) => (m.file && !m.matched ? { ...m, matched: 'Not placed yet' } : m)) })),
+    [patch],
   )
 
   const notifyRejected = useCallback(
@@ -397,8 +432,8 @@ export function InboxProvider({ children }: { children: ReactNode }) {
   // Only the firm's own number is read, so only its chats can have something new.
   const unreadTotal = !readReplies ? 0 : conversations.filter((c) => c.via === 'own').reduce((n, c) => n + c.unread, 0)
   const value = useMemo(
-    () => ({ conversations, unreadTotal, markRead, send, postToClient, settle, markPlaced, notifyRejected }),
-    [conversations, unreadTotal, markRead, send, postToClient, settle, markPlaced, notifyRejected],
+    () => ({ conversations, unreadTotal, markRead, send, postToClient, settle, resolveFile, linkChat, markPlaced, notifyRejected }),
+    [conversations, unreadTotal, markRead, send, postToClient, settle, resolveFile, linkChat, markPlaced, notifyRejected],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

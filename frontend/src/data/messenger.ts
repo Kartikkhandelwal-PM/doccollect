@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 import { useInbox } from './inbox'
-import { getClient } from './mock'
+import { contactOf, whatsappOn } from './contacts'
+import { getBookClient, getClient, regSuffix } from './mock'
 import { useRequests } from './requests'
 import type { DocRequest, RequestClient } from './requests'
 import { useSetup } from './setup'
@@ -33,7 +34,12 @@ export function useMessenger() {
 
   // Sends to the client on a number. If this client has only heard from the firm on the other number so far, a short introduction goes first.
   const post = useCallback(
-    (client: { id: string; name: string; phone: string }, text: string, via: 'own' | 'kdk') => {
+    (to: { id: string; name: string; phone: string }, text: string, via: 'own' | 'kdk') => {
+      // The id is a registration. Its contact (maybe changed on the client page) gets the message, and only when WhatsApp is on for it.
+      const book = getBookClient(to.id)
+      const reg = book?.registrations.find((r) => r.id === to.id)
+      if (book && reg && !whatsappOn(book, reg)) return
+      const client = book && reg ? { ...to, phone: contactOf(book, reg).phone || to.phone } : to
       const here = conversations.some((c) => c.via === via && (c.phone === client.phone || c.clientIds.includes(client.id)))
       const there = conversations.some((c) => c.via !== via && (c.phone === client.phone || c.clientIds.includes(client.id)))
       if (!here && there) {
@@ -57,7 +63,8 @@ export function useMessenger() {
       return fillTemplate(viaOf(r) === 'kdk' ? tpl.onBehalf : tpl.text, {
         name: client.name,
         firm: firm.name,
-        request: r.title,
+        // a client with several GSTINs or TANs: say which one this is, like "GST monthly (Karnataka)"
+        request: `${r.title}${regSuffix(rc.clientId) ? ` (${regSuffix(rc.clientId).replace(' · ', '')})` : ''}`,
         documents: formatList(counted.map((d) => d.name)),
         pending_documents: formatList(missing.map((d) => d.name)),
         pending_count: String(missing.length),

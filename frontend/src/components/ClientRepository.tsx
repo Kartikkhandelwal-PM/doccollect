@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom'
 import { buildMaster } from '../data/master'
 import type { MasterFile } from '../data/master'
 import { useMasterStore } from '../data/masterStore'
-import { getClient } from '../data/mock'
+import { getBookClient } from '../data/mock'
 import { useRequests } from '../data/requests'
 import FileTypeIcon from './FileTypeIcon'
 import OpenInTab from './OpenInTab'
@@ -23,7 +23,7 @@ interface Node {
 export default function ClientRepository({ clientId }: { clientId: string }) {
   const { requests } = useRequests()
   const { folders: custom, uploads } = useMasterStore()
-  const client = getClient(clientId)
+  const client = getBookClient(clientId)
   const rootId = `c:${clientId}`
   const [current, setCurrent] = useState(rootId)
   const [open, setOpen] = useState<MasterFile | null>(null)
@@ -75,7 +75,7 @@ export default function ClientRepository({ clientId }: { clientId: string }) {
     return (
       <div className="rounded-[18px] border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
         <p className="text-[15px] font-semibold">Nothing in the repository yet</p>
-        <p className="mt-1 text-sm text-muted">Documents you approve are filed here, by year and compliance.</p>
+        <p className="mt-1 text-sm text-muted">Documents you approve are filed here, by year and registration.</p>
       </div>
     )
   }

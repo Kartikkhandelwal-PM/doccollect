@@ -5,7 +5,7 @@ import { Fragment, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
 import Pagination, { usePaging } from '../components/Pagination'
-import { getClient } from '../data/mock'
+import { getClient, parentIdOf, partyName } from '../data/mock'
 import { fmtDate, isReceived, progress, requestState, useRequests } from '../data/requests'
 import type { DocRequest, RequestState } from '../data/requests'
 import { daysUntil } from '../lib/dates'
@@ -64,7 +64,7 @@ export default function Requests() {
       if (due === 'later' && (done || days <= 7)) return false
     }
     if (q) {
-      const names = r.clients.map((c) => getClient(c.clientId)?.name ?? '').join(' ')
+      const names = r.clients.map((c) => partyName(c.clientId)).join(' ')
       if (!`${r.title} ${r.ref} ${names}`.toLowerCase().includes(q)) return false
     }
     return true
@@ -153,7 +153,9 @@ export default function Requests() {
           const p = progress(r)
           const st = stateMeta[requestState(r)]
           const pct = p.total ? Math.round((p.received / p.total) * 100) : 0
-          const people = r.clients.map((c) => getClient(c.clientId)).filter((c) => c !== undefined)
+          const rows = r.clients.map((c) => getClient(c.clientId)).filter((c) => c !== undefined)
+          // A client with several GSTINs counts once; the line under it says which ones.
+          const people = rows.filter((c, i) => rows.findIndex((o) => parentIdOf(o.id) === parentIdOf(c.id)) === i)
           const isOpen = open.has(r.id)
           // How the clients stand, shown under their names: how many have something to review, and how many still owe documents.
           const reviewing = r.clients.filter((rc) => rc.docs.some((d) => d.status === 'to_review')).length
@@ -202,6 +204,7 @@ export default function Requests() {
                   )}
                   <div className="min-w-0">
                     <div className="truncate text-sm font-semibold">{people.length === 1 ? people[0].name : `${people.length} clients`}</div>
+                    {people.length === 1 && rows.length > 1 && <div className="truncate text-xs text-muted">{rows.map((c) => c.label ?? c.service).join(', ')}</div>}
                     {people.length > 1 && (reviewing > 0 || owing > 0) && (
                       <div className="truncate text-xs font-semibold">
                         {reviewing > 0 && <span className="text-warn">{reviewing} to review</span>}
@@ -260,7 +263,7 @@ export default function Requests() {
                       <Link key={rc.clientId} to={`/requests/${r.id}?client=${rc.clientId}`} className="grid grid-cols-[minmax(0,1.4fr)_150px_150px_170px] items-center gap-4 rounded-lg px-3 py-2 text-sm hover:bg-white @max-4xl:grid-cols-[minmax(0,1fr)_64px_auto] @max-4xl:gap-2">
                         <span className="flex min-w-0 items-center gap-2.5">
                           {c && <Avatar name={c.name} size={28} />}
-                          <span className="truncate font-semibold">{c?.name}</span>
+                          <span className="truncate font-semibold">{partyName(rc.clientId)}</span>
                         </span>
                         <span className="text-[13px] text-muted">
                           <b className="font-semibold text-slate-700">{got}</b> of {counted.length}

@@ -122,6 +122,15 @@ const seed: DocRequest[] = [
         ],
       },
       {
+        clientId: 'priya-ka',
+        docs: [
+          doc('sales', 'Sales register', 'to_review', 'Link', 'Today, 10:15'),
+          doc('purchase', 'Purchase register', 'pending'),
+          doc('gstr2b', 'GSTR-2B', 'pending'),
+          doc('bank', 'Bank statement Apr–Mar', 'pending'),
+        ],
+      },
+      {
         clientId: 'kapoor',
         docs: [
           doc('sales', 'Sales register', 'pending'),
@@ -171,6 +180,7 @@ interface Store {
   clientRemove: (requestId: string, clientId: string, docId: string) => void
   clientAddFile: (requestId: string, clientId: string, docId: string, fileName: string) => void
   unsorted: UnsortedFile[]
+  addUnsorted: (files: UnsortedFile[]) => void
   useUnsorted: (fileId: string, requestId: string, clientId: string, docId: string) => void
   dropUnsorted: (fileId: string) => void
   changeDue: (requestId: string, due: string) => void
@@ -285,6 +295,7 @@ export function RequestsProvider({ children }: { children: ReactNode }) {
 
   // The CA puts a waiting file into one of this client's missing documents. It then goes to review like any other.
   // Not a document for this request: it leaves the waiting list (the caller keeps it elsewhere or removes it).
+  const addUnsorted = useCallback((files: UnsortedFile[]) => setUnsorted((u) => [...files, ...u]), [])
   const dropUnsorted = useCallback((fileId: string) => setUnsorted((u) => u.filter((x) => x.id !== fileId)), [])
 
   const useUnsorted = useCallback(
@@ -351,7 +362,7 @@ export function RequestsProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo(
-    () => ({ requests, getRequest, create, setDocStatus, remind, simulateReply, clientUpload, markNotApplicable, resetClient, clientRemove, clientAddFile, unsorted, useUnsorted, dropUnsorted, changeDue, newLink }),
+    () => ({ requests, getRequest, create, setDocStatus, remind, simulateReply, clientUpload, markNotApplicable, resetClient, clientRemove, clientAddFile, unsorted, addUnsorted, useUnsorted, dropUnsorted, changeDue, newLink }),
     [requests, getRequest, create, setDocStatus, remind, simulateReply, clientUpload, markNotApplicable, resetClient, clientRemove, clientAddFile, unsorted, useUnsorted, dropUnsorted, changeDue, newLink],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

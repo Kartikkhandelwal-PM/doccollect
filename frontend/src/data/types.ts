@@ -22,7 +22,11 @@ export interface Client {
   source: 'KDK sync' | 'Added manually'
   openRequests: number
   note?: string
-  sharedWith?: string
+  // One client (PAN) can have several registrations: an ITR on the PAN, GSTINs, TANs. Each registration is one of these records.
+  groupId?: string // the client it belongs to. Without it, the record is its own client.
+  label?: string // tells registrations apart: the state of a GSTIN, "Head office" for a TAN
+  contactName?: string // who to talk to, when it is not the client itself (a father filing for his daughters)
+  tan?: string
 }
 
 type AttentionKind = 'received' | 'no_response' | 'unassigned'

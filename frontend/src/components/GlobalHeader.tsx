@@ -5,7 +5,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useNotifications } from '../data/notifications'
 import type { Notice } from '../data/notifications'
 import { buildMaster } from '../data/master'
-import { clients, getClient } from '../data/mock'
+import { book, getClient } from '../data/mock'
 import { useRequests } from '../data/requests'
 
 interface Result {
@@ -24,8 +24,8 @@ const pages = [
   { title: 'New request', to: '/requests/new' },
   { title: 'Inbox', to: '/inbox' },
   { title: 'Document Master', to: '/master' },
-  { title: 'Compliances', to: '/compliances' },
-  { title: 'Documents list', to: '/documents' },
+  { title: 'Checklists', to: '/checklists' },
+  { title: 'Documents', to: '/documents' },
   { title: 'Message templates', to: '/templates' },
   { title: 'Settings', to: '/settings' },
 ]
@@ -63,11 +63,11 @@ function GlobalSearch() {
     const has = (...parts: (string | undefined)[]) => parts.join(' ').toLowerCase().includes(query)
     const out: Result[] = []
 
-    clients
-      .filter((c) => has(c.name, c.pan, c.gstin, c.phone, c.email, c.service))
+    book
+      .filter((c) => has(c.name, c.pan, ...c.registrations.map((r) => r.number), ...c.registrations.map((r) => r.type), ...c.contacts.flatMap((x) => [x.name, x.phone, x.email])))
       .slice(0, MAX_PER_GROUP)
       .forEach((c) =>
-        out.push({ id: `c-${c.id}`, group: 'Clients', title: c.name, sub: `${c.service} · ${c.phone} · PAN ${c.pan}`, to: `/clients/${c.id}`, icon: <Users size={17} /> }),
+        out.push({ id: `c-${c.id}`, group: 'Clients', title: c.name, sub: `${[...new Set(c.registrations.map((r) => r.type))].join(' · ')} · ${c.contacts[0].phone} · PAN ${c.pan}`, to: `/clients/${c.id}`, icon: <Users size={17} /> }),
       )
 
     requests

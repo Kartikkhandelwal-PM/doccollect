@@ -37,8 +37,8 @@ const main: NavItem[] = [
 ]
 
 const setup: NavItem[] = [
-  { to: '/compliances', label: 'Compliances', icon: ListChecks },
-  { to: '/documents', label: 'Documents list', icon: FileText },
+  { to: '/checklists', label: 'Checklists', icon: ListChecks },
+  { to: '/documents', label: 'Documents', icon: FileText },
   { to: '/templates', label: 'Message templates', icon: MessageSquareText },
   { to: '/settings', label: 'Settings', icon: Settings },
 ]

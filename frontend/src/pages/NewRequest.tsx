@@ -1,24 +1,25 @@
-import { Check, ChevronDown, Plus, Search } from 'lucide-react'
+import { Check, Plus, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
 import DueDatePicker from '../components/DueDatePicker'
 import WaText from '../components/WaText'
-import { clients, getClient } from '../data/mock'
+import { book, getBookClient, getClient, regSuffix } from '../data/mock'
 import { fmtDate, useRequests } from '../data/requests'
 import { useSetup } from '../data/setup'
 import type { DocRequest } from '../data/requests'
 import type { Service } from '../data/types'
+import { contactOf, useContacts, whatsappOn } from '../data/contacts'
 import { useMessenger } from '../data/messenger'
 import { defaultDue } from '../lib/dates'
 import { serviceColor } from '../lib/status'
 import { fillTemplate, formatList } from '../lib/template'
 import { SHARED_NUMBER_NAME } from '../lib/brand'
 
-type Step = 1 | 2 | 3 | 4
 type CatalogDoc = { id: string; name: string }
+type Kind = Service
 
-const stepLabels = ['Choose clients', 'Choose documents', 'Review and send']
+const kindName: Record<Kind, string> = { ITR: 'Income tax', GST: 'GST', TDS: 'TDS' }
 
 function Box({ on }: { on: boolean }) {
   return (
@@ -31,7 +32,32 @@ function Box({ on }: { on: boolean }) {
   )
 }
 
-function Stepper({ step }: { step: Step }) {
+function Section({ n, title, hint, right, children }: { n?: number; title?: string; hint?: string; right?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <section className="rounded-[18px] border border-line bg-white">
+      {title && (
+        <div className="flex items-center gap-3 border-b border-line px-5 py-4">
+          {n && <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand text-[13px] font-bold text-white">{n}</span>}
+          <div className="min-w-0 flex-1">
+            <h2 className="text-base font-bold tracking-tight">{title}</h2>
+            {hint && <p className="text-[13px] text-muted">{hint}</p>}
+          </div>
+          {right}
+        </div>
+      )}
+      <div className="p-6">{children}</div>
+    </section>
+  )
+}
+
+// A soft colour behind the title, by what the checklist is used for.
+const tint: Record<Kind, string> = { ITR: 'from-violet-50 to-white', GST: 'from-blue-50 to-white', TDS: 'from-amber-50 to-white' }
+
+const ROW = 'grid grid-cols-[24px_minmax(0,1.5fr)_minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,0.9fr)_110px] items-center gap-4 px-4 max-md:grid-cols-[24px_minmax(0,1fr)_110px]'
+
+const stepLabels = ['What you need', 'Who to ask', 'Review and send']
+
+function Stepper({ step }: { step: 1 | 2 | 3 }) {
   return (
     <ol className="flex items-center gap-2.5 text-sm font-semibold">
       {stepLabels.map((label, i) => {
@@ -40,17 +66,9 @@ function Stepper({ step }: { step: Step }) {
         const active = n === step
         return (
           <li key={label} className="flex items-center gap-2.5">
-            <span className={`flex items-center gap-2 ${done ? 'text-ok' : active ? 'text-ink' : 'text-muted'}`}>
-              <span
-                className={`flex h-7 w-7 items-center justify-center rounded-full text-[13px] ${
-                  done ? 'bg-ok-soft' : active ? 'bg-brand text-white' : 'bg-slate-100'
-                }`}
-              >
-                {done ? <Check size={14} strokeWidth={3.2} /> : n}
-              </span>
-              <span className={active ? '' : 'max-md:hidden'}>{label}</span>
-            </span>
-            {n < 3 && <span className={`h-0.5 w-5 md:w-8 ${n < step ? 'bg-brand' : 'bg-slate-200'}`} />}
+            <span className={`flex h-7 w-7 items-center justify-center rounded-full text-[13px] font-bold ${done ? 'bg-brand-soft text-brand-dark' : active ? 'bg-brand text-white' : 'bg-slate-200 text-slate-500'}`}>{done ? <Check size={14} strokeWidth={3} /> : n}</span>
+            <span className={active ? 'text-ink' : 'text-muted'}>{label}</span>
+            {n < 3 && <span className={`h-0.5 w-8 ${n < step ? 'bg-brand' : 'bg-slate-200'}`} />}
           </li>
         )
       })}
@@ -58,141 +76,128 @@ function Stepper({ step }: { step: Step }) {
   )
 }
 
-function Footer({
-  onBack,
-  backLabel,
-  onNext,
-  nextLabel,
-  note,
-  disabled,
-}: {
-  onBack: () => void
-  backLabel: string
-  onNext: () => void
-  nextLabel: string
-  note: string
-  disabled?: boolean
-}) {
-  return (
-    <div className="sticky bottom-0 -mx-4 mt-auto flex items-center justify-between gap-3 border-t border-line bg-white px-4 py-3 md:-mx-8 md:px-8 md:py-3.5">
-      <button type="button" onClick={onBack} className="h-12 shrink-0 whitespace-nowrap rounded-xl border border-line bg-white px-5 text-sm font-semibold hover:bg-canvas md:px-6">
-        {backLabel}
-      </button>
-      <div className="flex min-w-0 flex-1 items-center justify-end gap-4 md:flex-none">
-        <span className="text-[13px] text-muted max-md:hidden">{note}</span>
-        <button
-          type="button"
-          onClick={onNext}
-          disabled={disabled}
-          className="h-12 min-w-0 rounded-xl bg-brand px-5 text-[15px] font-semibold text-white shadow-[0_6px_16px_rgba(11,122,107,0.25)] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none max-md:flex-1 md:px-7"
-        >
-          {nextLabel}
-        </button>
-      </div>
-    </div>
-  )
-}
-
 export default function NewRequest() {
   const navigate = useNavigate()
+  useContacts()
   const { create } = useRequests()
   const { sendRequest } = useMessenger()
-  const { groups, templates, messageTemplates, firm, ownNumber, whatsapp } = useSetup()
+  const { groups, compliances, messageTemplates, firm, ownNumber, whatsapp, addCompliance, updateCompliance } = useSetup()
   const [params] = useSearchParams()
   const preselected = params.get('client')
+  const preClient = preselected ? (getClient(preselected) ? getBookClient(preselected) : getBookClient(preselected)) : undefined
 
-  const [step, setStep] = useState<Step>(preselected ? 2 : 1)
-  const [selected, setSelected] = useState<string[]>(preselected && getClient(preselected) ? [preselected] : [])
-  const [query, setQuery] = useState('')
-  const [service, setService] = useState<'All' | Service>('All')
-  const [onlySelected, setOnlySelected] = useState(false)
-
-  const [templateId, setTemplateId] = useState(templates[0]?.id ?? 'custom')
-  const [docIds, setDocIds] = useState<string[]>(templates[0]?.docIds ?? [])
+  // Kind first: it decides which checklists and which registrations are offered.
+  const kindParam = params.get('kind')
+  const firstKind = (['ITR', 'GST', 'TDS'] as const).find((k) => preClient?.registrations.some((r) => r.type === k))
+  const [kind, setKind] = useState<Kind>(kindParam === 'ITR' || kindParam === 'GST' || kindParam === 'TDS' ? kindParam : (firstKind ?? 'GST'))
+  const [complianceId, setComplianceId] = useState<string>(() => compliances.find((c) => c.kind === kind)?.id ?? 'custom')
+  const [docIds, setDocIds] = useState<string[]>(() => compliances.find((c) => c.kind === kind)?.docIds ?? [])
   const [custom, setCustom] = useState<CatalogDoc[]>([])
-  const [customText, setCustomText] = useState('')
+  const [docQuery, setDocQuery] = useState('')
+
+  // What is picked are registrations: a client's ITR, or one of its GSTINs or TANs. Each one gets its own request line and its own message.
+  const [selected, setSelected] = useState<string[]>(() => (preClient ? preClient.registrations.filter((r) => r.type === (kindParam === 'ITR' || kindParam === 'GST' || kindParam === 'TDS' ? kindParam : firstKind)).map((r) => r.id) : []))
+  const [query, setQuery] = useState('')
 
   // Starts on whatever is connected in Settings. Your own number is only there once it is connected.
   const [picked, setVia] = useState<'own' | 'kdk'>(ownNumber ? 'own' : 'kdk')
   const via = picked === 'own' && !ownNumber ? 'kdk' : picked
-  const [due, setDue] = useState('')
+  const [due, setDue] = useState(() => defaultDue(compliances.find((c) => c.kind === kind)?.id ?? ''))
   const [dueTouched, setDueTouched] = useState(false)
   const [created, setCreated] = useState<DocRequest | null>(null)
   const [messageCount, setMessageCount] = useState(0)
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(preClient ? 2 : 1)
 
-  const allDocs = useMemo(() => [...groups.flatMap((g) => g.docs), ...custom], [custom])
+  const allDocs = useMemo(() => [...groups.flatMap((g) => g.docs), ...custom], [groups, custom])
   const chosenDocs = docIds.map((id) => allDocs.find((d) => d.id === id)).filter((d): d is CatalogDoc => !!d)
   const chosenClients = selected.map((id) => getClient(id)).filter((c) => c !== undefined)
+  const checklist = compliances.find((c) => c.id === complianceId)
+  // Your own checklist: the CA gives it a name (it is also the name of the request), and can keep it for next time.
+  const [listQuery, setListQuery] = useState('')
+  const [listKind, setListKind] = useState<'All' | Kind>('All')
+  const [customName, setCustomName] = useState('')
+  const [saveIt, setSaveIt] = useState(true)
+  const listed = compliances.filter((c) => (listKind === 'All' || c.kind === listKind) && c.name.toLowerCase().includes(listQuery.trim().toLowerCase()))
+  const title = complianceId === 'custom' ? customName.trim() || `${kindName[kind]} request` : (checklist?.name ?? 'Request')
 
-  const [allChecklists, setAllChecklists] = useState(false)
-
-  // Every client gets their own message and their own link, even when two of them use the same number.
-  const sharedCount = chosenClients.filter((c) => chosenClients.some((o) => o.id !== c.id && o.phone === c.phone)).length
-
-  const list = clients.filter(
-    (c) =>
-      (!onlySelected || selected.includes(c.id)) &&
-      (service === 'All' || c.service === service) &&
-      (query === '' || `${c.name} ${c.phone} ${c.pan}`.toLowerCase().includes(query.toLowerCase())),
-  )
-
-  const toggleClient = (id: string) => setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]))
-  const toggleDoc = (id: string) => {
-    setTemplateId('custom')
-    setDocIds((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]))
+  // Choosing a checklist sets what it is used for, fills its documents and drops registrations of another kind.
+  const applyChecklist = (id: string) => {
+    const c = compliances.find((x) => x.id === id)
+    const k = id === 'custom' ? kind : (c?.kind ?? kind)
+    setComplianceId(id)
+    setKind(k)
+    setDocIds(id === 'custom' ? [] : (c?.docIds ?? []))
+    setSelected((sel) => sel.filter((rid) => getClient(rid)?.service === k))
+    if (!dueTouched) setDue(defaultDue(id))
   }
-  const pickTemplate = (id: string) => {
-    setTemplateId(id)
-    const t = templates.find((x) => x.id === id)
-    if (t && id !== 'custom') setDocIds(t.docIds)
+  // The CA changed the documents of the checklist. Switching to another one would throw those changes away, so ask first.
+  const base = checklist?.docIds ?? []
+  const edited = complianceId === 'custom' ? docIds.length > 0 : docIds.length !== base.length || docIds.some((x) => !base.includes(x))
+  const [switchTo, setSwitchTo] = useState<string | null>(null)
+  const chooseChecklist = (id: string) => {
+    if (id === complianceId) return
+    if (edited) setSwitchTo(id)
+    else applyChecklist(id)
   }
-  const addCustom = () => {
-    const name = customText.trim()
+  const dq = docQuery.trim().toLowerCase()
+  const shownGroups = [...groups, ...(custom.length ? [{ title: 'Added by you', docs: custom }] : [])]
+    .map((g) => ({ ...g, docs: g.docs.filter((d) => dq === '' || d.name.toLowerCase().includes(dq)) }))
+    .filter((g) => g.docs.length > 0)
+    // The group of this kind (GST or TDS) comes first.
+    .sort((a, b) => Number(b.title === kind) - Number(a.title === kind))
+  const canAddTyped = dq !== '' && !allDocs.some((d) => d.name.toLowerCase() === dq)
+  const addCustomNamed = (text: string) => {
+    const name = text.trim()
     if (!name) return
     const doc = { id: `c-${Date.now()}`, name }
     setCustom((c) => [...c, doc])
     setDocIds((s) => [...s, doc.id])
-    setCustomText('')
-    setTemplateId('custom')
+    setDocQuery('')
   }
+  const toggleDoc = (id: string) => setDocIds((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]))
 
-  // The checklists start as a short, complete set, with a clear way to see the rest.
-  const customList = templates.find((t) => t.id === 'custom')
-  const shortList = [...templates.filter((t) => t.id !== 'custom').slice(0, 5), ...(customList ? [customList] : [])]
-  const chosenChecklist = templates.find((t) => t.id === templateId)
-  const visibleChecklists = allChecklists ? templates : chosenChecklist && !shortList.includes(chosenChecklist) ? [...shortList.slice(0, 5), chosenChecklist, ...(customList ? [customList] : [])] : shortList
+  // The registrations of this kind, one row each, grouped by client in the order of the client book.
+  const q = query.trim().toLowerCase()
+  const rows = book.flatMap((c) =>
+    c.registrations
+      .filter((r) => r.type === kind)
+      .map((r) => ({ c, r, contact: contactOf(c, r) })),
+  )
+  const visible = rows.filter(({ c, r, contact }) => q === '' || `${c.name} ${c.pan} ${r.number} ${r.label ?? ''} ${contact.name} ${contact.phone}`.toLowerCase().includes(q))
+  const allOn = visible.length > 0 && visible.every(({ r }) => selected.includes(r.id))
+  const toggleReg = (id: string) => setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]))
+  const toggleAll = () => setSelected((s) => (allOn ? s.filter((id) => !visible.some(({ r }) => r.id === id)) : [...s, ...visible.map(({ r }) => r.id).filter((id) => !s.includes(id))]))
+
+  const noWhatsApp = chosenClients.filter((c) => {
+    const b = getBookClient(c.id)
+    const reg = b?.registrations.find((r) => r.id === c.id)
+    return b && reg ? !whatsappOn(b, reg) : false
+  }).length
 
   const first = chosenClients[0]
-  const title = templates.find((t) => t.id === templateId)?.name ?? 'Custom'
 
   // The words come from Message templates, so editing that page changes what clients receive.
   const req = messageTemplates.find((m) => m.id === 'request')
   const requestTemplate = (via === 'kdk' ? req?.onBehalf : req?.text) ?? ''
-  const message = fillTemplate(
-    requestTemplate,
-    {
-      name: first?.name ?? 'there',
-      firm: firm.name,
-      documents: formatList(chosenDocs.map((d) => d.name)),
-      request: templateId === 'custom' ? 'your request' : title,
-      due_date: due ? fmtDate(due) : 'the last date',
-    },
-  )
+  const message = fillTemplate(requestTemplate, {
+    name: first?.name ?? 'there',
+    firm: firm.name,
+    documents: formatList(chosenDocs.map((d) => d.name)),
+    request: `${title}${first && regSuffix(first.id) ? ` (${regSuffix(first.id).replace(' · ', '')})` : ''}`,
+    due_date: due ? fmtDate(due) : 'the last date',
+  })
 
   const send = () => {
-    const r = create({
-      title: templateId === 'custom' ? 'Custom request' : title,
-      due,
-      via,
-      clientIds: selected,
-      docs: chosenDocs,
-    })
+    if (complianceId === 'custom' && saveIt && customName.trim()) {
+      const id = addCompliance()
+      updateCompliance(id, { name: customName.trim(), kind, docIds })
+    }
+    const r = create({ title, due, via, clientIds: selected, docs: chosenDocs })
     sendRequest(r)
     setMessageCount(chosenClients.length)
     setCreated(r)
     setStep(4)
   }
-
   const reset = () => {
     setStep(1)
     setSelected([])
@@ -200,7 +205,7 @@ export default function NewRequest() {
     setQuery('')
   }
 
-  // ---------- Step 4: sent ----------
+  // ---------- Sent ----------
   if (step === 4 && created) {
     return (
       <div className="flex min-h-full flex-col items-center justify-center gap-6 bg-gradient-to-b from-canvas to-[#E9F5F1] px-8 py-10">
@@ -260,316 +265,392 @@ export default function NewRequest() {
     )
   }
 
-  const heading =
-    step === 1
-      ? { t: 'Who do you want to ask?', s: 'Tick one or more clients. Search or filter by service.' }
-      : step === 2
-        ? { t: 'What do you need from them?', s: 'Pick a saved checklist, then tick or add documents.' }
-        : { t: 'Check and send', s: 'This is what your clients will receive.' }
+  const canSend = selected.length > 0 && docIds.length > 0 && !!due
+  const why = selected.length === 0 ? 'Pick at least one registration' : docIds.length === 0 ? 'Pick at least one document' : !due ? 'Pick a last date' : ''
 
   return (
-    <div className="flex min-h-full flex-col gap-4 px-4 md:gap-5 md:px-8">
-      <div className="z-10 -mx-4 flex flex-col gap-3 border-b border-line bg-canvas px-4 pb-3 pt-4 md:sticky md:top-0 md:-mx-8 md:flex-row md:items-end md:justify-between md:px-8 md:pb-4 md:pt-6">
-        <div>
-          <div className="text-[13px] text-muted">
-            <Link to="/requests" className="font-semibold text-brand">
-              ← Requests
-            </Link>{' '}
-            · Step {step} of 3
-          </div>
-          <h1 className="mt-1 text-[24px] font-bold tracking-tight">{heading.t}</h1>
-          <p className="mt-0.5 text-sm text-muted">{heading.s}</p>
+    <div className="flex min-h-full flex-col gap-4 px-4 pb-8 md:gap-5 md:px-8">
+      <div className="z-10 -mx-4 border-b border-line bg-canvas px-4 pb-4 pt-4 md:sticky md:top-0 md:-mx-8 md:px-8 md:pt-6">
+        <div className="text-[13px] text-muted">
+          <Link to="/requests" className="font-semibold text-brand">
+            ← Requests
+          </Link>
         </div>
-        <Stepper step={step} />
+        <div className="mt-1 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 className="text-[24px] font-bold tracking-tight">{step === 1 ? 'What do you need?' : step === 2 ? 'Who should get it?' : 'Check and send'}</h1>
+            <p className="mt-0.5 text-sm text-muted">{step === 1 ? 'Pick a checklist, then change its documents if you need to.' : step === 2 ? `Only ${kindName[kind]} registrations are listed.` : 'This is what your clients will receive.'}</p>
+          </div>
+          <Stepper step={step as 1 | 2 | 3} />
+        </div>
       </div>
 
-      {/* ---------- Step 1: clients ---------- */}
-      {step === 1 && (
-        <div className="grid grid-cols-1 gap-4 md:gap-5 lg:grid-cols-12">
-          <div className="overflow-hidden rounded-[18px] lg:col-span-8 border border-line bg-white">
-            <div className="flex flex-wrap items-center gap-3 border-b border-line p-3 md:gap-3.5 md:p-4">
-              <label className="flex h-11 flex-1 items-center gap-2.5 rounded-xl bg-canvas px-3.5 text-sm text-muted max-md:min-w-full">
-                <Search size={16} />
-                <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by name, number or PAN" className="w-full bg-transparent outline-none placeholder:text-muted" />
-              </label>
-              <div className="flex rounded-xl bg-[#E9EEF5] p-1 text-[13px] font-semibold text-slate-600 max-md:flex-1">
-                {(['All', 'GST', 'TDS', 'ITR'] as const).map((f) => (
-                  <button key={f} type="button" onClick={() => setService(f)} className={`rounded-[9px] px-3.5 py-2 max-md:flex-1 ${service === f ? 'bg-white text-ink shadow-sm' : ''}`}>
-                    {f}
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-12">
+        <div className={`flex min-w-0 flex-col gap-5 ${step === 3 ? 'lg:col-span-7' : 'lg:col-span-12'}`}>
+          {/* ---------- 1. What ---------- */}
+          {step === 1 && (
+            <div className="grid h-[calc(100vh-300px)] min-h-[520px] grid-cols-1 overflow-hidden rounded-[18px] border border-line bg-white md:grid-cols-[340px_1fr]">
+              {/* ---- The checklists ---- */}
+              <div className="flex min-h-0 flex-col border-b border-line md:border-b-0 md:border-r">
+                <div className="shrink-0 border-b border-line p-3">
+                  <label className="flex h-10 items-center gap-2.5 rounded-xl border border-line bg-white px-3.5 text-sm text-muted focus-within:border-brand">
+                    <Search size={15} />
+                    <input value={listQuery} onChange={(e) => setListQuery(e.target.value)} placeholder={`Search ${compliances.length} checklists`} className="w-full bg-transparent outline-none placeholder:text-muted" />
+                  </label>
+                  <div className="mt-2.5 flex w-full gap-0.5 rounded-xl bg-slate-100 p-1" role="tablist" aria-label="Income tax, GST or TDS">
+                    {(['All', 'ITR', 'GST', 'TDS'] as const).map((k) => (
+                      <button
+                        key={k}
+                        type="button"
+                        role="tab"
+                        aria-selected={listKind === k}
+                        onClick={() => setListKind(k)}
+                        className={`flex h-9 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-[13px] font-semibold transition-colors ${listKind === k ? 'bg-white text-brand-dark shadow-sm' : 'text-slate-600 hover:text-ink'}`}
+                      >
+                        {k === 'All' ? 'All' : k === 'ITR' ? 'Income tax' : k}
+                        <span className={listKind === k ? 'text-brand-dark/70' : 'text-faint'}>{k === 'All' ? compliances.length : compliances.filter((c) => c.kind === k).length}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto p-2">
+                  {listed.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      aria-pressed={complianceId === c.id}
+                      onClick={() => chooseChecklist(c.id)}
+                      className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${complianceId === c.id ? 'bg-[#EEF8F5] ring-1 ring-inset ring-brand' : 'hover:bg-canvas'}`}
+                    >
+                      <span className={`w-9 shrink-0 rounded-md bg-slate-100 py-0.5 text-center text-[10.5px] font-bold ${serviceColor[c.kind]}`}>{c.kind}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className={`block truncate text-[14px] ${complianceId === c.id ? 'font-bold text-brand-dark' : 'font-semibold'}`}>{c.name}</span>
+                        <span className="block text-xs text-muted">{c.docIds.length} documents</span>
+                      </span>
+                    </button>
+                  ))}
+                  {listed.length === 0 && <p className="p-3 text-sm text-muted">No checklist matches.</p>}
+                </div>
+                <div className="shrink-0 border-t border-line p-2">
+                  <button
+                    type="button"
+                    aria-pressed={complianceId === 'custom'}
+                    onClick={() => chooseChecklist('custom')}
+                    className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition-colors ${complianceId === 'custom' ? 'bg-[#EEF8F5] text-brand-dark ring-1 ring-inset ring-brand' : 'text-brand-dark hover:bg-canvas'}`}
+                  >
+                    <Plus size={15} strokeWidth={2.6} />
+                    Make my own checklist
                   </button>
-                ))}
+                </div>
               </div>
+
+              {/* ---- The chosen one: its name, and its documents ---- */}
+              <section className="flex min-h-0 flex-col">
+                <div className={`flex shrink-0 items-center gap-4 border-b border-line bg-gradient-to-r px-6 py-4 ${tint[kind]}`}>
+                  <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-[13px] font-extrabold shadow-sm ring-1 ring-black/5 ${serviceColor[kind]}`}>{kind}</span>
+                  <div className="min-w-0 flex-1">
+                    {complianceId === 'custom' ? (
+                      <input
+                        value={customName}
+                        onChange={(e) => setCustomName(e.target.value)}
+                        placeholder="Name your checklist"
+                        aria-label="Name of your checklist"
+                        className="block w-full rounded-lg border border-black/10 bg-white/80 px-3 py-1.5 text-[20px] font-bold tracking-tight text-ink outline-none placeholder:font-semibold placeholder:text-faint focus:border-brand"
+                      />
+                    ) : (
+                      <h2 className="truncate text-[22px] font-bold tracking-tight text-ink">{checklist?.name}</h2>
+                    )}
+                    <p className="mt-0.5 text-[13px] text-slate-600">
+                      {kindName[kind]} · {docIds.length} {docIds.length === 1 ? 'document' : 'documents'} · {kind === 'GST' ? 'sent to each GSTIN' : kind === 'TDS' ? 'sent to each TAN' : 'sent on the PAN'}
+                    </p>
+                  </div>
+                  {complianceId === 'custom' ? (
+                    <div className="flex shrink-0 items-center gap-3">
+                      <div className="flex gap-0.5 rounded-xl bg-white/80 p-1 shadow-sm ring-1 ring-black/5" role="radiogroup" aria-label="Used for">
+                        {(['ITR', 'GST', 'TDS'] as const).map((k) => (
+                          <button
+                            key={k}
+                            type="button"
+                            role="radio"
+                            aria-checked={kind === k}
+                            onClick={() => {
+                              setKind(k)
+                              setSelected((sel) => sel.filter((rid) => getClient(rid)?.service === k))
+                            }}
+                            className={`h-8 rounded-lg px-3 text-[13px] font-semibold transition-colors ${kind === k ? 'bg-brand text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}
+                          >
+                            {kindName[k]}
+                          </button>
+                        ))}
+                      </div>
+                      <button type="button" role="checkbox" aria-checked={saveIt} onClick={() => setSaveIt((v) => !v)} className="flex items-center gap-2 text-[13px] font-medium text-slate-700">
+                        <Box on={saveIt} />
+                        Keep for next time
+                      </button>
+                    </div>
+                  ) : (
+                    edited && (
+                      <button type="button" onClick={() => setDocIds(base)} className="shrink-0 rounded-lg border border-line bg-white px-3 py-1.5 text-[13px] font-semibold text-brand-dark hover:border-brand">
+                        Reset to {checklist?.docIds.length} saved
+                      </button>
+                    )
+                  )}
+                </div>
+
+                <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-2">
+                  <div className="flex min-h-0 flex-col border-r border-line">
+                    <div className="shrink-0 px-5 pb-3 pt-4">
+                      <h3 className="text-[13px] font-bold">All documents</h3>
+                      <p className="text-xs text-muted">Tick to add to this request.</p>
+                      <label className="mt-2.5 flex h-10 items-center gap-2 rounded-xl border border-line bg-white px-3 text-sm text-muted focus-within:border-brand">
+                        <Search size={15} />
+                        <input
+                          value={docQuery}
+                          onChange={(e) => setDocQuery(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && canAddTyped) addCustomNamed(docQuery)
+                          }}
+                          placeholder="Search, or type a new document"
+                          className="w-full bg-transparent outline-none placeholder:text-muted"
+                        />
+                      </label>
+                    </div>
+                    <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
+                      {canAddTyped && (
+                        <button type="button" onClick={() => addCustomNamed(docQuery)} className="mb-2 flex w-full items-center gap-2.5 rounded-lg border border-dashed border-brand/60 px-3 py-2.5 text-left text-[13.5px] font-semibold text-brand-dark hover:bg-brand-soft">
+                          <Plus size={15} /> Add “{docQuery.trim()}” as a new document
+                        </button>
+                      )}
+                      {shownGroups.length === 0 && !canAddTyped && <p className="px-2 py-4 text-sm text-muted">No document matches.</p>}
+                      {shownGroups.map((g) => (
+                        <div key={g.title} className="mb-4">
+                          <div className="mb-1 px-2 text-[11px] font-bold uppercase tracking-widest text-faint">{g.title}</div>
+                          {g.docs.map((d) => {
+                            const on = docIds.includes(d.id)
+                            return (
+                              <button
+                                key={d.id}
+                                type="button"
+                                role="checkbox"
+                                aria-checked={on}
+                                onClick={() => toggleDoc(d.id)}
+                                className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-[13.5px] ${on ? 'bg-[#EEF8F5] font-semibold' : 'font-medium hover:bg-canvas'}`}
+                              >
+                                <Box on={on} />
+                                {d.name}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex min-h-0 flex-col bg-[#FAFCFB]">
+                    <div className="flex shrink-0 items-start justify-between px-5 pb-3 pt-4">
+                      <div>
+                        <h3 className="text-[13px] font-bold">
+                          In this request <span className="ml-1 rounded-full bg-brand-soft px-2 py-0.5 text-xs font-bold text-brand-dark">{docIds.length}</span>
+                        </h3>
+                        <p className="text-xs text-muted">What the client is asked for.</p>
+                      </div>
+                      {docIds.length > 0 && (
+                        <button type="button" onClick={() => setDocIds([])} className="shrink-0 whitespace-nowrap text-[13px] font-semibold text-muted hover:text-danger">
+                          Clear all
+                        </button>
+                      )}
+                    </div>
+                    <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
+                      {chosenDocs.length === 0 && <div className="mx-2 rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm text-muted">Nothing here yet. Tick documents on the left.</div>}
+                      {chosenDocs.map((d, i) => (
+                        <div key={d.id} className="flex items-center gap-3 rounded-lg px-2.5 py-2 text-[13.5px] font-medium hover:bg-white">
+                          <span className="w-5 shrink-0 text-right text-xs text-faint">{i + 1}</span>
+                          <span className="min-w-0 flex-1">{d.name}</span>
+                          <button type="button" onClick={() => toggleDoc(d.id)} aria-label={`Remove ${d.name}`} className="flex h-6 w-6 items-center justify-center rounded-md text-muted hover:bg-danger-soft hover:text-danger">
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          )}
+
+          {/* ---------- 2. Who ---------- */}
+          {step === 2 && (
+          <Section>
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex h-10 min-w-[240px] flex-1 items-center gap-2 rounded-xl border border-line bg-white px-3 text-sm text-muted focus-within:border-brand">
+                <Search size={15} />
+                <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name, number or PAN" className="w-full bg-transparent outline-none placeholder:text-muted" />
+              </label>
+              <button type="button" onClick={toggleAll} className="flex h-10 items-center gap-2.5 rounded-xl border border-line bg-white px-3.5 text-sm font-semibold hover:border-brand">
+                <Box on={allOn} />
+                Select all {visible.length}
+              </button>
+              <span className="text-[13px] text-muted">
+                <b className="text-ink">{selected.length}</b> of {rows.length} selected
+              </span>
+            </div>
+            <div className="mt-3 max-h-[calc(100vh-360px)] min-h-[320px] overflow-y-auto rounded-xl border border-line">
+              <div className={`${ROW} sticky top-0 z-[1] border-b border-line bg-slate-50 py-2 text-[11px] font-bold uppercase tracking-wider text-faint max-md:hidden`}>
+                <span />
+                <span>Client</span>
+                <span>{kind === 'GST' ? 'GSTIN' : kind === 'TDS' ? 'TAN' : 'PAN'}</span>
+                <span>Contact</span>
+                <span>Mobile</span>
+                <span />
+              </div>
+              {visible.length === 0 && <p className="p-6 text-sm text-muted">No {kindName[kind]} registration matches.</p>}
+              {visible.map(({ c, r, contact }) => {
+                const on = selected.includes(r.id)
+                const waOff = !whatsappOn(c, r)
+                return (
+                  <button
+                    key={r.id}
+                    type="button"
+                    role="checkbox"
+                    aria-checked={on}
+                    onClick={() => toggleReg(r.id)}
+                    className={`${ROW} w-full border-b border-line py-2.5 text-left last:border-b-0 ${on ? 'bg-[#EEF8F5]' : 'hover:bg-slate-50'}`}
+                  >
+                    <Box on={on} />
+                    <span className="flex min-w-0 items-center gap-3">
+                      <Avatar name={c.name} size={32} />
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold">{c.name}</span>
+                        {r.type !== 'ITR' && r.label && <span className="block truncate text-xs text-muted">{r.label}</span>}
+                      </span>
+                    </span>
+                    <span className="truncate font-mono text-[12.5px] text-slate-700 max-md:hidden">{r.number}</span>
+                    <span className="min-w-0 max-md:hidden">
+                      <span className="block truncate text-[13px] font-medium text-slate-700">{contact.name}</span>
+                    </span>
+                    <span className="truncate text-[13px] text-muted max-md:hidden">{contact.phone || 'No mobile number'}</span>
+                    <span className="flex justify-end">{waOff && <span className="whitespace-nowrap rounded-full bg-danger-soft px-2 py-0.5 text-[11px] font-semibold text-danger">WhatsApp off</span>}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </Section>
+
+          )}
+
+          {/* ---------- 3. Send ---------- */}
+          {step === 3 && (
+          <Section>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {ownNumber ? (
+                <button type="button" onClick={() => setVia('own')} className={`rounded-2xl p-3.5 text-left ${via === 'own' ? 'border-2 border-brand bg-[#EEF8F5]' : 'border border-line'}`}>
+                  <div className={`text-sm font-semibold ${via === 'own' ? 'text-brand-dark' : ''}`}>{whatsapp?.displayName ?? 'Your WhatsApp'}</div>
+                  <div className="text-[13px] text-slate-600">{ownNumber} · replies are read here</div>
+                </button>
+              ) : (
+                <Link to="/settings?tab=whatsapp" className="rounded-2xl border border-dashed border-slate-300 p-3.5 text-left hover:border-brand">
+                  <div className="text-sm font-semibold text-muted">Your WhatsApp</div>
+                  <div className="text-[13px] text-muted">
+                    Not connected · <span className="font-semibold text-brand">Connect it in Settings</span>
+                  </div>
+                </Link>
+              )}
+              <button type="button" onClick={() => setVia('kdk')} className={`rounded-2xl p-3.5 text-left ${via === 'kdk' ? 'border-2 border-brand bg-[#EEF8F5]' : 'border border-line'}`}>
+                <div className={`text-sm font-semibold ${via === 'kdk' ? 'text-brand-dark' : ''}`}>{SHARED_NUMBER_NAME}</div>
+                <div className="text-[13px] text-muted">Shared number · link only · replies are not read</div>
+              </button>
+            </div>
+            <div className="mt-4">
+              <div className="text-[13px] font-semibold text-muted">Last date</div>
+              <DueDatePicker
+                value={due}
+                onChange={(v) => {
+                  setDue(v)
+                  setDueTouched(true)
+                }}
+              />
+            </div>
+          </Section>
+          )}
+
+          {/* What will go out, in short. */}
+          {step === 3 && (
+          <section className="rounded-[18px] border border-line bg-white p-5">
+            <h2 className="text-base font-bold tracking-tight">{title}</h2>
+            <dl className="mt-3 flex flex-col gap-2.5 text-sm">
+              <div className="flex justify-between"><dt className="text-muted">{kind === 'GST' ? 'GSTINs' : kind === 'TDS' ? 'TANs' : 'Registrations'}</dt><dd className="font-semibold">{selected.length}</dd></div>
+              <div className="flex justify-between"><dt className="text-muted">Documents each</dt><dd className="font-semibold">{docIds.length}</dd></div>
+              <div className="flex justify-between"><dt className="text-muted">Last date</dt><dd className="font-semibold">{due ? fmtDate(due) : '—'}</dd></div>
+              <div className="flex justify-between"><dt className="text-muted">Sent from</dt><dd className="font-semibold">{via === 'own' ? (whatsapp?.displayName ?? 'Your WhatsApp') : SHARED_NUMBER_NAME}</dd></div>
+            </dl>
+            {noWhatsApp > 0 && (
+              <p className="mt-2 rounded-lg bg-danger-soft px-3 py-2 text-xs leading-relaxed text-danger">
+                <b>{noWhatsApp}</b> {noWhatsApp === 1 ? 'has' : 'have'} WhatsApp off, so no message will go to {noWhatsApp === 1 ? 'it' : 'them'}.
+              </p>
+            )}
+          </section>
+          )}
+        </div>
+
+        {/* ---------- Summary and message preview: only when it is time to check and send ---------- */}
+        {step === 3 && (
+        <aside className="flex flex-col gap-4 lg:sticky lg:top-[132px] lg:col-span-5">
+
+          <section className="rounded-[18px] border border-line bg-white p-5">
+            <div className="flex items-baseline justify-between">
+              <h2 className="text-base font-bold tracking-tight">Message preview</h2>
+              <span className="text-xs font-medium text-muted">{first ? `to ${first.name}` : 'sample'}</span>
+            </div>
+            <div className="mt-3 rounded-2xl bg-[#EFEAE2] p-3.5">
+              <div className="rounded-[10px] rounded-tr-none bg-[#D9FDD3] px-3 py-2.5 text-[13.5px] leading-relaxed shadow-sm">
+                <WaText text={message} />
+              </div>
+            </div>
+          </section>
+        </aside>
+        )}
+      </div>
+
+      {switchTo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="Change checklist" onClick={() => setSwitchTo(null)}>
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="text-base font-bold">Change the checklist?</div>
+            <p className="mt-1.5 text-[13px] leading-relaxed text-muted">You changed the documents of this checklist. If you switch to “{switchTo === 'custom' ? 'Start from scratch' : compliances.find((c) => c.id === switchTo)?.name}”, those changes are lost.</p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" onClick={() => setSwitchTo(null)} className="h-10 rounded-xl border border-line px-4 text-sm font-semibold">
+                Keep my changes
+              </button>
               <button
                 type="button"
-                aria-pressed={onlySelected}
-                onClick={() => setOnlySelected((v) => !v)}
-                className={`h-11 shrink-0 whitespace-nowrap rounded-xl border px-4 text-[13px] font-semibold ${onlySelected ? 'border-brand bg-brand-soft text-brand-dark' : 'border-line hover:bg-canvas'}`}
+                onClick={() => {
+                  applyChecklist(switchTo)
+                  setSwitchTo(null)
+                }}
+                className="h-10 rounded-xl bg-brand px-4 text-sm font-semibold text-white"
               >
-                Selected ({selected.length})
+                Switch
               </button>
             </div>
-            {list.length === 0 && <p className="p-6 text-sm text-muted">{onlySelected ? 'You have not selected anyone yet.' : 'No clients match.'}</p>}
-            {list.map((c) => {
-              const on = selected.includes(c.id)
-              return (
-                <button
-                  key={c.id}
-                  type="button"
-                  role="checkbox"
-                  aria-checked={on}
-                  onClick={() => toggleClient(c.id)}
-                  className={`flex w-full items-center gap-3.5 border-b border-line px-6 py-3 text-left last:border-b-0 ${on ? 'bg-[#F1F9F6]' : 'hover:bg-slate-50'}`}
-                >
-                  <Box on={on} />
-                  <Avatar name={c.name} size={38} />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[15px] font-semibold">
-                      {c.name} <span className={`ml-1 text-xs font-bold ${serviceColor[c.service]}`}>{c.service}</span>
-                    </div>
-                    <div className="text-[13px] text-muted">{c.phone}</div>
-                  </div>
-                  {c.sharedWith && <span className="text-xs font-semibold text-amber-700">Shares number</span>}
-                </button>
-              )
-            })}
-          </div>
-
-          <div className="flex flex-col gap-4 lg:sticky lg:top-32 lg:col-span-4 lg:self-start">
-            <div className="rounded-[18px] border border-line bg-white p-5">
-              <div className="flex items-baseline justify-between">
-                <h2 className="text-base font-bold tracking-tight">Selected</h2>
-                <span className="flex items-center gap-3 text-[13px] font-semibold">
-                  <span className="text-brand-dark">{selected.length} clients</span>
-                  {selected.length > 0 && (
-                    <button type="button" onClick={() => setSelected([])} className="text-muted hover:text-danger">
-                      Clear all
-                    </button>
-                  )}
-                </span>
-              </div>
-              {selected.length === 0 ? (
-                <p className="mt-3 text-sm text-muted">Nobody yet. Tick clients on the left.</p>
-              ) : (
-                <ul className="mt-3 flex max-h-[calc(100vh-420px)] min-h-24 flex-col gap-2.5 overflow-y-auto pr-1 text-sm font-medium">
-                  {chosenClients.map((c) => (
-                    <li key={c.id} className="flex items-center justify-between">
-                      <span>
-                        {c.name} <span className={`text-xs font-bold ${serviceColor[c.service]}`}>{c.service}</span>
-                      </span>
-                      <button type="button" onClick={() => toggleClient(c.id)} className="text-muted hover:text-danger" aria-label={`Remove ${c.name}`}>
-                        ✕
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-            {sharedCount > 0 && (
-              <div className="rounded-2xl border border-[#F5DFA8] bg-[#FEF6E4] p-4 text-[13px] leading-relaxed text-[#7A3B00]">
-                <b>{sharedCount} of these clients use the same WhatsApp number.</b>
-                <br />
-                Each one still gets their own message and their own upload link.
-              </div>
-            )}
-            <div className="rounded-2xl border border-[#D3E9E4] bg-gradient-to-r from-[#E4F5EE] to-[#E8F1FD] p-4 text-[13px] leading-relaxed text-slate-600">
-              <b className="text-brand-dark">What happens next</b>
-              <br />
-              Step 2: choose documents. Step 3: check the message and send.
-            </div>
           </div>
         </div>
       )}
 
-      {/* ---------- Step 2: documents ---------- */}
-      {step === 2 && (
-        <div className="grid grid-cols-1 gap-4 md:gap-5 lg:grid-cols-12">
-          <div className="flex min-w-0 flex-col gap-4 md:gap-5 lg:col-span-8">
-          <section className="rounded-[18px] border border-line bg-white px-6 py-5">
-            <h2 className="text-base font-bold tracking-tight">Start from a saved checklist</h2>
-            <div className="mt-3.5 grid grid-cols-2 gap-3 md:grid-cols-3">
-              {visibleChecklists.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => pickTemplate(t.id)}
-                  className={`rounded-2xl p-3.5 text-left ${templateId === t.id ? 'border-2 border-brand bg-[#EEF8F5]' : 'border border-line hover:bg-canvas'} ${t.id === 'custom' && templateId !== 'custom' ? 'border-dashed' : ''}`}
-                >
-                  <div className={`text-[15px] font-semibold ${templateId === t.id ? 'text-brand-dark' : ''}`}>{t.name}</div>
-                  <div className="text-xs text-muted">{t.id === 'custom' ? 'Pick your own' : `${t.docIds.length} documents`}</div>
-                </button>
-              ))}
-            </div>
-            {templates.length > visibleChecklists.length || allChecklists ? (
-              <button type="button" onClick={() => setAllChecklists((v) => !v)} className="mt-3 flex items-center gap-1.5 text-[13px] font-semibold text-brand-dark hover:underline">
-                {allChecklists ? 'Show fewer checklists' : `Show all ${templates.length} checklists`}
-                <ChevronDown size={14} className={allChecklists ? 'rotate-180' : ''} />
-              </button>
-            ) : null}
-          </section>
-
-          <section className="rounded-[18px] border border-line bg-white px-6 py-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-base font-bold tracking-tight">
-                Documents to ask for <span className="ml-1.5 font-medium text-muted">{docIds.length} selected</span>
-              </h2>
-              <div className="flex gap-2 max-md:w-full">
-                <input
-                  value={customText}
-                  onChange={(e) => setCustomText(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && addCustom()}
-                  placeholder="Add your own document"
-                  className="h-10 w-full rounded-xl border border-line px-3.5 text-sm outline-none focus:border-brand md:w-64"
-                />
-                <button type="button" onClick={addCustom} className="flex h-10 items-center gap-1.5 rounded-xl bg-canvas px-4 text-[13px] font-semibold hover:bg-slate-100">
-                  <Plus size={14} strokeWidth={2.4} />
-                  Add
-                </button>
-              </div>
-            </div>
-            <div className="mt-4 columns-1 gap-x-8 md:columns-2">
-              {[...groups, ...(custom.length ? [{ title: 'Added by you', docs: custom }] : [])].map((g) => (
-                <div key={g.title} className="mb-5 break-inside-avoid">
-                  <div className="mb-1.5 text-[11px] font-bold uppercase tracking-widest text-faint">{g.title}</div>
-                  <div className="flex flex-col gap-1.5">
-                    {g.docs.map((d) => {
-                      const on = docIds.includes(d.id)
-                      return (
-                        <button
-                          key={d.id}
-                          type="button"
-                          role="checkbox"
-                          aria-checked={on}
-                          onClick={() => toggleDoc(d.id)}
-                          className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium ${on ? 'bg-[#EEF8F5]' : 'border border-line hover:bg-canvas'}`}
-                        >
-                          <Box on={on} />
-                          {d.name}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-          </div>
-
-          <div className="lg:sticky lg:top-32 lg:col-span-4 lg:self-start">
-            <div className="rounded-[18px] border border-line bg-white p-5">
-              <div className="flex items-baseline justify-between">
-                <h2 className="text-base font-bold tracking-tight">Selected documents</h2>
-                <span className="flex items-center gap-3 text-[13px] font-semibold">
-                  <span className="text-brand-dark">{docIds.length}</span>
-                  {docIds.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDocIds([])
-                        setTemplateId('custom')
-                      }}
-                      className="text-muted hover:text-danger"
-                    >
-                      Clear all
-                    </button>
-                  )}
-                </span>
-              </div>
-              {chosenDocs.length === 0 ? (
-                <p className="mt-3 text-sm text-muted">Nothing yet. Tick documents on the left.</p>
-              ) : (
-                <ol className="mt-3 flex max-h-[calc(100vh-330px)] min-h-24 flex-col overflow-y-auto pr-1 text-sm font-medium">
-                  {chosenDocs.map((d, i) => (
-                    <li key={d.id} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-canvas">
-                      <span className="w-5 shrink-0 text-xs text-muted">{i + 1}.</span>
-                      <span className="flex-1">{d.name}</span>
-                      <button type="button" onClick={() => toggleDoc(d.id)} className="text-muted hover:text-danger" aria-label={`Remove ${d.name}`}>
-                        ✕
-                      </button>
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </div>
-          </div>
+      <div className="sticky bottom-0 -mx-4 mt-auto flex items-center justify-between gap-3 border-t border-line bg-white px-4 py-3 md:-mx-8 md:px-8 md:py-3.5">
+        <button type="button" onClick={() => (step === 1 ? navigate('/requests') : setStep((step - 1) as 1 | 2))} className="h-12 shrink-0 rounded-xl border border-line bg-white px-6 text-sm font-semibold hover:bg-canvas">
+          {step === 1 ? 'Cancel' : '← Back'}
+        </button>
+        <div className="flex items-center gap-4">
+          <span className="text-[13px] text-muted max-md:hidden">{step === 1 ? `${title} · ${docIds.length} ${docIds.length === 1 ? 'document' : 'documents'}` : step === 2 ? `${title} · ${selected.length} selected` : why || 'Nothing is sent until you press this'}</span>
+          <button
+            type="button"
+            onClick={() => (step === 3 ? send() : setStep((step + 1) as 2 | 3))}
+            disabled={step === 1 ? docIds.length === 0 : step === 2 ? selected.length === 0 : !canSend}
+            className="h-12 rounded-xl bg-brand px-7 text-[15px] font-semibold text-white shadow-[0_6px_16px_rgba(11,122,107,0.25)] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+          >
+            {step === 1 ? 'Continue to who →' : step === 2 ? 'Continue to review →' : `Send ${selected.length} ${selected.length === 1 ? 'message' : 'messages'}`}
+          </button>
         </div>
-      )}
-
-      {/* ---------- Step 3: review and send ---------- */}
-      {step === 3 && (
-        <div className="grid grid-cols-1 gap-4 md:gap-5 lg:grid-cols-12">
-          <div className="flex min-w-0 flex-col gap-4 lg:col-span-7">
-            <section className="rounded-[18px] border border-line bg-white px-6 py-5">
-              <h2 className="text-base font-bold tracking-tight">Send from</h2>
-              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {ownNumber ? (
-                  <button type="button" onClick={() => setVia('own')} className={`rounded-2xl p-3.5 text-left ${via === 'own' ? 'border-2 border-brand bg-[#EEF8F5]' : 'border border-line'}`}>
-                    <div className={`text-sm font-semibold ${via === 'own' ? 'text-brand-dark' : ''}`}>{whatsapp?.displayName ?? 'Your WhatsApp'}</div>
-                    <div className="text-[13px] text-slate-600">{ownNumber} · replies are read here</div>
-                  </button>
-                ) : (
-                  <Link to="/settings?tab=whatsapp" className="rounded-2xl border border-dashed border-slate-300 p-3.5 text-left hover:border-brand">
-                    <div className="text-sm font-semibold text-muted">Your WhatsApp</div>
-                    <div className="text-[13px] text-muted">Not connected · <span className="font-semibold text-brand">Connect it in Settings</span></div>
-                  </Link>
-                )}
-                <button type="button" onClick={() => setVia('kdk')} className={`rounded-2xl p-3.5 text-left ${via === 'kdk' ? 'border-2 border-brand bg-[#EEF8F5]' : 'border border-line'}`}>
-                  <div className={`text-sm font-semibold ${via === 'kdk' ? 'text-brand-dark' : ''}`}>{SHARED_NUMBER_NAME}</div>
-                  <div className="text-[13px] text-muted">Shared number · link only · replies are not read</div>
-                </button>
-              </div>
-            </section>
-            <section className="rounded-[18px] border border-line bg-white px-6 py-5">
-              <h2 className="text-base font-bold tracking-tight">Options</h2>
-              <div className="mt-3">
-                <div className="text-[13px] text-muted">Last date</div>
-                <DueDatePicker
-                  value={due}
-                  onChange={(v) => {
-                    setDue(v)
-                    setDueTouched(true)
-                  }}
-                />
-              </div>
-            </section>
-          </div>
-
-          <div className="flex flex-col gap-4 lg:col-span-5">
-            <section className="rounded-[18px] border border-line bg-white px-6 py-5">
-              <div className="flex items-baseline justify-between">
-                <h2 className="text-base font-bold tracking-tight">Message preview</h2>
-                <span className="text-xs font-medium text-muted">to {first?.name}</span>
-              </div>
-              <div className="mt-3 rounded-2xl bg-[#EFEAE2] p-3.5">
-                <div className="rounded-[10px] rounded-tr-none bg-[#D9FDD3] px-3 py-2.5 text-[13.5px] leading-relaxed shadow-sm">
-                  <WaText text={message} />
-                </div>
-              </div>
-            </section>
-            <section className="rounded-[18px] border border-line bg-white px-6 py-5 text-sm">
-              <h2 className="text-base font-bold tracking-tight">Summary</h2>
-              <dl className="mt-3 flex flex-col gap-2.5">
-                <div className="flex justify-between"><dt className="text-muted">Clients</dt><dd className="font-semibold">{chosenClients.length}</dd></div>
-                <div className="flex justify-between"><dt className="text-muted">WhatsApp messages</dt><dd className="font-semibold">{chosenClients.length}</dd></div>
-                <div className="flex justify-between"><dt className="text-muted">Documents each</dt><dd className="font-semibold">{chosenDocs.length}</dd></div>
-                <div className="flex justify-between"><dt className="text-muted">Due</dt><dd className="font-semibold">{fmtDate(due)}</dd></div>
-              </dl>
-            </section>
-          </div>
-        </div>
-      )}
-
-      {step === 1 && (
-        <Footer onBack={() => navigate('/requests')} backLabel="Cancel" onNext={() => setStep(2)} nextLabel="Continue to documents →" note={`${selected.length} selected`} disabled={selected.length === 0} />
-      )}
-      {step === 2 && (
-        <Footer onBack={() => setStep(1)} backLabel="← Back" onNext={() => {
-            if (!dueTouched) setDue(defaultDue(templateId))
-            setStep(3)
-          }} nextLabel="Continue to review →" note={`${docIds.length} documents`} disabled={docIds.length === 0} />
-      )}
-      {step === 3 && (
-        <Footer onBack={() => setStep(2)} backLabel="← Back" onNext={send} nextLabel={`Send ${chosenClients.length} ${chosenClients.length === 1 ? 'message' : 'messages'}`} note="Nothing is sent until you press this" disabled={!due} />
-      )}
+      </div>
     </div>
   )
 }
