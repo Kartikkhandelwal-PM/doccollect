@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
 import Toast from '../components/Toast'
-import { Bell, Check, ChevronLeft, ChevronRight, MessageCircle, Plus, UserPlus, X } from 'lucide-react'
+import { Bell, Check, ChevronLeft, ChevronRight, MessageCircle, Plus, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Avatar from '../components/Avatar'
@@ -220,10 +220,6 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="grid grid-cols-2 gap-3 md:flex">
-          <Link to="/clients" className="flex h-12 shrink-0 items-center justify-center whitespace-nowrap gap-2 rounded-xl border border-[#CFE3DE] bg-white px-5 text-sm font-semibold">
-            <UserPlus size={17} />
-            Add client
-          </Link>
           <Link to="/requests/new" className="flex h-12 shrink-0 items-center justify-center whitespace-nowrap gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white shadow-[0_6px_16px_rgba(11,122,107,0.25)]">
             <Plus size={17} strokeWidth={2.3} />
             New request

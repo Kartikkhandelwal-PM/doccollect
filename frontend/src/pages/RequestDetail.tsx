@@ -1,7 +1,7 @@
 import { backdropProps, panelProps } from '../lib/motion'
 import { motion } from 'framer-motion'
 import Toast from '../components/Toast'
-import { Bell, ChevronDown, ChevronRight, Eye, Link2, Search, X } from 'lucide-react'
+import { Bell, ChevronRight, MessageCircle, RefreshCw, Search, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
@@ -12,17 +12,18 @@ import { useMessenger } from '../data/messenger'
 import FileTypeIcon from '../components/FileTypeIcon'
 import StatusBadge from '../components/StatusBadge'
 import DueDatePicker from '../components/DueDatePicker'
-import { getClient } from '../data/mock'
+import { getBookClient, getClient, regSuffix } from '../data/mock'
+import { contactOf, useContacts } from '../data/contacts'
 import type { DocRequest } from '../data/requests'
 import { fmtDate, progress, useRequests } from '../data/requests'
 import type { Status } from '../data/types'
 import { useSetup } from '../data/setup'
-import { expiresOn, isExpired, todayISO } from '../lib/dates'
+import { isExpired, todayISO } from '../lib/dates'
 import { serviceColor } from '../lib/status'
 import { SHARED_NUMBER_NAME } from '../lib/brand'
-import { fullLink, linkToken } from '../lib/links'
 
 const reviewOptions: Status[] = ['to_review', 'approved', 'rejected']
+const tileBtn = 'inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border border-line bg-white px-3 text-[13px] font-semibold text-slate-700 transition-colors hover:border-brand hover:text-brand-dark'
 const reasons = ['Blurry or unreadable', 'Wrong document', 'Pages missing', 'Wrong year']
 
 interface Rejecting {
@@ -31,66 +32,10 @@ interface Rejecting {
   docName: string
 }
 
-// "Upload link" menu on each client: look at it, copy it, or replace it with a new one.
-function LinkMenu({ previewTo, onCopy, onNew }: { previewTo: string; onCopy: () => void; onNew: () => void }) {
-  const [open, setOpen] = useState(false)
-  const item = 'flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm hover:bg-canvas'
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-        className="flex h-10 items-center gap-2 whitespace-nowrap rounded-xl border border-line px-4 text-sm font-semibold hover:bg-canvas"
-      >
-        <Link2 size={15} />
-        Upload link
-        <ChevronDown size={14} />
-      </button>
-      {open && (
-        <>
-          <button type="button" aria-label="Close menu" className="fixed inset-0 z-10 cursor-default" onClick={() => setOpen(false)} />
-          <div role="menu" className="absolute right-0 z-20 mt-1 w-56 overflow-hidden rounded-xl border border-line bg-white py-1 shadow-lg">
-            <Link to={previewTo} role="menuitem" className={item}>
-              <Eye size={15} />
-              Open client's page
-            </Link>
-            <button
-              type="button"
-              role="menuitem"
-              className={item}
-              onClick={() => {
-                setOpen(false)
-                onCopy()
-              }}
-            >
-              <Link2 size={15} />
-              Copy link
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              className={`${item} text-danger`}
-              onClick={() => {
-                setOpen(false)
-                onNew()
-              }}
-            >
-              <Bell size={15} />
-              Send new link
-            </button>
-          </div>
-        </>
-      )}
-    </div>
-  )
-}
-
 type Filter = 'all' | 'review' | 'waiting' | 'done'
 
 // On a phone each client is a small card; the table header goes away.
-const CLIENT_ROW = 'grid grid-cols-[minmax(0,1fr)_120px_150px_120px_20px] items-center gap-4 px-6 @max-3xl:flex @max-3xl:flex-wrap @max-3xl:gap-x-3 @max-3xl:gap-y-2.5 @max-3xl:px-4'
+const CLIENT_ROW = 'grid grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_120px_150px_124px_28px] items-center gap-4 px-6 @max-3xl:flex @max-3xl:flex-wrap @max-3xl:gap-x-3 @max-3xl:gap-y-2.5 @max-3xl:px-4'
 
 export default function RequestDetail() {
   const { id } = useParams()
@@ -109,7 +54,22 @@ export default function RequestDetail() {
   return <RequestView request={request} />
 }
 
+// The number a registration is known by: the GSTIN, the TAN, or the PAN (income tax), with its name.
+const numberLabel = { GST: 'GSTIN', TDS: 'TAN', ITR: 'PAN' } as const
+function regInfo(id: string) {
+  const r = getBookClient(id)?.registrations.find((x) => x.id === id)
+  return r ? { number: r.number, label: numberLabel[r.type], place: r.type === 'ITR' ? 'Income tax' : (r.label ?? '') } : null
+}
+
+// Who gets the messages for this registration: its contact's name and mobile.
+function contactFor(id: string) {
+  const b = getBookClient(id)
+  const r = b?.registrations.find((x) => x.id === id)
+  return b && r ? contactOf(b, r) : null
+}
+
 function RequestView({ request }: { request: DocRequest }) {
+  useContacts()
   const [params] = useSearchParams()
   const { setDocStatus, simulateReply, changeDue, unsorted, useUnsorted } = useRequests()
   const { graceDays, ownNumber, whatsapp } = useSetup()
@@ -143,6 +103,7 @@ function RequestView({ request }: { request: DocRequest }) {
 
   const { sendUpdate, sendNewLink, sendRejected, preview } = useMessenger()
   const p = progress(request)
+  const mixedKinds = new Set(request.clients.map((rc) => getClient(rc.clientId)?.service)).size > 1
   const pct = p.total ? Math.round((p.received / p.total) * 100) : 0
   const approved = request.clients.flatMap((c) => c.docs).filter((d) => d.status === 'approved').length
 
@@ -201,13 +162,6 @@ function RequestView({ request }: { request: DocRequest }) {
       else n.add(clientId)
       return n
     })
-  const reviewFirst = () => {
-    const x = received.find((x) => x.doc.status === 'to_review')
-    if (x) {
-      setOpen((o) => new Set(o).add(x.clientId))
-      setOpenDoc({ clientId: x.clientId, docId: x.doc.id })
-    }
-  }
   const sendReminders = () => {
     toNotify.forEach((r) => sendUpdate(request.id, r.rc.clientId))
     setToast(`${thanking ? 'Update' : 'Reminder'} sent to ${toNotify.length} ${toNotify.length === 1 ? 'client' : 'clients'} on WhatsApp`)
@@ -277,7 +231,14 @@ function RequestView({ request }: { request: DocRequest }) {
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-[24px] font-bold tracking-tight">{request.title}</h1>
+          <h1 className="flex flex-wrap items-center gap-3 text-[24px] font-bold tracking-tight">
+            {request.title}
+            {[...new Set(request.clients.map((rc) => getClient(rc.clientId)?.service).filter((x): x is NonNullable<typeof x> => !!x))].map((k) => (
+              <span key={k} className={`rounded-md bg-white px-2 py-0.5 text-xs font-bold shadow-sm ring-1 ring-black/5 ${serviceColor[k]}`}>
+                {k}
+              </span>
+            ))}
+          </h1>
           <p className="mt-0.5 text-sm text-muted">
             {request.ref} · sent {fmtDate(request.createdAt)} from {request.via === 'own' ? (whatsapp?.displayName ?? 'your WhatsApp') : `the ${SHARED_NUMBER_NAME} number`} · due {fmtDate(request.due)}{request.via === 'own' && !ownNumber && ` · your WhatsApp is not connected, reminders go from the ${SHARED_NUMBER_NAME} number`}
             <button
@@ -304,12 +265,6 @@ function RequestView({ request }: { request: DocRequest }) {
             <button type="button" onClick={() => setAsking(true)} className="flex h-11 items-center gap-2 rounded-xl border border-line bg-white px-4 text-sm font-semibold hover:border-brand hover:text-brand-dark">
               <Bell size={16} />
               {thanking ? 'Send update to' : 'Remind'} {toNotify.length} {toNotify.length === 1 ? 'client' : 'clients'}
-            </button>
-          )}
-          {p.toReview > 0 && (
-            <button type="button" onClick={reviewFirst} className="flex h-11 items-center gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white shadow-[0_6px_16px_rgba(11,122,107,0.25)] hover:bg-brand-dark">
-              <Eye size={16} />
-              Review {p.toReview} {p.toReview === 1 ? 'document' : 'documents'}
             </button>
           )}
         </div>
@@ -362,6 +317,7 @@ function RequestView({ request }: { request: DocRequest }) {
 
         <div className={`${CLIENT_ROW} @max-3xl:hidden border-b border-line bg-slate-50/80 py-2 text-[11px] font-bold uppercase tracking-wider text-faint`}>
           <span>Client</span>
+          <span>Contact</span>
           <span>Received</span>
           <span>Status</span>
           <span />
@@ -379,21 +335,33 @@ function RequestView({ request }: { request: DocRequest }) {
                 : missing > 0
                   ? { text: 'Waiting', cls: 'bg-info-soft text-info' }
                   : { text: 'Complete', cls: 'bg-ok-soft text-ok' }
-          const firstReview = rc.docs.find((d) => d.status === 'to_review')
           return (
             <div key={rc.clientId} className="border-b border-line last:border-b-0">
-              <div onClick={() => toggle(rc.clientId)} className={`${CLIENT_ROW} h-[68px] cursor-pointer @max-3xl:h-auto @max-3xl:py-3.5 ${isOpen ? 'bg-slate-50' : 'hover:bg-slate-50'}`}>
+              <div onClick={() => toggle(rc.clientId)} className={`${CLIENT_ROW} group h-[68px] cursor-pointer transition-colors @max-3xl:h-auto @max-3xl:py-3.5 ${isOpen ? 'bg-[#EEF8F5]' : 'hover:bg-[#F3F9F7]'}`}>
                 <div className="flex min-w-0 items-center gap-3 @max-3xl:order-1 @max-3xl:flex-[1_1_50%]">
                   <Avatar name={c.name} size={36} />
                   <div className="min-w-0">
                     <div className="truncate text-sm font-semibold">
-                      {c.name} <span className={`ml-1 text-xs font-bold ${serviceColor[c.service]}`}>{c.service}</span>
+                      <Link to={`/clients/${c.id}`} onClick={(e) => e.stopPropagation()} className="hover:text-brand-dark hover:underline">
+                        {c.name}
+                      </Link>
+                      {/* The kind is in the title badge. Only the place is added (for a client with several GSTINs or TANs), and the kind only when this request mixes kinds. */}
+                      {(mixedKinds || regSuffix(c.id)) && (
+                        <span className={`ml-1.5 text-xs ${mixedKinds ? `font-bold ${serviceColor[c.service]}` : 'font-medium text-muted'}`}>
+                          {mixedKinds ? c.service : ''}
+                          {regSuffix(c.id).replace(' ·', mixedKinds ? '' : '').trim() ? `${mixedKinds ? ' ' : ''}${regSuffix(c.id).replace(' ·', '').trim()}` : ''}
+                        </span>
+                      )}
                     </div>
                     <div className="mt-0.5 truncate text-[13px] text-muted">
-                      {c.phone}
+                      {regInfo(c.id) && <span className="font-mono text-[12px] text-slate-600">{regInfo(c.id)!.number}</span>}
                       {rc.lastReminder && ` · reminded ${rc.lastReminder}`}
                     </div>
                   </div>
+                </div>
+                <div className="min-w-0 @max-3xl:order-1 @max-3xl:basis-full">
+                  <div className="truncate text-[13px] font-semibold">{contactFor(c.id)?.name ?? c.name}</div>
+                  <div className="mt-0.5 truncate text-[13px] text-muted">{contactFor(c.id)?.phone || c.phone}</div>
                 </div>
                 <div className="@max-3xl:order-3 @max-3xl:basis-[42%]">
                   <div className="text-[13px] font-semibold tabular-nums">
@@ -405,76 +373,58 @@ function RequestView({ request }: { request: DocRequest }) {
                 </div>
                 <div className="@max-3xl:order-4 @max-3xl:flex-1">
                   <span className={`inline-block rounded-md px-2 py-1 text-[11px] font-bold uppercase tracking-wide ${chip.cls}`}>{chip.text}</span>
+                  {state === 'review' && missing > 0 && !(toReview > 0 && waiting.length > 0) && <div className="mt-1 text-xs text-muted">{missing} pending</div>}
                   {state === 'review' && toReview > 0 && waiting.length > 0 && missing > 0 && <div className="mt-1 text-xs font-semibold text-warn">+ {waiting.length} to place</div>}
-                  {state === 'review' && missing > 0 && !(toReview > 0 && waiting.length > 0) && <div className="mt-1 text-xs text-muted">{missing} still missing</div>}
                 </div>
                 <div onClick={(e) => e.stopPropagation()} className="flex justify-end @max-3xl:order-2 @max-3xl:shrink-0">
-                  {state === 'review' ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setOpen((o) => new Set(o).add(rc.clientId))
-                        if (firstReview) setOpenDoc({ clientId: rc.clientId, docId: firstReview.id })
-                      }}
-                      className="flex h-9 items-center rounded-lg bg-brand px-3.5 text-[13px] font-semibold text-white hover:bg-brand-dark"
-                    >
-                      Review
-                    </button>
-                  ) : missing > 0 ? (
+                  {missing > 0 ? (
                     <button
                       type="button"
                       onClick={() => {
                         sendUpdate(request.id, rc.clientId)
                         setToast(`Reminder sent to ${c.name} on WhatsApp`)
                       }}
-                      className="flex h-9 items-center gap-1.5 rounded-lg border border-line bg-white px-3 text-[13px] font-semibold hover:border-brand hover:text-brand-dark"
+                      className="flex h-9 w-[124px] items-center justify-center gap-1.5 rounded-lg border border-line bg-white text-[13px] font-semibold hover:border-brand hover:text-brand-dark"
                     >
                       <Bell size={14} />
                       Remind
                     </button>
-                  ) : (
+                  ) : state === 'done' ? (
                     <button
                       type="button"
                       onClick={() => {
                         sendUpdate(request.id, rc.clientId)
                         setToast(`Thank-you sent to ${c.name} on WhatsApp`)
                       }}
-                      className="flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg border border-line bg-white px-3 text-[13px] font-semibold hover:border-brand hover:text-brand-dark"
+                      className="flex h-9 w-[124px] items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-line bg-white text-[13px] font-semibold hover:border-brand hover:text-brand-dark"
                     >
                       <Bell size={14} />
                       Send update
                     </button>
-                  )}
+                  ) : null}
                 </div>
-                <ChevronRight size={18} className={`justify-self-end text-faint transition @max-3xl:hidden ${isOpen ? 'rotate-90' : ''}`} />
+                <span className={`flex h-7 w-7 items-center justify-center justify-self-end rounded-full transition @max-3xl:hidden ${isOpen ? 'bg-white text-brand-dark shadow-sm' : 'text-faint group-hover:bg-white group-hover:text-brand-dark group-hover:shadow-sm'}`}>
+                  <ChevronRight size={16} className={`transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+                </span>
               </div>
+
+              {/* The tile's own actions, right under the client, in the same tile. */}
+              {isOpen && (
+                <div className="flex flex-wrap items-center gap-2 bg-[#EEF8F5] px-6 pb-3.5 pl-[72px] @max-3xl:px-4">
+                  <Link to={`/inbox?client=${rc.clientId}`} className={tileBtn}>
+                    <MessageCircle size={14} /> Open chat
+                  </Link>
+                  <button type="button" onClick={() => setLinkFor(rc.clientId)} className={`${tileBtn} text-danger hover:border-danger/40`}>
+                    <RefreshCw size={14} /> Send a new link
+                  </button>
+                  {isExpired(request.due, graceDays) && <span className="ml-auto text-[13px] font-semibold text-danger">The upload link has expired</span>}
+                </div>
+              )}
 
               {isOpen && (
                 <div className="border-t border-line bg-slate-50/50">
-                  <div className="flex items-center justify-between gap-3 px-6 py-2.5 pl-[72px] @max-3xl:px-4 text-[13px] text-muted">
-                    <span>
-                      {isExpired(request.due, graceDays) ? <span className="font-semibold text-danger">Link expired</span> : <>Link valid till {fmtDate(expiresOn(request.due, graceDays))}</>}
-                      {' · '}
-                      <Link to={`/clients/${c.id}`} className="font-semibold text-brand hover:underline">
-                        Open client
-                      </Link>
-                    </span>
-                    <LinkMenu
-                      previewTo={`/u/${request.id}/${rc.clientId}?preview=1`}
-                      onCopy={() => {
-                        const url = fullLink(linkToken(request.ref, rc.clientId, rc.linkVersion ?? 1))
-                        navigator.clipboard?.writeText(url).catch(() => undefined)
-                        setToast('Link copied')
-                      }}
-                      onNew={() => setLinkFor(rc.clientId)}
-                    />
-                  </div>
                   {waiting.length > 0 && missing > 0 && (
                     <>
-                      <div className="border-t border-line px-6 pb-1 pt-3 pl-[72px] @max-3xl:px-4">
-                        <div className="text-[11px] font-bold uppercase tracking-wider text-faint">Files we could not match ({waiting.length})</div>
-                        <p className="text-xs text-muted">Open a file to see it, then choose the document it is for. The rest wait for the next request.</p>
-                      </div>
                       {waiting.map((f) => (
                         <div
                           key={f.id}
@@ -511,10 +461,12 @@ function RequestView({ request }: { request: DocRequest }) {
                         {gotIt && d.fileName ? <FileTypeIcon file={d.fileName} size={34} /> : <span className="flex h-[34px] w-[27px] items-center justify-center rounded border-[1.5px] border-dashed border-slate-300" />}
                         <div className="min-w-0 flex-1">
                           <div className={`text-sm font-semibold ${gotIt ? '' : 'text-muted'}`}>{d.name}</div>
-                          <div className="text-xs text-muted">
-                            {gotIt ? `${d.receivedAt} · via ${d.source === 'Link' ? 'upload link' : 'WhatsApp'}${d.moreFiles?.length ? ` · ${d.moreFiles.length + 1} files` : ''}` : d.status === 'na' ? 'Client says this does not apply to them' : 'Not received yet'}
-                            {d.status === 'rejected' && d.reason && <span className="ml-1.5 font-semibold text-danger">· {d.reason}</span>}
-                          </div>
+                          {(gotIt || d.status === 'na' || (d.status === 'rejected' && d.reason)) && (
+                            <div className="text-xs text-muted">
+                              {gotIt ? `${d.receivedAt} · via ${d.source === 'Link' ? 'upload link' : 'WhatsApp'}${d.moreFiles?.length ? ` · ${d.moreFiles.length + 1} files` : ''}` : d.status === 'na' ? 'Client says this does not apply to them' : ''}
+                              {d.status === 'rejected' && d.reason && <span className="ml-1.5 font-semibold text-danger">· {d.reason}</span>}
+                            </div>
+                          )}
                         </div>
                         {gotIt ? <StatusBadge status={d.status} options={reviewOptions} onChange={(st) => changeStatus(rc.clientId, d.id, d.name, st)} /> : <StatusBadge status={d.status === 'na' ? 'na' : 'pending'} />}
                       </div>

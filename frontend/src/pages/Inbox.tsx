@@ -1,7 +1,7 @@
 import { backdropProps, panelProps, rowIn } from '../lib/motion'
 import { motion } from 'framer-motion'
 import Toast from '../components/Toast'
-import { ArrowLeft, Check, CheckCheck, ChevronDown, Image as ImageIcon, Info, Lock, PanelRightOpen, Search, Send, X } from 'lucide-react'
+import { ArrowLeft, Check, Sparkles, CheckCheck, ChevronDown, Image as ImageIcon, Info, Lock, PanelRightOpen, Search, Send, X } from 'lucide-react'
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
@@ -14,8 +14,11 @@ import WhatsAppIcon from '../components/WhatsAppIcon'
 import FileTypeIcon from '../components/FileTypeIcon'
 import StatusBadge from '../components/StatusBadge'
 import { useInbox } from '../data/inbox'
+import { isDuplicate, suggestClient } from '../data/docRead'
+import type { DocRead, Suggestion } from '../data/docRead'
 import type { Conversation, Msg } from '../data/inbox'
-import { clients, getClient } from '../data/mock'
+import { addContact } from '../data/contacts'
+import { book, clients, getBookClient, getClient, regSuffix } from '../data/mock'
 import { folderIdOf } from '../data/master'
 import { useMasterStore } from '../data/masterStore'
 import { useRequests } from '../data/requests'
@@ -31,10 +34,15 @@ type Filter = 'all' | 'unread' | 'unassigned'
 function preview(c: Conversation) {
   const m = c.msgs[c.msgs.length - 1]
   if (m.file) return m.file.name
-  const lines = (m.text ?? '').split('\n').map((l) => l.trim()).filter(Boolean)
+  const lines = (m.text ?? '')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
   const line = lines.find((l) => !/^(hello|hi)\b/i.test(l)) ?? lines[0] ?? ''
   return line.replace(/\*/g, '')
 }
+
+const readLine = (r: DocRead) => [r.kind, r.name, r.idNo, r.note].filter(Boolean).join(' · ')
 
 function Ticks({ tick }: { tick?: 'sent' | 'read' }) {
   if (!tick) return null
@@ -51,7 +59,12 @@ function Bubble({ m, onOpen }: { m: Msg; onOpen: (m: Msg) => void }) {
       </div>
     )
   return (
-    <motion.div initial={{ opacity: 0, y: 8, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className={`flex max-w-[78%] flex-col gap-1 ${mine ? 'items-end self-end' : 'items-start self-start'}`}>
+    <motion.div
+      initial={{ opacity: 0, y: 8, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+      className={`flex max-w-[78%] flex-col gap-1 ${mine ? 'items-end self-end' : 'items-start self-start'}`}
+    >
       <div
         className={`w-fit max-w-full rounded-[10px] px-2.5 pb-1.5 pt-2 text-[14.5px] leading-snug shadow-[0_1px_1px_rgba(17,27,33,0.13)] ${
           mine ? 'rounded-tr-none bg-[#D9FDD3]' : 'rounded-tl-none bg-white'
@@ -82,6 +95,12 @@ function Bubble({ m, onOpen }: { m: Msg; onOpen: (m: Msg) => void }) {
               </div>
             </button>
           ))}
+        {m.read && (
+          <div className="mb-1 flex items-start gap-1.5 rounded-md bg-brand-soft px-2 py-1 text-xs font-semibold text-brand-dark">
+            <Sparkles size={12} className="mt-0.5 shrink-0" />
+            <span>{readLine(m.read)}</span>
+          </div>
+        )}
         {m.text && (
           <div className="pr-1">
             <WaText text={m.text} />
@@ -98,21 +117,7 @@ function Bubble({ m, onOpen }: { m: Msg; onOpen: (m: Msg) => void }) {
 }
 
 // Opens a file from the chat, right where it arrived. If it was filed against a request, you can approve it here.
-function FileViewer({
-  msg,
-  who,
-  pan,
-  doc,
-  onClose,
-  onApprove,
-}: {
-  msg: Msg
-  who: string
-  pan: string
-  doc?: RequestDoc
-  onClose: () => void
-  onApprove: () => void
-}) {
+function FileViewer({ msg, who, pan, doc, onClose, onApprove }: { msg: Msg; who: string; pan: string; doc?: RequestDoc; onClose: () => void; onApprove: () => void }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
@@ -130,20 +135,37 @@ function FileViewer({
               {who} · {file.size} · {msg.day === todayISO() ? msg.time : `${dayLabel(msg.day)}, ${msg.time}`}
             </div>
           </div>
-          <OpenInTab iconOnly href={fileLink({ name: doc?.name ?? file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' '), fileName: file.name, client: who, pan, from: msg.time })} />
+          <OpenInTab
+            iconOnly
+            href={fileLink({
+              name: doc?.name ?? file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' '),
+              fileName: file.name,
+              client: who,
+              pan,
+              from: msg.time,
+            })}
+          />
           <button type="button" aria-label="Close" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-canvas">
             <X size={20} />
           </button>
         </div>
         <div className="overflow-y-auto bg-[#EDF0F5] px-6 py-7">
-          <PaperPreview doc={{ name: doc?.name ?? file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ') }} client={{ name: who, pan }} />
+          <PaperPreview
+            doc={{
+              name: doc?.name ?? file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' '),
+            }}
+            client={{ name: who, pan }}
+          />
         </div>
         <div className="flex items-center gap-3 border-t border-line px-5 py-3.5">
           {doc ? (
             <>
               <StatusBadge status={doc.status} />
               <span className="min-w-0 flex-1 truncate text-[13px] text-muted">Filed as {doc.name}</span>
-              <Link to={`/requests/${msg.link!.requestId}?doc=${msg.link!.clientId}:${msg.link!.docId}`} className="h-11 shrink-0 whitespace-nowrap rounded-xl border border-line px-4 text-sm font-semibold leading-[44px] hover:bg-canvas">
+              <Link
+                to={`/requests/${msg.link!.requestId}?doc=${msg.link!.clientId}:${msg.link!.docId}`}
+                className="h-11 shrink-0 whitespace-nowrap rounded-xl border border-line px-4 text-sm font-semibold leading-[44px] hover:bg-canvas"
+              >
                 Open in request
               </Link>
               <button
@@ -187,7 +209,11 @@ function KeepFile({ fileName, clientName, onSave, onRemove, onClose }: { fileNam
         </p>
         <label className="mt-4 block text-[13px] font-semibold text-muted">
           Save in
-          <select value={to} onChange={(e) => setTo(e.target.value)} className="mt-1 block h-11 w-full rounded-xl border border-line bg-white px-3 text-sm font-medium text-ink outline-none focus:border-brand">
+          <select
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            className="mt-1 block h-11 w-full rounded-xl border border-line bg-white px-3 text-sm font-medium text-ink outline-none focus:border-brand"
+          >
             <option value="">Choose a folder</option>
             {folders.map((f) => (
               <option key={f.id} value={f.id}>
@@ -210,26 +236,170 @@ function KeepFile({ fileName, clientName, onSave, onRemove, onClose }: { fileNam
   )
 }
 
+// Save the number of an unassigned chat as a contact of a client. What this number sends next then goes to that client.
+function SaveContact({ phone, guessId, onSave, onClose }: { phone: string; guessId?: string; onSave: (name: string, bookId: string) => void; onClose: () => void }) {
+  const [name, setName] = useState('')
+  const [to, setTo] = useState(guessId ?? '')
+  const [q, setQ] = useState('')
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+  // The client we guessed is always first.
+  // Nothing typed: only the client we guessed. Once the user types, the matching clients show.
+  const typing = q.trim().length > 0
+  const shown = typing
+    ? book
+        .filter((b) => `${b.name} ${b.pan}`.toLowerCase().includes(q.trim().toLowerCase()))
+        .sort((a, b) => Number(b.id === guessId) - Number(a.id === guessId))
+        .slice(0, 30)
+    : book.filter((b) => b.id === guessId || b.id === to)
+  const field = 'mt-1 block h-11 w-full shrink-0 rounded-xl border border-line bg-white px-3 text-sm font-medium text-ink outline-none focus:border-brand'
+  return (
+    <motion.div {...backdropProps} className="fixed inset-0 z-[40] flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="Save contact">
+      <motion.div {...panelProps} className="flex max-h-full w-full max-w-md flex-col rounded-2xl bg-white p-6 shadow-2xl">
+        <div className="shrink-0 text-base font-bold">Save contact</div>
+        <p className="mt-1 shrink-0 text-[13px] leading-relaxed text-muted">
+          {phone} is added as one more contact of the client. The client&apos;s own number stays.
+        </p>
+        <label className="mt-4 block shrink-0 text-[13px] font-semibold text-muted">
+          Name
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="For example, Ram's wife" className={field} />
+        </label>
+        <div className="mt-4 shrink-0 text-[13px] font-semibold text-muted">Associate with client</div>
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Type a name or PAN to find another client" aria-label="Search clients" className={field} />
+        {(shown.length > 0 || typing) && (
+        <div className="mt-2 max-h-56 overflow-y-auto rounded-xl border border-line">
+          {shown.length === 0 && <div className="p-3 text-[13px] text-muted">No client found.</div>}
+          {shown.map((b) => (
+            <button
+              key={b.id}
+              type="button"
+              onClick={() => setTo(b.id)}
+              className={`flex w-full items-center justify-between gap-3 border-b border-line px-3 py-2.5 text-left last:border-b-0 ${to === b.id ? 'bg-brand-soft' : 'hover:bg-slate-50'}`}
+            >
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-semibold">{b.name}</span>
+                <span className="block truncate text-xs text-muted">
+                  PAN {b.pan} · {b.registrations.map((r) => r.type).filter((t, i, a) => a.indexOf(t) === i).join(', ')}
+                </span>
+              </span>
+              {b.id === guessId && <span className="shrink-0 rounded-md bg-white px-1.5 py-0.5 text-[11px] font-bold text-brand-dark">Suggested</span>}
+              {to === b.id && <Check size={16} className="shrink-0 text-brand-dark" />}
+            </button>
+          ))}
+        </div>
+        )}
+        <button type="button" disabled={!to} onClick={() => onSave(name.trim(), to)} className="mt-4 h-11 w-full shrink-0 rounded-xl bg-brand text-sm font-semibold text-white disabled:opacity-40">
+          Save contact
+        </button>
+        <button type="button" onClick={onClose} className="mt-3 block w-full shrink-0 text-center text-[13px] font-semibold text-muted hover:underline">
+          Cancel
+        </button>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// One unread file in Unassigned: what we read, our guess, and its own place to save. Each file is saved on its own.
+function ReadCard({ m, sug, dup, onSave, onRemove }: { m: Msg; sug?: Suggestion; dup: boolean; onSave: (clientId: string) => void; onRemove: () => void }) {
+  const [to, setTo] = useState(sug?.clientId ?? '')
+  const opts = sug ? sug.options : clients.map((c) => c.id)
+  const label = (id: string) => {
+    const c = getClient(id)
+    return c ? `${c.name} · ${c.service}${regSuffix(id).replace(' ·', '')}` : id
+  }
+  const who = getClient(to)
+  return (
+    <div className="rounded-xl border border-line p-3">
+      <div className="truncate text-[12px] text-muted">{m.file!.name}</div>
+      {m.read ? (
+        <div className="mt-0.5 text-[14px] font-semibold leading-snug">{readLine(m.read)}</div>
+      ) : (
+        <div className="mt-0.5 text-[13.5px] text-warn">We could not read this clearly. Choose a client below.</div>
+      )}
+      {dup ? (
+        <>
+          <div className="mt-1.5 rounded-md bg-[#FEF1DC] px-2 py-1 text-xs font-semibold text-warn">Same document was already sent. Looks like a duplicate.</div>
+          <button type="button" onClick={onRemove} className="mt-2 h-9 w-full rounded-lg border border-line text-[13px] font-semibold text-danger hover:bg-slate-50">
+            Remove duplicate
+          </button>
+        </>
+      ) : (
+        <>
+          <div className="mt-1.5 text-[12.5px] text-muted">{sug ? `Looks like this is ${getClient(sug.clientId)?.name} (${sug.how})` : m.read ? 'No client matches this.' : ''}</div>
+          <select
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            aria-label="Save for"
+            className="mt-2 block h-10 w-full rounded-lg border border-line bg-white px-2.5 text-[13px] font-medium text-ink outline-none focus:border-brand"
+          >
+            <option value="">Choose a client</option>
+            {opts.map((id) => (
+              <option key={id} value={id}>
+                {label(id)}
+              </option>
+            ))}
+          </select>
+          <div className="mt-2 flex gap-2">
+            <button type="button" disabled={!who} onClick={() => onSave(to)} className="h-9 flex-1 rounded-lg bg-brand text-[13px] font-semibold text-white hover:bg-brand-dark disabled:opacity-40">
+              Save this file
+            </button>
+            <button type="button" onClick={onRemove} className="h-9 rounded-lg px-3 text-[13px] font-semibold text-danger hover:bg-slate-50">
+              Remove
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 // One person with two kinds of work (Ramesh Kumar for ITR and for GST) is still one person. Names and chips for telling clients apart
 // are only for a number that really belongs to different people or firms.
 const differentPeople = (ids: string[]) => new Set(ids.map((id) => getClient(id)?.name)).size > 1
 
 function RightPanel({ conv, onReview }: { conv: Conversation; onReview: () => void }) {
   const { requests, unsorted } = useRequests()
-  const { settle } = useInbox()
+  const { resolveFile, conversations } = useInbox()
   const { folders, addUploads } = useMasterStore()
   const [pickFolder, setPickFolder] = useState('')
   const [pickClient, setPickClient] = useState('')
 
-  const mine = conv.clientIds.length
-    ? requests.filter((r) => r.clients.some((c) => conv.clientIds.includes(c.clientId)))
-    : []
+  const mine = conv.clientIds.length ? requests.filter((r) => r.clients.some((c) => conv.clientIds.includes(c.clientId))) : []
   const waiting = unsorted.filter((u) => u.phone === conv.phone)
 
   if (conv.unassigned) {
-    const files = conv.msgs.filter((m) => m.file)
+    const files = conv.msgs.filter((m) => m.file && !m.matched)
+    const saveFor = (m: Msg, clientId: string) => {
+      const c = getClient(clientId)
+      if (!c || !m.file) return
+      addUploads([
+        {
+          id: `un-${Date.now()}-${m.id}`,
+          folderId: folderIdOf(c.id, 'FY 2025-26', c.service),
+          name: [m.read?.kind ?? m.file.name.replace(/\.[^.]+$/, ''), m.read?.idNo].filter(Boolean).join(' · '),
+          fileName: m.file.name,
+          size: m.file.size.split(' · ').pop() ?? m.file.size,
+          date: 'Just now',
+          from: 'WhatsApp',
+        },
+      ])
+      resolveFile(conv.id, m.id, `Saved for ${c.name}`)
+    }
+    const unread = files.filter((m) => !m.read)
+    const cards = files.map((m) => ({
+      m,
+      sug: suggestClient(m.read),
+      dup: isDuplicate(conversations, conv.id, m),
+    }))
+    const ready = cards.filter((x) => x.sug && !x.dup)
     const client = pickClient ? getClient(pickClient) : undefined
-    const firmFolders = folders.map((f) => ({ id: f.id, label: f.parentId ? `${folders.find((x) => x.id === f.parentId)?.name} / ${f.name}` : f.name }))
+    const firmFolders = folders.map((f) => ({
+      id: f.id,
+      label: f.parentId ? `${folders.find((x) => x.id === f.parentId)?.name} / ${f.name}` : f.name,
+    }))
     const masterTo = pickFolder === 'client' ? (client ? folderIdOf(client.id, 'FY 2025-26', client.service) : '') : pickFolder
     const field = 'mt-1 block h-11 w-full rounded-xl border border-line bg-white px-3 text-sm font-medium text-ink outline-none focus:border-brand'
     return (
@@ -242,59 +412,83 @@ function RightPanel({ conv, onReview }: { conv: Conversation; onReview: () => vo
           Open {files.length === 1 ? 'it' : 'them'} in the chat, then choose where to save.
         </div>
 
-        <label className="text-[13px] font-semibold text-muted">
-          Save in
-          <select value={pickFolder} onChange={(e) => setPickFolder(e.target.value)} className={field}>
-            <option value="">Choose a folder</option>
-            <optgroup label="Firm documents">
-              {firmFolders.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.label}
-                </option>
-              ))}
-            </optgroup>
-            <option value="client">A client&apos;s folder</option>
-          </select>
-        </label>
-        {pickFolder === 'client' && (
-          <label className="text-[13px] font-semibold text-muted">
-            Client
-            <select value={pickClient} onChange={(e) => setPickClient(e.target.value)} className={field}>
-              <option value="">Choose a client</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} · {c.service}
-                </option>
-              ))}
-            </select>
-          </label>
+        {cards.length > 0 && (
+          <div className="flex flex-col gap-2.5">
+            <div className="flex items-center gap-1.5 text-[13px] font-bold text-brand-dark">
+              <Sparkles size={14} /> What we read
+            </div>
+            {cards.map(({ m, sug, dup }) => (
+              <ReadCard key={m.id} m={m} sug={sug} dup={dup} onSave={(id) => saveFor(m, id)} onRemove={() => resolveFile(conv.id, m.id, dup ? 'Removed (duplicate)' : 'Removed')} />
+            ))}
+            {ready.length > 1 && (
+              <button
+                type="button"
+                onClick={() => ready.forEach((x) => saveFor(x.m, x.sug!.clientId))}
+                className="h-10 rounded-xl border border-brand text-sm font-semibold text-brand-dark hover:bg-brand-soft"
+              >
+                Save all {ready.length} matched files
+              </button>
+            )}
+          </div>
         )}
-        <button
-          type="button"
-          disabled={!masterTo}
-          onClick={() => {
-            addUploads(
-              files.map((m, i) => ({
-                id: `un-${Date.now()}-${i}`,
-                folderId: masterTo,
-                name: m.file!.name.replace(/\.[^.]+$/, ''),
-                fileName: m.file!.name,
-                size: m.file!.size.split(' · ').pop() ?? m.file!.size,
-                date: 'Just now',
-                from: 'WhatsApp',
-              })),
-            )
-            settle(conv.id, 'Saved in Document Master', true)
-            setPickFolder('')
-            setPickClient('')
-          }}
-          className="h-11 rounded-xl bg-brand text-sm font-semibold text-white disabled:opacity-40"
-        >
-          Save in Document Master
-        </button>
-        <button type="button" onClick={() => settle(conv.id, 'Removed', false)} className="self-center text-[13px] font-semibold text-danger hover:underline">
-          Not a document, remove {files.length === 1 ? 'it' : 'them'}
-        </button>
+
+        {cards.some((x) => !x.m.read) && (
+          <>
+            <label className="text-[13px] font-semibold text-muted">
+              Save in
+              <select value={pickFolder} onChange={(e) => setPickFolder(e.target.value)} className={field}>
+                <option value="">Choose a folder</option>
+                <optgroup label="Firm documents">
+                  {firmFolders.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.label}
+                    </option>
+                  ))}
+                </optgroup>
+                <option value="client">A client&apos;s folder</option>
+              </select>
+            </label>
+            {pickFolder === 'client' && (
+              <label className="text-[13px] font-semibold text-muted">
+                Client
+                <select value={pickClient} onChange={(e) => setPickClient(e.target.value)} className={field}>
+                  <option value="">Choose a client</option>
+                  {clients.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} · {c.service}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <button
+              type="button"
+              disabled={!masterTo}
+              onClick={() => {
+                addUploads(
+                  unread.map((m, i) => ({
+                    id: `un-${Date.now()}-${i}`,
+                    folderId: masterTo,
+                    name: m.file!.name.replace(/\.[^.]+$/, ''),
+                    fileName: m.file!.name,
+                    size: m.file!.size.split(' · ').pop() ?? m.file!.size,
+                    date: 'Just now',
+                    from: 'WhatsApp',
+                  })),
+                )
+                unread.forEach((m) => resolveFile(conv.id, m.id, 'Saved in Document Master'))
+                setPickFolder('')
+                setPickClient('')
+              }}
+              className="h-11 rounded-xl bg-brand text-sm font-semibold text-white disabled:opacity-40"
+            >
+              Save in Document Master
+            </button>
+            <button type="button" onClick={() => unread.forEach((m) => resolveFile(conv.id, m.id, 'Removed'))} className="self-center text-[13px] font-semibold text-danger hover:underline">
+              Not a document, remove {unread.length === 1 ? 'it' : 'them'}
+            </button>
+          </>
+        )}
       </div>
     )
   }
@@ -314,6 +508,7 @@ function RightPanel({ conv, onReview }: { conv: Conversation; onReview: () => vo
               {several && (
                 <div className="mb-0.5 text-[13px] font-semibold text-brand-dark">
                   {getClient(c.clientId)?.name} · {getClient(c.clientId)?.service}
+                  {regSuffix(c.clientId).replace(' ·', '')}
                 </div>
               )}
               <div className="flex items-baseline justify-between">
@@ -322,7 +517,12 @@ function RightPanel({ conv, onReview }: { conv: Conversation; onReview: () => vo
               </div>
               <div className="mt-2 flex items-center gap-3">
                 <span className="block h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
-                  <span className="block h-full rounded-full bg-brand" style={{ width: `${docs.length ? (got / docs.length) * 100 : 0}%` }} />
+                  <span
+                    className="block h-full rounded-full bg-brand"
+                    style={{
+                      width: `${docs.length ? (got / docs.length) * 100 : 0}%`,
+                    }}
+                  />
                 </span>
                 <span className="text-[13px] font-semibold tabular-nums">
                   {got} <span className="font-medium text-muted">of {docs.length}</span>
@@ -338,7 +538,10 @@ function RightPanel({ conv, onReview }: { conv: Conversation; onReview: () => vo
           <div className="text-sm font-bold text-[#7A3B00]">
             {waiting.length} {waiting.length === 1 ? 'file needs' : 'files need'} a place
           </div>
-          <p className="mt-1 text-[12.5px] leading-relaxed text-[#7A3B00]">We could not tell which document {waiting.length === 1 ? 'it is' : 'they are'}. Look at {waiting.length === 1 ? 'it' : 'each one'} and choose where {waiting.length === 1 ? 'it goes' : 'they go'}.</p>
+          <p className="mt-1 text-[12.5px] leading-relaxed text-[#7A3B00]">
+            We could not tell which document {waiting.length === 1 ? 'it is' : 'they are'}. Look at {waiting.length === 1 ? 'it' : 'each one'} and choose where{' '}
+            {waiting.length === 1 ? 'it goes' : 'they go'}.
+          </p>
           <button type="button" onClick={onReview} className="mt-3 h-10 w-full rounded-xl bg-brand text-sm font-semibold text-white hover:bg-brand-dark">
             Review {waiting.length === 1 ? 'the file' : `${waiting.length} files`}
           </button>
@@ -349,12 +552,18 @@ function RightPanel({ conv, onReview }: { conv: Conversation; onReview: () => vo
 }
 
 export default function Inbox() {
-  const { conversations: allConversations, markRead, send, markPlaced } = useInbox()
+  const { conversations: allConversations, markRead, send, markPlaced, linkChat } = useInbox()
   const { messageTemplates, firm, readReplies, ownNumber, whatsapp } = useSetup()
   // Each WhatsApp number is shown by its name, with the number under it.
-  const accounts = { own: whatsapp?.displayName ?? 'Your WhatsApp', kdk: SHARED_NUMBER_NAME } as const
-  const accountSub = { own: whatsapp?.number ?? 'Not connected', kdk: 'Shared number · link only' } as const
-  const { requests, setDocStatus, unsorted, useUnsorted, dropUnsorted } = useRequests()
+  const accounts = {
+    own: whatsapp?.displayName ?? 'Your WhatsApp',
+    kdk: SHARED_NUMBER_NAME,
+  } as const
+  const accountSub = {
+    own: whatsapp?.number ?? 'Not connected',
+    kdk: 'Shared number · link only',
+  } as const
+  const { requests, setDocStatus, unsorted, useUnsorted, dropUnsorted, addUnsorted } = useRequests()
   // Everything except the first-request message can be dropped into a chat.
   const templates = messageTemplates.filter((m) => m.id !== 'request')
   // ?client=... opens that client's chat (from the client page). Without it, the first chat.
@@ -362,7 +571,12 @@ export default function Inbox() {
   const wanted = params.get('client')
   const wantedChat = params.get('chat')
   // Opens on the chat that was asked for (and the number it is on). Otherwise on the chat with the newest message, so what you just sent is right there.
-  const target = allConversations.find((c) => c.id === wantedChat) ?? (wanted ? (allConversations.find((c) => c.via === 'own' && c.clientIds.includes(wanted)) ?? allConversations.find((c) => c.clientIds.includes(wanted))) : allConversations[0])
+  const wantedIds = wanted ? (getBookClient(wanted)?.registrations.map((r) => r.id) ?? [wanted]) : []
+  const target =
+    allConversations.find((c) => c.id === wantedChat) ??
+    (wanted
+      ? (allConversations.find((c) => c.via === 'own' && c.clientIds.some((x) => wantedIds.includes(x))) ?? allConversations.find((c) => c.clientIds.some((x) => wantedIds.includes(x))))
+      : allConversations[0])
   const [mode, setMode] = useState<'own' | 'kdk'>(() => target?.via ?? 'own')
   const [activeId, setActiveId] = useState(() => target?.id ?? '')
   const [filter, setFilter] = useState<Filter>('all')
@@ -374,6 +588,7 @@ export default function Inbox() {
   const [reviewing, setReviewing] = useState<string | null>(null)
   const { addUploads } = useMasterStore()
   const [keeping, setKeeping] = useState(false)
+  const [savingContact, setSavingContact] = useState(false)
   const [showInfo, setShowInfo] = useState(false)
   // The side panel sits beside the chat on a wide screen. On a phone or tablet it opens over the chat instead.
   const [showPanel, setShowPanel] = useState(() => window.innerWidth >= 1100)
@@ -435,11 +650,7 @@ export default function Inbox() {
     el.style.height = `${Math.min(el.scrollHeight, 168)}px`
   }, [text])
 
-  const list = conversations.filter(
-    (c) =>
-      (filter === 'all' || (filter === 'unread' ? c.unread > 0 : !!c.unassigned)) &&
-      `${c.title} ${c.phone}`.toLowerCase().includes(query.toLowerCase()),
-  )
+  const list = conversations.filter((c) => (filter === 'all' || (filter === 'unread' ? c.unread > 0 : !!c.unassigned)) && `${c.title} ${c.phone}`.toLowerCase().includes(query.toLowerCase()))
   const unread = conversations.filter((c) => c.unread > 0).length
   const unassigned = conversations.filter((c) => c.unassigned).length
 
@@ -452,7 +663,6 @@ export default function Inbox() {
 
   const client = active.clientIds[0] ? getClient(active.clientIds[0]) : undefined
 
-
   // Files in this chat that no document claimed yet, one at a time. Open from the panel or by tapping the file in the chat.
   const waitingList = unsorted.filter((u) => u.phone === active.phone)
   const reviewIdx = waitingList.findIndex((u) => u.id === reviewing)
@@ -460,10 +670,24 @@ export default function Inbox() {
   const placeable = requests.flatMap((r) => r.clients.filter((c) => active.clientIds.includes(c.clientId)).map((c) => ({ r, c })))
   // With more than one request on this number, the list is split by request: ITR on its own, GST on its own.
   const placeOptions = placeable.flatMap(({ r, c }) => {
-    const group = (extra: boolean) => (placeable.length > 1 ? (differentPeople(active.clientIds) ? `${getClient(c.clientId)?.name} · ${r.title}` : r.title) : extra ? 'Add as another file of' : 'Not received yet')
+    const group = (extra: boolean) =>
+      placeable.length > 1 ? (differentPeople(active.clientIds) ? `${getClient(c.clientId)?.name} · ${r.title}` : r.title) : extra ? 'Add as another file of' : 'Not received yet'
     return [
-      ...c.docs.filter((d) => d.status === 'pending' || d.status === 'rejected').map((d) => ({ id: `${r.id}|${c.clientId}|${d.id}`, label: d.name, group: group(false) })),
-      ...c.docs.filter((d) => d.status === 'to_review').map((d) => ({ id: `${r.id}|${c.clientId}|${d.id}`, label: d.name, group: group(true), extra: true })),
+      ...c.docs
+        .filter((d) => d.status === 'pending' || d.status === 'rejected')
+        .map((d) => ({
+          id: `${r.id}|${c.clientId}|${d.id}`,
+          label: d.name,
+          group: group(false),
+        })),
+      ...c.docs
+        .filter((d) => d.status === 'to_review')
+        .map((d) => ({
+          id: `${r.id}|${c.clientId}|${d.id}`,
+          label: d.name,
+          group: group(true),
+          extra: true,
+        })),
     ]
   })
   const afterOne = (gone: string) => {
@@ -540,7 +764,8 @@ export default function Inbox() {
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-semibold">{accounts[k]}</span>
                           <span className="block truncate text-xs text-muted">
-                            {accountSub[k]} · {chats.length} {chats.length === 1 ? 'chat' : 'chats'}{fresh ? ` · ${fresh} unread` : ''}
+                            {accountSub[k]} · {chats.length} {chats.length === 1 ? 'chat' : 'chats'}
+                            {fresh ? ` · ${fresh} unread` : ''}
                           </span>
                         </span>
                         {mode === k && <Check size={16} className="shrink-0 text-brand" />}
@@ -616,21 +841,29 @@ export default function Inbox() {
       {/* Chat */}
       <div className={`flex min-w-0 flex-1 flex-col bg-[#EFEAE2] bg-[radial-gradient(rgba(17,27,33,0.045)_1.2px,transparent_1.2px)] [background-size:22px_22px] ${chatOpen ? '' : 'max-md:hidden'}`}>
         <div className="flex h-[60px] shrink-0 items-center gap-3 bg-[#F0F2F5] px-3 md:gap-3.5 md:px-4">
-          <button type="button" onClick={() => setChatOpen(false)} aria-label="Back to chats" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#54656F] active:bg-black/5 md:hidden">
+          <button
+            type="button"
+            onClick={() => setChatOpen(false)}
+            aria-label="Back to chats"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#54656F] active:bg-black/5 md:hidden"
+          >
             <ArrowLeft size={22} />
           </button>
+          {active.unassigned ? <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#FEE9C9] font-bold text-warn">?</span> : <Avatar name={active.title} size={40} />}
           {active.unassigned ? (
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#FEE9C9] font-bold text-warn">?</span>
+            <button type="button" onClick={() => setSavingContact(true)} title="Save this number as a contact" className="min-w-0 flex-1 rounded-lg text-left hover:bg-black/5">
+              <div className="truncate text-base font-semibold leading-tight">{active.title}</div>
+              <div className="truncate text-[13px] font-semibold text-brand-dark">Tap to save contact</div>
+            </button>
           ) : (
-            <Avatar name={active.title} size={40} />
-          )}
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-base font-semibold leading-tight">{active.title}</div>
-            <div className="truncate text-[13px] text-[#54656F]">
-              {active.phone}
-              {client && ` · ${[...new Set(active.clientIds.map((id) => getClient(id)?.service))].join(' and ')}`}
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-base font-semibold leading-tight">{active.title}</div>
+              <div className="truncate text-[13px] text-[#54656F]">
+                {active.phone}
+                {client && ` · ${[...new Set(active.clientIds.map((id) => getClient(id)?.service))].join(' and ')}`}
+              </div>
             </div>
-          </div>
+          )}
           {!showPanel && (
             <button
               type="button"
@@ -648,7 +881,9 @@ export default function Inbox() {
         <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-3 py-4 md:px-5 md:py-5">
           {active.msgs.map((m, i) => (
             <Fragment key={m.id}>
-              {(i === 0 || active.msgs[i - 1].day !== m.day) && <div className="mx-auto my-2 rounded-lg bg-white px-3 py-1 text-xs font-semibold uppercase text-[#54656F] shadow-sm">{dayLabel(m.day)}</div>}
+              {(i === 0 || active.msgs[i - 1].day !== m.day) && (
+                <div className="mx-auto my-2 rounded-lg bg-white px-3 py-1 text-xs font-semibold uppercase text-[#54656F] shadow-sm">{dayLabel(m.day)}</div>
+              )}
               <Bubble
                 m={m}
                 onOpen={(x) => {
@@ -664,7 +899,8 @@ export default function Inbox() {
 
         {mode === 'kdk' ? (
           <div className="shrink-0 border-t border-[#E9EDEF] bg-[#FFF8E1] px-5 py-3 text-[13px] leading-relaxed text-[#7A3B00]">
-            <b>These messages go from the {SHARED_NUMBER_NAME} number.</b> Clients upload through the link, so their replies are not read here. If a client writes to this number anyway, they get an automatic reply asking them to use the link.
+            <b>These messages go from the {SHARED_NUMBER_NAME} number.</b> Clients upload through the link, so their replies are not read here. If a client writes to this number anyway, they get an
+            automatic reply asking them to use the link.
           </div>
         ) : !connected ? (
           <div className="shrink-0 border-t border-[#E9EDEF] bg-[#FFF8E1] px-5 py-3 text-[13px] leading-relaxed text-[#7A3B00]">
@@ -686,7 +922,17 @@ export default function Inbox() {
                   key={t.id}
                   type="button"
                   onClick={() => {
-                    setText(fillTemplate(t.text, { name: active.unassigned ? 'there' : active.title, firm: firm.name, link: sample.link }, false))
+                    setText(
+                      fillTemplate(
+                        t.text,
+                        {
+                          name: active.unassigned ? 'there' : active.title,
+                          firm: firm.name,
+                          link: sample.link,
+                        },
+                        false,
+                      ),
+                    )
                     setShowTemplates(false)
                     taRef.current?.focus()
                   }}
@@ -723,7 +969,13 @@ export default function Inbox() {
             placeholder={own ? 'Type a message' : mode === 'kdk' ? `Replies are not read on the ${SHARED_NUMBER_NAME} number` : 'Your WhatsApp is not connected'}
             className="max-h-[168px] min-h-11 flex-1 resize-none rounded-[10px] bg-white px-4 py-[11px] text-[15px] leading-[22px] outline-none placeholder:text-[#667781] disabled:bg-slate-100"
           />
-          <button type="button" onClick={submit} aria-label="Send" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#008069] text-white disabled:opacity-40" disabled={!text.trim() || !own}>
+          <button
+            type="button"
+            onClick={submit}
+            aria-label="Send"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#008069] text-white disabled:opacity-40"
+            disabled={!text.trim() || !own}
+          >
             <Send size={19} />
           </button>
         </div>
@@ -733,7 +985,14 @@ export default function Inbox() {
         <DocPreviewDrawer
           key={reviewFile.id}
           client={client}
-          doc={{ id: reviewFile.id, name: reviewFile.fileName, status: 'to_review', source: reviewFile.source, receivedAt: reviewFile.receivedAt, fileName: reviewFile.fileName }}
+          doc={{
+            id: reviewFile.id,
+            name: reviewFile.fileName,
+            status: 'to_review',
+            source: reviewFile.source,
+            receivedAt: reviewFile.receivedAt,
+            fileName: reviewFile.fileName,
+          }}
           position={reviewIdx + 1}
           total={waitingList.length}
           onClose={() => setReviewing(null)}
@@ -746,12 +1005,38 @@ export default function Inbox() {
             onElse: () => setKeeping(true),
             onPlace: (key) => {
               const [requestId, clientId, docId] = key.split('|')
-              const name = requests.find((x) => x.id === requestId)?.clients.find((c) => c.clientId === clientId)?.docs.find((d) => d.id === docId)?.name ?? 'the request'
+              const name =
+                requests
+                  .find((x) => x.id === requestId)
+                  ?.clients.find((c) => c.clientId === clientId)
+                  ?.docs.find((d) => d.id === docId)?.name ?? 'the request'
               useUnsorted(reviewFile.id, requestId, clientId, docId)
               markPlaced(active.id, reviewFile.fileName, `Filed as ${name} · To review`, { requestId, clientId, docId })
               setToast(`${reviewFile.fileName} added to ${name}`)
               afterOne(reviewFile.id)
             },
+          }}
+        />
+      )}
+
+      {savingContact && active.unassigned && (
+        <SaveContact
+          phone={active.phone}
+          guessId={(() => {
+            const g = active.msgs.map((m) => suggestClient(m.read)).find(Boolean)
+            return g ? getBookClient(g.clientId)?.id : undefined
+          })()}
+          onClose={() => setSavingContact(false)}
+          onSave={(name, bookId) => {
+            const b = book.find((x) => x.id === bookId)
+            if (!b) return
+            const waiting = active.msgs.filter((m) => m.file && !m.matched)
+            // The number is added as one more contact. The client's own number stays as it was.
+            if (!b.contacts.some((c) => c.phone === active.phone)) addContact(b.id, { id: `ct-${Date.now()}`, name: name || 'WhatsApp contact', email: '', phone: active.phone })
+            addUnsorted(waiting.map((m) => ({ id: `ul-${Date.now()}-${m.id}`, phone: active.phone, fileName: m.file!.name, receivedAt: `Today, ${m.time}`, source: 'WhatsApp' as const })))
+            linkChat(active.id, b.registrations.map((r) => r.id), name || b.name)
+            setSavingContact(false)
+            setToast(`${active.phone} saved for ${b.name}`)
           }}
         />
       )}
@@ -762,7 +1047,17 @@ export default function Inbox() {
           clientName={active.title}
           onClose={() => setKeeping(false)}
           onSave={(folderId) => {
-            addUploads([{ id: `un-${Date.now()}`, folderId, name: reviewFile.fileName.replace(/\.[^.]+$/, ''), fileName: reviewFile.fileName, size: '—', date: 'Just now', from: 'WhatsApp' }])
+            addUploads([
+              {
+                id: `un-${Date.now()}`,
+                folderId,
+                name: reviewFile.fileName.replace(/\.[^.]+$/, ''),
+                fileName: reviewFile.fileName,
+                size: '—',
+                date: 'Just now',
+                from: 'WhatsApp',
+              },
+            ])
             dropUnsorted(reviewFile.id)
             markPlaced(active.id, reviewFile.fileName, 'Saved in Document Master')
             setToast(`${reviewFile.fileName} saved in Document Master`)
@@ -784,7 +1079,14 @@ export default function Inbox() {
           msg={viewing}
           who={active.title}
           pan={getClient(active.clientIds[0] ?? '')?.pan ?? '—'}
-          doc={viewing.link ? requests.find((r) => r.id === viewing.link!.requestId)?.clients.find((c) => c.clientId === viewing.link!.clientId)?.docs.find((d) => d.id === viewing.link!.docId) : undefined}
+          doc={
+            viewing.link
+              ? requests
+                  .find((r) => r.id === viewing.link!.requestId)
+                  ?.clients.find((c) => c.clientId === viewing.link!.clientId)
+                  ?.docs.find((d) => d.id === viewing.link!.docId)
+              : undefined
+          }
           onClose={() => setViewing(null)}
           onApprove={() => {
             const l = viewing.link!
@@ -800,17 +1102,23 @@ export default function Inbox() {
       {/* Info panel: the ✕ closes it, and the button in the chat header opens it again */}
       {showPanel && <button type="button" aria-label="Close panel" onClick={() => setShowPanel(false)} className="fixed inset-0 z-40 bg-ink/40 lg:hidden" />}
       {showPanel && (
-      <div className="flex w-[320px] shrink-0 flex-col border-l border-[#E9EDEF] bg-white max-lg:fixed max-lg:inset-y-0 max-lg:right-0 max-lg:z-40 max-lg:w-[min(360px,100%)] max-lg:shadow-[-16px_0_48px_rgba(14,27,44,0.22)]">
-        <div className="flex h-[60px] shrink-0 items-center gap-3 bg-[#F0F2F5] px-5 text-base font-semibold">
-          <button type="button" onClick={() => setShowPanel(false)} aria-label="Close panel" title="Close panel" className="flex h-8 w-8 items-center justify-center rounded-full text-[#54656F] hover:bg-black/5">
-            <X size={18} />
-          </button>
-          {active.unassigned ? 'Save these files' : 'Requests'}
+        <div className="flex w-[320px] shrink-0 flex-col border-l border-[#E9EDEF] bg-white max-lg:fixed max-lg:inset-y-0 max-lg:right-0 max-lg:z-40 max-lg:w-[min(360px,100%)] max-lg:shadow-[-16px_0_48px_rgba(14,27,44,0.22)]">
+          <div className="flex h-[60px] shrink-0 items-center gap-3 bg-[#F0F2F5] px-5 text-base font-semibold">
+            <button
+              type="button"
+              onClick={() => setShowPanel(false)}
+              aria-label="Close panel"
+              title="Close panel"
+              className="flex h-8 w-8 items-center justify-center rounded-full text-[#54656F] hover:bg-black/5"
+            >
+              <X size={18} />
+            </button>
+            {active.unassigned ? 'Save these files' : 'Requests'}
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            <RightPanel key={active.id} conv={active} onReview={() => waitingList[0] && setReviewing(waitingList[0].id)} />
+          </div>
         </div>
-        <div className="flex-1 overflow-y-auto">
-          <RightPanel key={active.id} conv={active} onReview={() => waitingList[0] && setReviewing(waitingList[0].id)} />
-        </div>
-      </div>
       )}
     </div>
   )

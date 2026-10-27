@@ -13,7 +13,7 @@ A CA (or tax practitioner) asks clients for documents on WhatsApp, the clients s
 
 ## 2. The main idea
 
-- **A request is one compliance** (ITR, GST, TDS ...) sent to one or more clients, with a last date.
+- **A request is one checklist** (a saved list of documents used for Income tax, GST or TDS) sent to one or more registrations of that kind, with a last date. Documents are not tied to a kind: PAN, Aadhaar or a bank statement can be in any checklist. "Income tax" covers everything filed on the PAN (ROC, KYC and the like).
 - **Every client gets their own message and their own link**, even when clients share a phone number.
 - A document has a status: `pending`, `to review`, `approved`, `sent back`, or `not applicable`.
 - A request is **Needs review** (something waits for the CA), **Waiting for clients**, or **Completed** (everything approved).
@@ -27,10 +27,10 @@ A CA (or tax practitioner) asks clients for documents on WhatsApp, the clients s
 | **Clients** | List with search and ITR / GST / TDS filter. A client page has Overview, Requests, Documents, Messages, Activity. Messages shows only that client's own messages. |
 | **Requests** | Table: Request, Clients, Sent, Last date, Documents, Status. Filters: search, last date, which number. Header stays in view. A row can expand to show its clients (first five). Under the clients it says how many are to review and how many are late or waiting. |
 | **Request page** | One row per client with Review, Remind or Send update. Open a client to see each document, approve or send back, copy or renew the link. Also: change last date, "Remind N clients" (or "Send update to N clients" when all are done). |
-| **New request** | Step 1 clients, step 2 checklist and documents, step 3 number, last date and message preview. |
+| **New request** | Three steps: **What you need** (Income tax, GST or TDS, then a checklist for it, then tick or add documents), **Who to ask** (only registrations of that kind, with search and Select all), **Review and send** (send from, last date, send). A summary with a message preview stays on the right. |
 | **Inbox** | WhatsApp chats, grouped by number. Side panel shows the requests of that chat and files that need a place. |
 | **Document Master** | Firm folders on top, then one folder per client. Search, "Show more", rename, move, delete, drag and drop. |
-| **Setup** | Compliances (saved checklists), Documents list, Message templates, Settings. |
+| **Setup** | Checklists (saved lists of documents, each "used for" Income tax, GST or TDS), Documents, Message templates, Settings. |
 
 ## 4. Messages
 
@@ -72,19 +72,30 @@ Two numbers can work at the same time.
 ## 6. Files from clients
 
 - A file is matched to a document by its name. If it cannot be matched it waits in "Not placed yet", for that phone number.
+- **Files nobody asked for, and many at once:** any file on the firm's own number is read (type, name, PAN / account number). In Unassigned, every file gets its own card with a guess of the client (PAN match is surest, then name) and a "Save for client" button; "Save all matched" does the lot. A repeat of the same document is flagged as a duplicate. If we cannot tell, it waits for staff. We never ask the client.
+- **Save the contact:** in Unassigned, tap the unsaved number at the top of the chat. Enter a name and pick the client (name and PAN shown). The number is saved as an extra contact (the client's own number stays). Later files from it land in that client's chat. Files still waiting move to "files that need a place".
 - **Review the files** (Inbox side panel or the request): one at a time, search for the document and save. A document that already has a file can take the new one as "another file of" it (front and back of a card, sheets of a workbook).
 - **Not for this request:** keep the file in a Document Master folder, or remove it.
 - A personal photo or a chat message is not saved. Only files that look like documents, for clients with an open request.
 
-## 7. Same number, many clients
+## 7. One client, many registrations
 
-(A father filing for his daughters, one owner with many firms.)
+The Client Master is **unified**, same shape as KDK Compliance Tracker: one client per PAN.
 
-- One phone has one chat per number, shown by the person's name. Each request still gets its own message and link.
-- The side panel shows one card per client, with the client's name when the people are different. One person with two kinds of work (ITR and GST) is not split.
-- A client's own page shows only that client's messages and files placed with them.
+- A client has **registrations** (each GSTIN, each TAN, and the PAN for ITR) and **contacts** (name, number, who is the main contact, which registration each looks after).
+- A firm with two GSTINs (e.g. Priya Textiles: Maharashtra and Karnataka) is one client in the list, with a chip per registration.
+- **A request is made per registration.** Each GSTIN/TAN gets its own line, checklist and message, sent to that registration's contact. ITR goes on the PAN.
+- The Clients list is a table, one row per client, with filters (Income tax / GST / TDS, open requests) and search. All clients come from KDK; adding by hand is parked.
+- **Client page** has four tabs: **Overview, Registrations, Requests, Documents**. Chat is the "Open chat" button; there is no Messages or Activity tab.
+  - **Overview:** three small cards (Income tax, GST, TDS). The whole card is one button: it opens Registrations. The open and overdue counts on it are plain text; then the open requests as a table, recent documents and the **main contact** only (name, mobile, email, and a **Change** button: pick another contact of the client, add a new one or edit one. Registrations that have no contact of their own follow the main contact). The full list of contacts is not shown on the Overview, because a client can have many.
+  - **Registrations:** the client drawn as a tree, read left to right (same as Compliance Tracker's Structure view): the client (name, PAN), then Income tax / GST / TDS (one colour each), then each GSTIN or TAN with its place, number, contact ("Main contact" when it is the client's own, otherwise the name) and "N open" when it has open requests. A kind the client does not have shows as a dashed card. Clicking a registration opens a side panel with its contact (**Change contact**), the WhatsApp and Email switches, and "See requests". On a phone the tree reads top to bottom.
+  - **Requests:** Income tax / GST / TDS buttons (All, Income tax, GST, TDS, with counts), a Registration dropdown, status (open, overdue, completed) and search. A line says "Showing X of Y requests" with Clear filters. One row per request and registration (request, registration, documents done, status, due); the whole row opens it. Paged.
+  - **Documents:** the client's folders in the Document Master.
+- Every registration can have its **own contact** (a second GSTIN or TAN usually has its own person at that branch). **Change** on a row lists all contacts of the client with the registrations each one handles: pick one (for example the Maharashtra contact for Rajasthan), add a new one by hand, or **Edit** one (editing changes it for every registration that uses it). Switches follow Client Communication Settings: no mobile number means WhatsApp cannot be on, no email means email cannot be on. A request message goes to that registration's contact, and only when WhatsApp is on. Email is only a switch for now, no email is sent.
+- When two clients share a contact (a father filing for daughters, an owner with many firms), the page says so. One phone has one chat per number, and each request still gets its own message and link.
 - Files that cannot be matched wait for the CA to place them.
-- Sample data: **Ram Sharma** (with Reeta and Seeta) and **Suresh Agarwal** (three firms).
+- Document Master: one folder per client, then year, then registration.
+- Sample data: **Ramesh Kumar** (ITR + GST), **Priya Textiles** (two GSTINs), **Ram Sharma** and **Suresh Agarwal** (many people / firms on one number).
 
 ## 8. Documents we already have
 
@@ -124,8 +135,9 @@ This was tried ("On file": PAN, Aadhaar and similar are kept and not asked again
 
 - Backend, database, file storage, real login.
 - Real WhatsApp (provider, templates approval, delivery and read marks, the 250 new clients per day limit on a new account).
-- Reading documents automatically (AI / OCR).
-- Add and edit client form, KDK sync.
+- Real AI / OCR. The Inbox already shows what a file was "read" as (demo data), but nothing is really read yet. Ticking the checklist from what is read is also not built.
+- KDK sync (real). All clients come from KDK.
+- Parked: adding or editing a client by hand. For now every client comes from KDK only.
 - Real domain for upload links.
 
 ## 14. Decisions taken

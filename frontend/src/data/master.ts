@@ -1,5 +1,6 @@
 import type { DocRequest } from './requests'
-import { clients, getClient } from './mock'
+import { clients, getClient, parentIdOf, regSuffix } from './mock'
+import type { Client } from './types'
 import type { Service } from './types'
 
 export const folderIdOf = (clientId: string, fy: string, compliance: string) => `c:${clientId}/${fy}/${compliance}`
@@ -22,12 +23,13 @@ const sizeOf = (s: string) => {
   return kb > 700 ? `${(kb / 400).toFixed(1)} MB` : `${kb} KB`
 }
 
-const file = (clientId: string, fy: string, compliance: Service, name: string, date: string, from = 'Earlier'): MasterFile => ({
-  id: `${clientId}-${fy}-${name}`,
-  folderId: folderIdOf(clientId, fy, compliance),
+// The folder is the client's, and under it the year and the compliance (with the state or place when the client has several GSTINs or TANs).
+const file = (c: Client, fy: string, name: string, date: string, from = 'Earlier'): MasterFile => ({
+  id: `${c.id}-${fy}-${name}`,
+  folderId: folderIdOf(parentIdOf(c.id), fy, `${c.service}${regSuffix(c.id)}`),
   name,
   fileName: `${name.replace(/[^\w ]/g, '').trim()}.pdf`,
-  size: sizeOf(name + clientId),
+  size: sizeOf(name + c.id),
   date,
   from,
 })
@@ -53,7 +55,7 @@ const archive: MasterFile[] = clients.flatMap((c, i) =>
     y.docs
       // not every client has every file, which is how a real office looks
       .filter((_, k) => (i + k) % 6 !== 5)
-      .map((name) => file(c.id, y.fy, c.service, name, y.month)),
+      .map((name) => file(c, y.fy, name, y.month)),
   ),
 )
 
@@ -70,7 +72,7 @@ export function buildMaster(requests: DocRequest[]): MasterFile[] {
         .filter((d) => d.status === 'approved')
         .map((d) => ({
           id: `${r.id}-${rc.clientId}-${d.id}`,
-          folderId: folderIdOf(rc.clientId, 'FY 2025-26', complianceOf(r.title, client.service)),
+          folderId: folderIdOf(parentIdOf(rc.clientId), 'FY 2025-26', `${complianceOf(r.title, client.service)}${client.service === 'ITR' ? '' : regSuffix(rc.clientId)}`),
           name: d.name,
           fileName: d.fileName ?? `${d.name}.pdf`,
           size: sizeOf(d.name + rc.clientId),

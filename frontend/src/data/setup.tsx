@@ -1,6 +1,7 @@
 import { useSessionState } from '../lib/session'
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
+import type { Service } from './types'
 import { groups as seedGroups, templates as seedTemplates } from './catalog'
 import { seedMessages } from './messageTemplates'
 import type { MsgTemplate } from './messageTemplates'
@@ -23,6 +24,7 @@ interface DocItem {
 export interface Compliance {
   id: string
   name: string
+  kind: Service // ITR, GST or TDS. Picked when the checklist is made.
   docIds: string[]
 }
 export interface TeamMember {
@@ -41,7 +43,7 @@ export interface Firm {
 }
 
 const seedDocs: DocItem[] = seedGroups.flatMap((g) => g.docs.map((d) => ({ id: d.id, name: d.name, group: g.title })))
-const seedCompliances: Compliance[] = seedTemplates.filter((t) => t.id !== 'custom').map((t) => ({ id: t.id, name: t.name, docIds: t.docIds }))
+const seedCompliances: Compliance[] = seedTemplates.filter((t) => t.id !== 'custom').map((t) => ({ id: t.id, name: t.name, kind: t.kind, docIds: t.docIds }))
 
 const seedTeam: TeamMember[] = [
   { id: 't1', name: 'Kartik Khandelwal', email: 'kartik@khandelwal.example', role: 'Owner' },
@@ -53,7 +55,7 @@ interface Store {
   documents: DocItem[]
   groups: { title: string; docs: DocItem[] }[] // only categories that have documents (for checklists)
   categories: string[] // every category, including empty ones (for the Documents list page)
-  addDocument: (name: string, group: string) => void
+  addDocument: (name: string, group: string) => string
   renameDocument: (id: string, name: string) => void
   moveDocument: (id: string, group: string) => void
   removeDocument: (id: string) => void
@@ -63,7 +65,7 @@ interface Store {
 
   compliances: Compliance[]
   templates: Compliance[] // compliances plus the built-in "Custom" choice used by the request wizard
-  addCompliance: () => string
+  addCompliance: (name: string, kind: Service, docIds?: string[]) => string
   updateCompliance: (id: string, patch: Partial<Compliance>) => void
   removeCompliance: (id: string) => void
 
@@ -111,8 +113,10 @@ export function SetupProvider({ children }: { children: ReactNode }) {
   const [readReplies, setReadReplies] = useSessionState('readReplies', true)
 
   const addDocument = useCallback((name: string, group: string) => {
-    setDocuments((p) => [...p, { id: `d-${Date.now()}`, name, group }])
+    const id = `d-${Date.now()}`
+    setDocuments((p) => [...p, { id, name, group }])
     setCategories((p) => (p.includes(group) ? p : [...p, group]))
+    return id
   }, [])
   const moveDocument = useCallback((id: string, group: string) => {
     setDocuments((p) => p.map((d) => (d.id === id ? { ...d, group } : d)))
@@ -130,9 +134,9 @@ export function SetupProvider({ children }: { children: ReactNode }) {
     setCompliances((p) => p.map((c) => ({ ...c, docIds: c.docIds.filter((x) => x !== id) })))
   }, [])
 
-  const addCompliance = useCallback(() => {
+  const addCompliance = useCallback((name: string, kind: Service, docIds: string[] = []) => {
     const id = `cp-${Date.now()}`
-    setCompliances((p) => [...p, { id, name: 'New compliance', docIds: [] }])
+    setCompliances((p) => [...p, { id, name, kind, docIds }])
     return id
   }, [])
   const updateCompliance = useCallback(
@@ -153,7 +157,7 @@ export function SetupProvider({ children }: { children: ReactNode }) {
     () => categories.map((title) => ({ title, docs: documents.filter((d) => d.group === title) })).filter((g) => g.docs.length > 0),
     [categories, documents],
   )
-  const templates = useMemo(() => [...compliances, { id: 'custom', name: 'Custom', docIds: [] }], [compliances])
+  const templates = useMemo(() => [...compliances, { id: 'custom', name: 'Custom', kind: 'ITR' as Service, docIds: [] }], [compliances])
 
   const value = useMemo<Store>(
     () => ({

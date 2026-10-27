@@ -1,4 +1,4 @@
-import { ArrowLeft, Check, FileText, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
+import { ArrowLeft, FileText, MoreHorizontal, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
 import Page from '../components/Page'
 import { useState } from 'react'
 import { useSetup } from '../data/setup'
@@ -12,11 +12,10 @@ export default function Documents() {
   // On a phone you see the categories, or the documents of one category.
   const [showDocs, setShowDocs] = useState(false)
   const [query, setQuery] = useState('')
-  const [name, setName] = useState('')
-
-  const [editId, setEditId] = useState<string | null>(null)
-  const [editText, setEditText] = useState('')
-  const [editGroup, setEditGroup] = useState('')
+  // A document is made or changed in a small window: id null means a new one.
+  const [form, setForm] = useState<{ id: string | null; name: string; group: string; sure?: boolean } | null>(null)
+  // The row menu is drawn over the page (fixed), so the list can never cut it off. It opens upward near the bottom of the screen.
+  const [rowMenu, setRowMenu] = useState<{ id: string; top: number; right: number } | null>(null)
   const [confirmId, setConfirmId] = useState<string | null>(null)
 
   const [addingCat, setAddingCat] = useState(false)
@@ -25,7 +24,12 @@ export default function Documents() {
   const [renamingCat, setRenamingCat] = useState<string | null>(null)
   const [confirmCat, setConfirmCat] = useState<string | null>(null)
 
-  const usedIn = (id: string) => compliances.filter((c) => c.docIds.includes(id)).length
+  const usedBy = (id: string) => compliances.filter((c) => c.docIds.includes(id))
+  const usedIn = (id: string) => usedBy(id).length
+  const namesOf = (id: string) => {
+    const list = usedBy(id).map((c) => c.name)
+    return list.length > 4 ? `${list.slice(0, 4).join(', ')} and ${list.length - 4} more` : list.join(', ')
+  }
   const countOf = (c: string) => documents.filter((d) => d.group === c).length
 
   const searching = query.trim() !== ''
@@ -33,18 +37,22 @@ export default function Documents() {
   const list = documents.filter((d) => (searching ? d.name.toLowerCase().includes(query.toLowerCase()) : current === ALL || d.group === current))
   const showCategoryTag = searching || current === ALL
 
-  const addDoc = () => {
-    const n = name.trim()
+  const startNew = () => setForm({ id: null, name: '', group: current === ALL ? (categories[0] ?? 'Other') : current })
+  const saveForm = () => {
+    if (!form) return
+    const n = form.name.trim()
     if (!n) return
-    addDocument(n, current === ALL ? (categories[0] ?? 'Other') : current)
-    setName('')
-  }
-
-  const saveEdit = (id: string, originalGroup: string) => {
-    const n = editText.trim()
-    if (n) renameDocument(id, n)
-    if (editGroup && editGroup !== originalGroup) moveDocument(id, editGroup)
-    setEditId(null)
+    // A document that sits in checklists is renamed there too, so the CA is asked once.
+    const was = form.id ? documents.find((d) => d.id === form.id) : undefined
+    if (was && n !== was.name && usedIn(was.id) > 0 && !form.sure) return setForm({ ...form, sure: true })
+    if (form.id === null) {
+      addDocument(n, form.group)
+    } else {
+      renameDocument(form.id, n)
+      const was = documents.find((d) => d.id === form.id)
+      if (was && was.group !== form.group) moveDocument(form.id, form.group)
+    }
+    setForm(null)
   }
 
   const submitCategory = () => {
@@ -74,30 +82,26 @@ export default function Documents() {
   return (
     <Page
       header={
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between md:gap-4">
-        <div>
-          <h1 className="text-[24px] font-bold tracking-tight">Documents list</h1>
-          <p className="mt-0.5 text-sm text-muted">
-            Every document you ask for. {documents.length} documents in {categories.length} categories.
-          </p>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-[24px] font-bold tracking-tight">Documents</h1>
+            <p className="mt-0.5 text-sm text-muted">
+              Every document you ask for. {documents.length} documents in {categories.length} categories.
+            </p>
+          </div>
+          <button type="button" onClick={startNew} className="flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl bg-brand px-5 text-sm font-semibold text-white shadow-[0_6px_16px_rgba(11,122,107,0.25)]">
+            <Plus size={16} strokeWidth={2.3} />
+            New document
+          </button>
         </div>
-        <label className="flex h-11 w-80 shrink-0 items-center gap-2.5 rounded-xl border border-line bg-white px-4 text-sm text-muted max-md:w-full">
-          <Search size={16} />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search all documents" className="w-full bg-transparent outline-none placeholder:text-muted" />
-          {searching && (
-            <button type="button" aria-label="Clear search" onClick={() => setQuery('')} className="text-muted hover:text-ink">
-              <X size={15} />
-            </button>
-          )}
-        </label>
-      </div>
       }
       fixed
     >
-      <div className="grid h-full min-h-0 grid-cols-1 gap-5 md:grid-cols-12">
+      <div className="grid h-full min-h-0 grid-cols-1 gap-5 md:grid-cols-[300px_1fr]">
         {/* Categories */}
-        <aside className={`min-h-0 overflow-y-auto rounded-[18px] border border-line bg-white p-3 md:col-span-3 ${showDocs || searching ? 'max-md:hidden' : ''}`}>
-          <div className="px-2 pb-2 pt-1 text-[11px] font-bold uppercase tracking-widest text-faint">Categories</div>
+        <aside className={`flex min-h-0 flex-col overflow-hidden rounded-[18px] border border-line bg-white ${showDocs || searching ? 'max-md:hidden' : ''}`}>
+          <div className="shrink-0 px-5 pb-1 pt-4 text-[11px] font-bold uppercase tracking-widest text-faint">Categories</div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-2">
           <button
             type="button"
             onClick={() => {
@@ -162,174 +166,278 @@ export default function Documents() {
             </div>
           ))}
 
-          <div className="mt-2 border-t border-line pt-2">
-            {addingCat ? (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault()
-                  submitCategory()
-                }}
-                className="p-1"
-              >
-                <input
-                  autoFocus
-                  value={catText}
-                  onChange={(e) => {
-                    setCatText(e.target.value)
-                    setCatError('')
-                  }}
-                  placeholder="Category name"
-                  aria-label="Category name"
-                  className="h-10 w-full rounded-lg border border-line px-3 text-sm outline-none focus:border-brand"
-                />
-                {catError && <p className="mt-1 text-xs font-medium text-danger">{catError}</p>}
-                <div className="mt-2 flex gap-2">
-                  <button type="submit" className="h-9 flex-1 rounded-lg bg-brand text-[13px] font-semibold text-white">
-                    {renamingCat ? 'Rename' : 'Add'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAddingCat(false)
-                      setRenamingCat(null)
-                    }}
-                    className="h-9 rounded-lg border border-line px-3 text-[13px] font-semibold"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <button type="button" onClick={() => startCategoryForm(null)} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-brand hover:bg-canvas">
-                <Plus size={15} strokeWidth={2.4} />
-                New category
-              </button>
-            )}
+          </div>
+          <div className="shrink-0 border-t border-line p-3">
+            <button type="button" onClick={() => startCategoryForm(null)} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-brand hover:bg-canvas">
+              <Plus size={15} strokeWidth={2.4} />
+              New category
+            </button>
           </div>
         </aside>
 
         {/* Documents */}
-        <section className={`flex min-h-0 flex-col overflow-hidden rounded-[18px] border border-line bg-white md:col-span-9 ${showDocs || searching ? '' : 'max-md:hidden'}`}>
-          <div className="shrink-0 border-b border-line px-4 py-4 md:px-6">
+        <section className={`flex min-h-0 flex-col overflow-hidden rounded-[18px] border border-line bg-white ${showDocs || searching ? '' : 'max-md:hidden'}`}>
+          <div className="shrink-0 border-b border-line px-6 py-4">
             <button type="button" onClick={() => { setShowDocs(false); setQuery('') }} className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-brand md:hidden">
               <ArrowLeft size={16} />
               All categories
             </button>
-            <h2 className="text-lg font-bold">
-              {searching ? `Results for “${query.trim()}”` : current === ALL ? 'All documents' : current}
-              <span className="ml-2 text-sm font-medium text-muted">{list.length}</span>
-            </h2>
-            {!searching && (
-              <div className="mt-3 flex gap-2.5">
-                <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && addDoc()}
-                  placeholder={current === ALL ? `Add a document to ${categories[0] ?? 'Other'}` : `Add a document to ${current}`}
-                  aria-label="New document name"
-                  className="h-11 flex-1 rounded-xl border border-line px-3.5 text-[15px] outline-none focus:border-brand"
-                />
-                <button type="button" onClick={addDoc} disabled={!name.trim()} className="flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl bg-brand px-5 text-sm font-semibold text-white disabled:opacity-40">
-                  <Plus size={16} strokeWidth={2.4} />
-                  Add
-                </button>
+            <div className="flex items-center gap-4">
+              <div className="min-w-0 flex-1">
+                <h2 className="truncate text-lg font-bold">
+                  {searching ? `Results for “${query.trim()}”` : current === ALL ? 'All documents' : current}
+                  <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-600">{list.length}</span>
+                </h2>
               </div>
-            )}
+              <label className="flex h-10 w-72 items-center gap-2 rounded-xl border border-line bg-white px-3 text-sm text-muted focus-within:border-brand">
+                <Search size={15} />
+                <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search all documents" className="w-full bg-transparent outline-none placeholder:text-muted" />
+                {searching && (
+                  <button type="button" aria-label="Clear search" onClick={() => setQuery('')} className="text-muted hover:text-ink">
+                    <X size={15} />
+                  </button>
+                )}
+              </label>
+            </div>
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto">
-          {list.length === 0 && (
-            <div className="flex flex-col items-center gap-2 px-6 py-14 text-center">
-              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-canvas text-muted">
-                <FileText size={22} />
-              </span>
-              <p className="text-[15px] font-semibold">{searching ? 'No document matches your search' : 'No documents here yet'}</p>
-              {!searching && <p className="text-sm text-muted">Type a name above and press Add.</p>}
-            </div>
-          )}
+            {showCategoryTag && list.length > 0 && (
+              <div className="sticky top-0 z-[1] grid grid-cols-[1fr_180px_150px_48px] gap-4 border-b border-line bg-slate-50 px-6 py-2 text-[11px] font-bold uppercase tracking-wider text-faint max-lg:hidden">
+                <span>Document</span>
+                <span>Category</span>
+                <span>Used in</span>
+                <span />
+              </div>
+            )}
+            {list.length === 0 && (
+              <div className="flex flex-col items-center gap-2 px-6 py-16 text-center">
+                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-canvas text-muted">
+                  <FileText size={22} />
+                </span>
+                <p className="text-[15px] font-semibold">{searching ? 'No document matches your search' : 'No documents here yet'}</p>
+                {!searching && (
+                  <button type="button" onClick={startNew} className="mt-1 flex h-10 items-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-white">
+                    <Plus size={15} /> New document
+                  </button>
+                )}
+              </div>
+            )}
 
-          {list.map((d) => (
-            <div key={d.id} className="flex items-center gap-4 border-b border-line px-6 py-3 last:border-b-0">
-              {editId === d.id ? (
-                <>
-                  <input
-                    autoFocus
-                    value={editText}
-                    onChange={(e) => setEditText(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') saveEdit(d.id, d.group)
-                      if (e.key === 'Escape') setEditId(null)
-                    }}
-                    aria-label="Document name"
-                    className="h-10 flex-1 rounded-lg border border-brand px-3 text-sm outline-none"
-                  />
-                  <select value={editGroup} onChange={(e) => setEditGroup(e.target.value)} aria-label="Category" className="h-10 w-44 rounded-lg border border-line bg-white px-2.5 text-sm outline-none focus:border-brand">
-                    {categories.map((c) => (
-                      <option key={c}>{c}</option>
-                    ))}
-                  </select>
-                  <button type="button" aria-label="Save" onClick={() => saveEdit(d.id, d.group)} className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand text-white">
-                    <Check size={17} />
-                  </button>
-                  <button type="button" aria-label="Cancel" onClick={() => setEditId(null)} className="flex h-10 w-10 items-center justify-center rounded-lg border border-line">
-                    <X size={16} />
-                  </button>
-                </>
-              ) : (
-                <>
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-canvas text-muted">
-                    <FileText size={17} />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-semibold">{d.name}</div>
-                    <div className="text-xs text-muted">
-                      {showCategoryTag && <span className="mr-1.5 font-semibold text-slate-600">{d.group} ·</span>}
-                      {usedIn(d.id) === 0 ? 'Not in any compliance' : `In ${usedIn(d.id)} ${usedIn(d.id) === 1 ? 'compliance' : 'compliances'}`}
-                    </div>
+            {list.map((d) => {
+              const n = usedIn(d.id)
+              return (
+                <div key={d.id} className={`group grid items-center gap-4 border-b border-line px-6 py-3 last:border-b-0 hover:bg-slate-50/70 ${showCategoryTag ? 'lg:grid-cols-[1fr_180px_150px_48px]' : 'lg:grid-cols-[1fr_150px_48px]'} grid-cols-[1fr_48px]`}>
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-canvas text-muted">
+                      <FileText size={17} />
+                    </span>
+                    <span className="truncate text-[14.5px] font-semibold">{d.name}</span>
                   </div>
-                  {confirmId === d.id ? (
-                    <div className="flex items-center gap-2 text-[13px] font-semibold">
-                      <span className="text-danger">Delete?{usedIn(d.id) > 0 && ` It will leave ${usedIn(d.id)} compliance.`}</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          removeDocument(d.id)
-                          setConfirmId(null)
-                        }}
-                        className="rounded-lg bg-danger px-3 py-1.5 text-white"
-                      >
-                        Yes
-                      </button>
-                      <button type="button" aria-label="Cancel" onClick={() => setConfirmId(null)} className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-canvas">
-                        <X size={15} />
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <button
-                        type="button"
-                        aria-label={`Edit ${d.name}`}
-                        onClick={() => {
-                          setEditId(d.id)
-                          setEditText(d.name)
-                          setEditGroup(d.group)
-                        }}
-                        className="flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-canvas hover:text-ink"
-                      >
-                        <Pencil size={15} />
-                      </button>
-                      <button type="button" aria-label={`Delete ${d.name}`} onClick={() => setConfirmId(d.id)} className="flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-danger-soft hover:text-danger">
-                        <Trash2 size={15} />
-                      </button>
-                    </>
-                  )}
-                </>
-              )}
-            </div>
-          ))}
+                  {showCategoryTag && <span className="truncate text-[13px] text-slate-600 max-lg:hidden">{d.group}</span>}
+                  <span className="max-lg:hidden">
+                    {n === 0 ? <span className="text-[13px] text-faint">Not used</span> : <span className="rounded-full bg-brand-soft px-2.5 py-1 text-xs font-semibold text-brand-dark">{n} {n === 1 ? 'checklist' : 'checklists'}</span>}
+                  </span>
+                  <div className="relative justify-self-end">
+                    <button
+                      type="button"
+                      aria-label={`More for ${d.name}`}
+                      aria-haspopup="menu"
+                      onClick={(e) => {
+                        if (rowMenu?.id === d.id) return setRowMenu(null)
+                        const r = e.currentTarget.getBoundingClientRect()
+                        const menuHeight = 96
+                        setRowMenu({ id: d.id, top: r.bottom + menuHeight + 12 > window.innerHeight ? r.top - menuHeight - 4 : r.bottom + 4, right: window.innerWidth - r.right })
+                      }}
+                      className="flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-canvas hover:text-ink"
+                    >
+                      <MoreHorizontal size={17} />
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </section>
       </div>
+      {rowMenu && (
+        <>
+          <button type="button" aria-label="Close menu" className="fixed inset-0 z-40 cursor-default" onClick={() => setRowMenu(null)} />
+          <div role="menu" style={{ top: rowMenu.top, right: rowMenu.right }} className="fixed z-50 w-44 overflow-hidden rounded-xl border border-line bg-white py-1 shadow-xl">
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                const d = documents.find((x) => x.id === rowMenu.id)
+                setRowMenu(null)
+                if (d) setForm({ id: d.id, name: d.name, group: d.group })
+              }}
+              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm font-semibold hover:bg-canvas"
+            >
+              <Pencil size={14} /> Edit
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setConfirmId(rowMenu.id)
+                setRowMenu(null)
+              }}
+              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm font-semibold text-danger hover:bg-danger-soft"
+            >
+              <Trash2 size={14} /> Delete
+            </button>
+          </div>
+        </>
+      )}
+
+      {addingCat && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-6"
+          role="dialog"
+          aria-modal="true"
+          aria-label={renamingCat ? 'Rename category' : 'New category'}
+          onClick={() => {
+            setAddingCat(false)
+            setRenamingCat(null)
+          }}
+        >
+          <form
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={(e) => {
+              e.preventDefault()
+              submitCategory()
+            }}
+            className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl"
+          >
+            <div className="text-base font-bold">{renamingCat ? 'Rename category' : 'New category'}</div>
+            <label className="mt-4 block text-[13px] font-semibold text-muted">
+              Name
+              <input
+                autoFocus
+                value={catText}
+                onChange={(e) => {
+                  setCatText(e.target.value)
+                  setCatError('')
+                }}
+                placeholder="For example, Registrations"
+                className="mt-1 block h-11 w-full rounded-xl border border-line px-3.5 text-[15px] font-medium text-ink outline-none focus:border-brand"
+              />
+            </label>
+            {catError && <p className="mt-1.5 text-xs font-medium text-danger">{catError}</p>}
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setAddingCat(false)
+                  setRenamingCat(null)
+                }}
+                className="h-10 rounded-xl border border-line px-4 text-sm font-semibold"
+              >
+                Cancel
+              </button>
+              <button type="submit" disabled={!catText.trim()} className="h-10 rounded-xl bg-brand px-5 text-sm font-semibold text-white disabled:opacity-40">
+                {renamingCat ? 'Rename' : 'Add category'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {form && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label={form.id ? 'Edit document' : 'New document'} onClick={() => setForm(null)}>
+          <form
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={(e) => {
+              e.preventDefault()
+              saveForm()
+            }}
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+          >
+            {form.sure && form.id ? (
+              <>
+                <div className="text-base font-bold">Change the name in {usedIn(form.id)} {usedIn(form.id) === 1 ? 'checklist' : 'checklists'}?</div>
+                <p className="mt-1.5 text-[13px] leading-relaxed text-muted">
+                  “{documents.find((d) => d.id === form.id)?.name}” will be called “{form.name.trim()}” in {namesOf(form.id)}. Requests you already sent are not changed.
+                </p>
+              </>
+            ) : (
+              <>
+            <div className="text-base font-bold">{form.id ? 'Edit document' : 'New document'}</div>
+            <label className="mt-4 block text-[13px] font-semibold text-muted">
+              Name
+              <input
+                autoFocus
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder="For example, Rent agreement"
+                className="mt-1 block h-11 w-full rounded-xl border border-line px-3.5 text-[15px] font-medium text-ink outline-none focus:border-brand"
+              />
+            </label>
+            <label className="mt-4 block text-[13px] font-semibold text-muted">
+              Category
+              <select value={form.group} onChange={(e) => setForm({ ...form, group: e.target.value })} className="mt-1 block h-11 w-full rounded-xl border border-line bg-white px-3 text-sm font-medium text-ink outline-none focus:border-brand">
+                {categories.map((c) => (
+                  <option key={c}>{c}</option>
+                ))}
+              </select>
+            </label>
+              </>
+            )}
+            <div className="mt-6 flex justify-end gap-2">
+              {form.sure ? (
+                <button type="button" onClick={() => setForm({ ...form, sure: false })} className="h-10 rounded-xl border border-line px-4 text-sm font-semibold">
+                  Back
+                </button>
+              ) : (
+                <button type="button" onClick={() => setForm(null)} className="h-10 rounded-xl border border-line px-4 text-sm font-semibold">
+                  Cancel
+                </button>
+              )}
+              <button type="submit" disabled={!form.name.trim()} className="h-10 rounded-xl bg-brand px-5 text-sm font-semibold text-white disabled:opacity-40">
+                {form.sure ? 'Yes, change it' : form.id ? 'Save' : 'Add document'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {confirmId && (() => {
+        const d = documents.find((x) => x.id === confirmId)
+        if (!d) return null
+        const n = usedIn(d.id)
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="Delete document" onClick={() => setConfirmId(null)}>
+            <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <div className="text-base font-bold">{n > 0 ? `Delete “${d.name}” from ${n} ${n === 1 ? 'checklist' : 'checklists'}?` : `Delete “${d.name}”?`}</div>
+              <p className="mt-1.5 text-[13px] leading-relaxed text-muted">
+                {n > 0 ? (
+                  <>
+                    It will be taken out of {namesOf(d.id)}, so it will not be asked for in new requests. Requests you already sent and files you already received are not changed.
+                  </>
+                ) : (
+                  'It is not in any checklist. Requests you already sent are not changed.'
+                )}
+              </p>
+              <div className="mt-5 flex justify-end gap-2">
+                <button type="button" onClick={() => setConfirmId(null)} className="h-10 rounded-xl border border-line px-4 text-sm font-semibold">
+                  Keep it
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    removeDocument(d.id)
+                    setConfirmId(null)
+                  }}
+                  className="h-10 rounded-xl bg-danger px-4 text-sm font-semibold text-white"
+                >
+                  {n > 0 ? `Delete from ${n}` : 'Delete'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </Page>
   )
 }

@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { todayISO } from '../lib/dates'
 import { useInbox } from './inbox'
-import { getClient } from './mock'
+import { getClient, partyName } from './mock'
 import { fmtDate, isReceived, useRequests } from './requests'
 import { useSetup } from './setup'
 import type { AttentionItem } from './types'
@@ -29,7 +29,7 @@ export function useAttention() {
         const late = missing > 0 && r.due < today
         if (late) stats.overdue++
 
-        const base = { clientId: rc.clientId, service: client.service, requestId: r.id, request: r.title, got, total: counted.length, toReview: toReview.length, title: client.name }
+        const base = { clientId: rc.clientId, service: client.service, requestId: r.id, request: r.title, got, total: counted.length, toReview: toReview.length, title: partyName(rc.clientId) }
 
         if (toReview.length > 0) {
           const first = toReview[0]
@@ -48,7 +48,7 @@ export function useAttention() {
             ...base,
             id: `s:${r.id}:${rc.clientId}`,
             kind: 'no_response',
-            sub: `${missing} ${missing === 1 ? 'document' : 'documents'} missing`,
+            sub: `${missing} ${missing === 1 ? 'document' : 'documents'} pending`,
             activity: late ? `Overdue since ${fmtDate(r.due)}` : got === 0 ? `Waiting since ${fmtDate(r.createdAt)}` : `Due ${fmtDate(r.due)}`,
             activitySub: rc.lastReminder ? `Last reminder ${rc.lastReminder}` : 'No reminder sent yet',
             activityTone: late ? 'danger' : undefined,

@@ -13,7 +13,7 @@ import Pagination, { usePaging } from '../components/Pagination'
 import { buildMaster } from '../data/master'
 import type { MasterFile } from '../data/master'
 import { FIRM_FOLDER, useMasterStore } from '../data/masterStore'
-import { getClient } from '../data/mock'
+import { getBookClient } from '../data/mock'
 import { useRequests } from '../data/requests'
 
 interface Node {
@@ -142,7 +142,7 @@ export default function Master() {
       const [, clientId, fy, comp] = m
       const c = `c:${clientId}`
       const y = `${c}/${fy}`
-      map.set(c, { id: c, name: getClient(clientId)?.name ?? clientId, parentId: null, kind: 'client', clientId })
+      map.set(c, { id: c, name: getBookClient(clientId)?.name ?? clientId, parentId: null, kind: 'client', clientId })
       map.set(y, { id: y, name: folderNames[y] ?? fy, parentId: c, kind: 'fy', clientId })
       map.set(f.folderId!, { id: f.folderId!, name: folderNames[f.folderId!] ?? comp, parentId: y, kind: 'compliance', clientId })
     }
@@ -427,7 +427,7 @@ export default function Master() {
         )
       })
 
-  const clientForPreview = open ? getClient(clientOf(open.folderId) ?? '') : undefined
+  const clientForPreview = open ? getBookClient(clientOf(open.folderId) ?? '') : undefined
 
   return (
     <div className="flex h-full md:min-h-[640px]">

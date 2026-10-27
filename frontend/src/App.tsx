@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
 import Splash from './components/Splash'
 import ClientDetail from './pages/ClientDetail'
@@ -8,7 +8,7 @@ import Clients from './pages/Clients'
 import Dashboard from './pages/Dashboard'
 import FileView from './pages/FileView'
 import Inbox from './pages/Inbox'
-import Compliances from './pages/Compliances'
+import Checklists from './pages/Checklists'
 import Documents from './pages/Documents'
 import Master from './pages/Master'
 import NewRequest from './pages/NewRequest'
@@ -50,7 +50,8 @@ export default function App() {
         <Route path="requests/:id" element={<RequestDetail />} />
         <Route path="inbox" element={<Inbox />} />
         <Route path="master" element={<Master />} />
-        <Route path="compliances" element={<Compliances />} />
+        <Route path="checklists" element={<Checklists />} />
+        <Route path="compliances" element={<Navigate replace to="/checklists" />} />
         <Route path="documents" element={<Documents />} />
         <Route path="templates" element={<Templates />} />
         <Route path="settings" element={<Settings />} />
