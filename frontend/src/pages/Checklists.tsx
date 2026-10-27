@@ -26,6 +26,8 @@ export default function Checklists() {
   const [selectedId, setSelectedId] = useState<string>(compliances[0]?.id ?? '')
   const [confirm, setConfirm] = useState(false)
   const [menu, setMenu] = useState(false)
+  // "New checklist" first asks for a name and what it is used for, then makes it.
+  const [creating, setCreating] = useState<{ name: string; kind: Service } | null>(null)
   const [query, setQuery] = useState('')
   const [kindFilter, setKindFilter] = useState<'All' | Service>('All')
   const [docQuery, setDocQuery] = useState('')
@@ -68,13 +70,7 @@ export default function Checklists() {
           </div>
           <button
             type="button"
-            onClick={() => {
-              setSelectedId(addCompliance())
-              setConfirm(false)
-              setDetail(true)
-              setKindFilter('All')
-              setQuery('')
-            }}
+            onClick={() => setCreating({ name: '', kind: kindFilter === 'All' ? 'GST' : kindFilter })}
             className="flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl bg-brand px-5 text-sm font-semibold text-white shadow-[0_6px_16px_rgba(11,122,107,0.25)]"
           >
             <Plus size={16} strokeWidth={2.3} />
@@ -286,6 +282,64 @@ export default function Checklists() {
           </section>
         )}
       </div>
+      {creating && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="New checklist" onClick={() => setCreating(null)}>
+          <form
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={(e) => {
+              e.preventDefault()
+              const name = creating.name.trim()
+              if (!name) return
+              setSelectedId(addCompliance(name, creating.kind))
+              setConfirm(false)
+              setDetail(true)
+              setKindFilter('All')
+              setQuery('')
+              setCreating(null)
+            }}
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+          >
+            <div className="text-base font-bold">New checklist</div>
+            <p className="mt-1 text-[13px] text-muted">Give it a name, then pick its documents.</p>
+            <label className="mt-4 block text-[13px] font-semibold text-muted">
+              Name
+              <input
+                autoFocus
+                value={creating.name}
+                onChange={(e) => setCreating({ ...creating, name: e.target.value })}
+                placeholder="For example, Notice reply documents"
+                className="mt-1 block h-11 w-full rounded-xl border border-line px-3.5 text-[15px] font-semibold text-ink outline-none focus:border-brand"
+              />
+            </label>
+            <div className="mt-4 text-[13px] font-semibold text-muted">
+              Used for
+              <div className="mt-1.5 flex gap-1 rounded-xl bg-slate-100 p-1" role="radiogroup" aria-label="Used for">
+                {(['ITR', 'GST', 'TDS'] as const).map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    role="radio"
+                    aria-checked={creating.kind === k}
+                    onClick={() => setCreating({ ...creating, kind: k })}
+                    className={`h-9 flex-1 rounded-lg text-sm font-semibold transition-colors ${creating.kind === k ? 'bg-white text-brand-dark shadow-sm' : 'text-slate-600 hover:text-ink'}`}
+                  >
+                    {kindName[k]}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <button type="button" onClick={() => setCreating(null)} className="h-10 rounded-xl border border-line px-4 text-sm font-semibold">
+                Cancel
+              </button>
+              <button type="submit" disabled={!creating.name.trim()} className="h-10 rounded-xl bg-brand px-5 text-sm font-semibold text-white disabled:opacity-40">
+                Create checklist
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {confirm && selected && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="Delete checklist" onClick={() => setConfirm(false)}>
           <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>

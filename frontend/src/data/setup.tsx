@@ -65,7 +65,7 @@ interface Store {
 
   compliances: Compliance[]
   templates: Compliance[] // compliances plus the built-in "Custom" choice used by the request wizard
-  addCompliance: () => string
+  addCompliance: (name: string, kind: Service, docIds?: string[]) => string
   updateCompliance: (id: string, patch: Partial<Compliance>) => void
   removeCompliance: (id: string) => void
 
@@ -134,9 +134,9 @@ export function SetupProvider({ children }: { children: ReactNode }) {
     setCompliances((p) => p.map((c) => ({ ...c, docIds: c.docIds.filter((x) => x !== id) })))
   }, [])
 
-  const addCompliance = useCallback(() => {
+  const addCompliance = useCallback((name: string, kind: Service, docIds: string[] = []) => {
     const id = `cp-${Date.now()}`
-    setCompliances((p) => [...p, { id, name: 'New checklist', kind: 'GST', docIds: [] }])
+    setCompliances((p) => [...p, { id, name, kind, docIds }])
     return id
   }, [])
   const updateCompliance = useCallback(

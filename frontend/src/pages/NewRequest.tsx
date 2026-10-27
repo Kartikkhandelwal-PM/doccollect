@@ -81,7 +81,7 @@ export default function NewRequest() {
   useContacts()
   const { create } = useRequests()
   const { sendRequest } = useMessenger()
-  const { groups, compliances, messageTemplates, firm, ownNumber, whatsapp, addCompliance, updateCompliance } = useSetup()
+  const { groups, compliances, messageTemplates, firm, ownNumber, whatsapp, addCompliance } = useSetup()
   const [params] = useSearchParams()
   const preselected = params.get('client')
   const preClient = preselected ? (getClient(preselected) ? getBookClient(preselected) : getBookClient(preselected)) : undefined
@@ -189,8 +189,7 @@ export default function NewRequest() {
 
   const send = () => {
     if (complianceId === 'custom' && saveIt && customName.trim()) {
-      const id = addCompliance()
-      updateCompliance(id, { name: customName.trim(), kind, docIds })
+      addCompliance(customName.trim(), kind, docIds)
     }
     const r = create({ title, due, via, clientIds: selected, docs: chosenDocs })
     sendRequest(r)
