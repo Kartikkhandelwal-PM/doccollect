@@ -1,12 +1,13 @@
 import { motion } from 'framer-motion'
 import Toast from '../components/Toast'
-import { Bell, Check, ChevronLeft, ChevronRight, MessageCircle, Plus, X } from 'lucide-react'
+import { Bell, Check, ChevronLeft, ChevronRight, Inbox as InboxIcon, MessageCircle, Plus, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Avatar from '../components/Avatar'
 import ReminderDialog from '../components/ReminderDialog'
 import { useMessenger } from '../data/messenger'
 import { useAttention } from '../data/attention'
+import { useInbox } from '../data/inbox'
 import { useSetup } from '../data/setup'
 import { getClient } from '../data/mock'
 import type { DocRequest as Request } from '../data/requests'
@@ -134,7 +135,8 @@ export default function Dashboard() {
   const { items, stats } = useAttention()
   const { sendUpdate, preview } = useMessenger()
   const [tab, setTab] = useState<Tab>('all')
-  const { requests } = useRequests()
+  const { requests, unsorted } = useRequests()
+  const { conversations } = useInbox()
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [toast, setToast] = useState<string | null>(null)
 
@@ -152,6 +154,20 @@ export default function Dashboard() {
     }),
     [items],
   )
+
+  // Files in the Inbox that are on no document yet, by chat. A known client's waiting files are kept per phone number; an unknown number's are the files in its chat.
+  // They are real work for the CA (the client sent something and it has not been looked at), so the Dashboard says so, and where.
+  const waitingFiles = useMemo(() => {
+    const seen = new Set<string>()
+    const out: { id: string; title: string; n: number }[] = []
+    for (const c of conversations) {
+      const n = c.unassigned ? c.msgs.filter((m) => m.file && !m.matched).length : seen.has(c.phone) ? 0 : unsorted.filter((u) => u.phone === c.phone).length
+      seen.add(c.phone)
+      if (n > 0) out.push({ id: c.id, title: c.title, n })
+    }
+    return out.sort((a, b) => b.n - a.n)
+  }, [conversations, unsorted])
+  const waitingTotal = waitingFiles.reduce((t, x) => t + x.n, 0)
 
   const visible = items
     .filter((i) => tab === 'all' || i.kind === tab)
@@ -226,6 +242,31 @@ export default function Dashboard() {
           </Link>
         </div>
       </motion.section>
+
+      {waitingTotal > 0 && (
+        <section aria-label="Files waiting in the Inbox" className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-[18px] border border-[#F5DFA8] bg-[#FEF6E4] px-5 py-4">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-[#7A3B00]">
+            <InboxIcon size={20} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="text-[15px] font-bold text-[#7A3B00]">
+              {waitingTotal} {waitingTotal === 1 ? 'file' : 'files'} in the Inbox {waitingTotal === 1 ? 'is' : 'are'} not placed yet
+            </div>
+            <div className="mt-1.5 flex flex-wrap gap-2">
+              {waitingFiles.slice(0, 4).map((w) => (
+                <Link key={w.id} to={`/inbox?chat=${w.id}`} className="inline-flex max-w-full items-center gap-1.5 rounded-lg bg-white px-2.5 py-1 text-[13px] font-medium text-ink hover:text-brand-dark hover:shadow-sm">
+                  <span className="truncate">{w.title}</span>
+                  <span className="shrink-0 rounded-md bg-[#FEF1DC] px-1.5 text-[12px] font-bold text-[#7A3B00]">{w.n}</span>
+                </Link>
+              ))}
+              {waitingFiles.length > 4 && <span className="self-center text-[13px] text-[#7A3B00]">and {waitingFiles.length - 4} more {waitingFiles.length - 4 === 1 ? 'chat' : 'chats'}</span>}
+            </div>
+          </div>
+          <Link to="/inbox" className="flex h-10 shrink-0 items-center gap-1.5 rounded-xl bg-white px-4 text-sm font-semibold text-[#7A3B00] shadow-sm hover:shadow">
+            Open Inbox <ChevronRight size={16} />
+          </Link>
+        </section>
+      )}
 
       <div className="grid grid-cols-1 items-stretch gap-4 md:gap-5 lg:grid-cols-12">
         <div className="flex min-w-0 lg:col-span-8 scroll-mt-4 flex-col">
