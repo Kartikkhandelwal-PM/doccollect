@@ -194,6 +194,7 @@ function FileViewer({ msg, who, pan, doc, req, checklist, hide, filedText, onFil
         <div className="truncate text-[13px] text-muted">{sub || ' '}</div>
       </div>
       {doc && <StatusBadge status={doc.status} />}
+      {!doc && attach.forClient?.guess && <span className="shrink-0 rounded-md bg-warn-soft px-2 py-1 text-xs font-bold uppercase tracking-wide text-warn" title="We guessed the client from the name on the file. Check it.">Check client</span>}
       {canPreview(current) && <OpenInTab iconOnly href={fileLink({ name: docName, fileName: current, client: who, pan, from: msg.time })} />}
       <button type="button" aria-label="Close" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-canvas">
         <X size={20} />

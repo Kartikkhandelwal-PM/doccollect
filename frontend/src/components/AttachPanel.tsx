@@ -19,17 +19,10 @@ export default function AttachPanel({ requests, suggest, suggestedFolder, client
     return () => onWindow?.(false)
   }, [dialog, onWindow])
   const btnMain = 'flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-brand px-3 text-sm font-semibold text-white hover:bg-brand-dark'
-  const btn = 'flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-line bg-white px-3 text-sm font-semibold hover:border-brand disabled:opacity-40 disabled:hover:border-line'
+  const btn = 'flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-line bg-white px-3 text-sm font-semibold hover:border-brand disabled:opacity-40 disabled:hover:border-line'
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-2.5">
       {warn && <p className="rounded-xl bg-[#FEF1DC] px-3.5 py-2.5 text-[13px] font-semibold leading-snug text-warn">{warn}</p>}
-      {forClient && !forClient.known && (
-        <div className="flex items-center gap-2 text-[13px]">
-          <span className="shrink-0 text-muted">For</span>
-          <span className="min-w-0 truncate font-semibold">{forClient.name}</span>
-          {forClient.guess && <span className="shrink-0 rounded bg-warn-soft px-1.5 py-0.5 text-[12px] font-bold uppercase tracking-wide text-warn">Check client</span>}
-        </div>
-      )}
       {suggest && (
         <div className="flex items-center gap-3 rounded-xl border border-brand/40 bg-brand-soft px-3.5 py-2.5">
           <Sparkles size={16} className="shrink-0 text-brand-dark" />
@@ -70,8 +63,8 @@ export default function AttachPanel({ requests, suggest, suggestedFolder, client
         )}
       </div>
       {requests.length > 0 && onStartRequest && (
-        <button type="button" onClick={onStartRequest} className="self-center text-[13px] font-semibold text-brand-dark hover:underline">
-          Or start a new request with this file
+        <button type="button" onClick={onStartRequest} className="-mb-1 self-center px-2 py-1 text-[13px] font-semibold text-muted hover:text-brand-dark hover:underline">
+          None of these? Start a new request with this file
         </button>
       )}
       {dialog === 'request' && createPortal(<RequestPickerDialog fileName={fileName} requests={requests} suggestedKey={suggest?.key} onClose={() => setDialog(null)} onAdd={onAttach} />, document.body)}
