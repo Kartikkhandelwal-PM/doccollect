@@ -29,6 +29,7 @@ export function resetDemo() {
     Object.keys(sessionStorage)
       .filter((k) => k.startsWith('doccollect:'))
       .forEach((k) => sessionStorage.removeItem(k))
+    sessionStorage.removeItem('doccollect-empty')
   } catch {
     /* nothing saved */
   }

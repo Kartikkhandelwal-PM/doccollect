@@ -1,8 +1,11 @@
-import { ChevronUp, CreditCard, LogOut, User } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { ChevronUp, CreditCard, Database, LogOut, Trash2, User } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSetup } from '../data/setup'
 import { KDK_PROFILE_URL, KDK_SUBSCRIPTION_URL } from '../lib/brand'
+import { emptyOn, setSampleData } from '../lib/demo'
+import { backdropProps, panelProps } from '../lib/motion'
 import Avatar from './Avatar'
 
 // The signed-in user at the bottom of the sidebar. Clicking opens the account menu, like the rest of the KDK suite.
@@ -10,14 +13,16 @@ export default function UserMenu({ collapsed = false }: { collapsed?: boolean })
   const { team, firm } = useSetup()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
+  const [confirming, setConfirming] = useState(false)
+  const empty = emptyOn()
   const me = team[0]
 
   useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
+    if (!open && !confirming) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && (setOpen(false), setConfirming(false))
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open])
+  }, [open, confirming])
 
   const go = (to: string) => {
     setOpen(false)
@@ -50,6 +55,27 @@ export default function UserMenu({ collapsed = false }: { collapsed?: boolean })
               Subscription
             </a>
             <div className="border-t border-line" />
+            {/* Only the one that makes sense now: with data, delete it; with nothing, add the sample data. */}
+            {empty ? (
+              <button type="button" role="menuitem" className={item} onClick={() => setSampleData(true)}>
+                <Database size={17} className="text-muted" />
+                Add sample data
+              </button>
+            ) : (
+              <button
+                type="button"
+                role="menuitem"
+                className={item}
+                onClick={() => {
+                  setOpen(false)
+                  setConfirming(true)
+                }}
+              >
+                <Trash2 size={17} className="text-muted" />
+                Delete all data
+              </button>
+            )}
+            <div className="border-t border-line" />
             <button type="button" role="menuitem" className={`${item} text-danger hover:bg-danger-soft`} onClick={() => go('/signed-out')}>
               <LogOut size={17} />
               Sign Out
@@ -74,6 +100,24 @@ export default function UserMenu({ collapsed = false }: { collapsed?: boolean })
         </span>
         {!collapsed && <ChevronUp size={17} className={`shrink-0 text-muted transition-transform ${open ? '' : 'rotate-180'}`} />}
       </button>
+      {confirming && (
+        <motion.div {...backdropProps} className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="Delete all data" onClick={() => setConfirming(false)}>
+          <motion.div {...panelProps} onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-2xl bg-white p-6 text-left shadow-2xl">
+            <h2 className="text-lg font-bold">Delete all data?</h2>
+            <p className="mt-1.5 text-sm leading-relaxed text-muted">
+              This removes the clients, requests, chats, files and folders, and disconnects WhatsApp, so you can see the app as a new firm. Your checklists, documents, message templates and settings stay. You can bring the sample data back any time from this menu.
+            </p>
+            <div className="mt-5 flex justify-end gap-3">
+              <button type="button" autoFocus onClick={() => setConfirming(false)} className="h-11 rounded-xl border border-line px-5 text-sm font-semibold hover:bg-canvas">
+                Cancel
+              </button>
+              <button type="button" onClick={() => setSampleData(false)} className="h-11 rounded-xl bg-danger px-5 text-sm font-semibold text-white">
+                Delete all data
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
     </div>
   )
 }
