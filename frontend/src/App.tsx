@@ -40,6 +40,9 @@ export default function App() {
       <Route path="u/:requestId/:clientId" element={<ClientUpload />} />
       <Route path="u/:token" element={<ClientUpload />} />
       <Route path="signed-out" element={<SignedOut />} />
+      {/* The mode is read from the address before the app starts (lib/demo.ts); these only take you to the start page. */}
+      <Route path="empty" element={<Navigate replace to="/" />} />
+      <Route path="sample" element={<Navigate replace to="/" />} />
       <Route path="file" element={<FileView />} />
       <Route element={<Layout />}>
         <Route index element={<Dashboard />} />
