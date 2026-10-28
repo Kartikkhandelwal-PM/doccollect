@@ -1,13 +1,11 @@
 import { motion } from 'framer-motion'
 import Toast from '../components/Toast'
-import { Bell, Check, ChevronLeft, ChevronRight, Inbox as InboxIcon, MessageCircle, Plus, X } from 'lucide-react'
+import { Bell, ChevronLeft, ChevronRight, MessageCircle, Plus } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Avatar from '../components/Avatar'
-import ReminderDialog from '../components/ReminderDialog'
 import { useMessenger } from '../data/messenger'
 import { useAttention } from '../data/attention'
-import { useInbox } from '../data/inbox'
 import { useSetup } from '../data/setup'
 import { getClient } from '../data/mock'
 import type { DocRequest as Request } from '../data/requests'
@@ -15,6 +13,7 @@ import { progress, requestState, useRequests } from '../data/requests'
 import { daysUntil, iso, parseISO, todayISO } from '../lib/dates'
 import { serviceColor } from '../lib/status'
 import { rowIn } from '../lib/motion'
+import { rowHover } from '../lib/ui'
 
 type Tab = 'all' | 'received' | 'no_response'
 
@@ -27,7 +26,7 @@ const greeting = () => {
 
 // One row height for every kind of item, so the table reads as a clean grid.
 // On a phone each row becomes a small card: who and the button on top, then how far along and what is needed.
-const ROW = 'grid grid-cols-[18px_minmax(0,1fr)_112px_148px_92px] items-center gap-4 px-6 @max-2xl:flex @max-2xl:flex-wrap @max-2xl:gap-x-3 @max-2xl:gap-y-2.5 @max-2xl:px-4'
+const ROW = 'grid grid-cols-[minmax(0,1fr)_112px_148px_92px] items-center gap-4 px-6 @max-2xl:flex @max-2xl:flex-wrap @max-2xl:gap-x-3 @max-2xl:gap-y-2.5 @max-2xl:px-4'
 
 // A month calendar. Every day is a box. Days with requests due show a coloured bar, and a click opens that day below.
 function MiniCalendar({ requests }: { requests: Request[] }) {
@@ -133,11 +132,9 @@ export default function Dashboard() {
   const { team } = useSetup()
   const firstName = team[0].name.split(' ')[0]
   const { items, stats } = useAttention()
-  const { sendUpdate, preview } = useMessenger()
+  const { sendUpdate } = useMessenger()
   const [tab, setTab] = useState<Tab>('all')
-  const { requests, unsorted } = useRequests()
-  const { conversations } = useInbox()
-  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const { requests } = useRequests()
   const [toast, setToast] = useState<string | null>(null)
 
   useEffect(() => {
@@ -154,20 +151,6 @@ export default function Dashboard() {
     }),
     [items],
   )
-
-  // Files in the Inbox that are on no document yet, by chat. A known client's waiting files are kept per phone number; an unknown number's are the files in its chat.
-  // They are real work for the CA (the client sent something and it has not been looked at), so the Dashboard says so, and where.
-  const waitingFiles = useMemo(() => {
-    const seen = new Set<string>()
-    const out: { id: string; title: string; n: number }[] = []
-    for (const c of conversations) {
-      const n = c.unassigned ? c.msgs.filter((m) => m.file && !m.matched).length : seen.has(c.phone) ? 0 : unsorted.filter((u) => u.phone === c.phone).length
-      seen.add(c.phone)
-      if (n > 0) out.push({ id: c.id, title: c.title, n })
-    }
-    return out.sort((a, b) => b.n - a.n)
-  }, [conversations, unsorted])
-  const waitingTotal = waitingFiles.reduce((t, x) => t + x.n, 0)
 
   const visible = items
     .filter((i) => tab === 'all' || i.kind === tab)
@@ -192,26 +175,6 @@ export default function Dashboard() {
   const shown = visible.slice(0, SHOW)
   const viewAll = tab === 'received' ? '/requests?tab=review' : tab === 'no_response' ? '/requests?tab=waiting' : '/requests'
 
-  const picked = items.filter((i) => selected.has(i.id))
-  const toRemind = picked.filter((i) => i.kind === 'no_response')
-  const [asking, setAsking] = useState(false)
-  const allShown = shown.length > 0 && shown.every((i) => selected.has(i.id))
-
-  const toggleOne = (id: string) =>
-    setSelected((s) => {
-      const next = new Set(s)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  const toggleAll = () => setSelected(allShown ? new Set() : new Set(shown.map((i) => i.id)))
-
-  const sendReminders = () => {
-    toRemind.forEach((i) => sendUpdate(i.requestId!, i.clientId!))
-    setToast(`Reminder sent to ${toRemind.length} ${toRemind.length === 1 ? 'client' : 'clients'} on WhatsApp`)
-    setSelected(new Set())
-    setAsking(false)
-  }
   const remindOne = (i: (typeof items)[number]) => {
     sendUpdate(i.requestId!, i.clientId!)
     setToast(`Reminder sent to ${i.title} on WhatsApp`)
@@ -243,31 +206,6 @@ export default function Dashboard() {
         </div>
       </motion.section>
 
-      {waitingTotal > 0 && (
-        <section aria-label="Files waiting in the Inbox" className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-[18px] border border-[#F5DFA8] bg-[#FEF6E4] px-5 py-4">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-[#7A3B00]">
-            <InboxIcon size={20} />
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="text-[15px] font-bold text-[#7A3B00]">
-              {waitingTotal} {waitingTotal === 1 ? 'file' : 'files'} in the Inbox {waitingTotal === 1 ? 'is' : 'are'} not placed yet
-            </div>
-            <div className="mt-1.5 flex flex-wrap gap-2">
-              {waitingFiles.slice(0, 4).map((w) => (
-                <Link key={w.id} to={`/inbox?chat=${w.id}`} className="inline-flex max-w-full items-center gap-1.5 rounded-lg bg-white px-2.5 py-1 text-[13px] font-medium text-ink hover:text-brand-dark hover:shadow-sm">
-                  <span className="truncate">{w.title}</span>
-                  <span className="shrink-0 rounded-md bg-[#FEF1DC] px-1.5 text-[12px] font-bold text-[#7A3B00]">{w.n}</span>
-                </Link>
-              ))}
-              {waitingFiles.length > 4 && <span className="self-center text-[13px] text-[#7A3B00]">and {waitingFiles.length - 4} more {waitingFiles.length - 4 === 1 ? 'chat' : 'chats'}</span>}
-            </div>
-          </div>
-          <Link to="/inbox" className="flex h-10 shrink-0 items-center gap-1.5 rounded-xl bg-white px-4 text-sm font-semibold text-[#7A3B00] shadow-sm hover:shadow">
-            Open Inbox <ChevronRight size={16} />
-          </Link>
-        </section>
-      )}
-
       <div className="grid grid-cols-1 items-stretch gap-4 md:gap-5 lg:grid-cols-12">
         <div className="flex min-w-0 lg:col-span-8 scroll-mt-4 flex-col">
 
@@ -292,39 +230,7 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {picked.length > 0 && (
-          <div className="flex items-center gap-3 border-b border-[#BFDDD2] bg-brand-soft px-4 py-2.5 md:px-6 @max-2xl:hidden" role="toolbar" aria-label="Bulk actions">
-            <span className="whitespace-nowrap text-sm font-semibold text-brand-dark">{picked.length} selected</span>
-            <button
-              type="button"
-              onClick={() => setAsking(true)}
-              disabled={toRemind.length === 0}
-              title={toRemind.length === 0 ? 'Pick clients who still owe documents' : undefined}
-              className="flex h-9 items-center gap-1.5 rounded-lg bg-brand px-3.5 text-[13px] font-semibold text-white disabled:opacity-40"
-            >
-              <Bell size={14} />
-              Remind{toRemind.length ? ` (${toRemind.length})` : ''}
-            </button>
-            <span className="min-w-0 flex-1 truncate text-[13px] text-brand-dark">
-              {picked.length > toRemind.length && (toRemind.length === 0 ? 'Nothing to remind: these wait for your review' : `${picked.length - toRemind.length} skipped, waiting for your review`)}
-            </span>
-            <button type="button" onClick={() => setSelected(new Set())} className="flex h-9 shrink-0 items-center gap-1 rounded-lg px-3 text-[13px] font-semibold text-slate-600 hover:bg-white">
-              <X size={14} />
-              Clear
-            </button>
-          </div>
-        )}
         <div className={`${ROW} @max-2xl:hidden border-b border-t border-line bg-slate-50/80 py-2 text-[11px] font-bold uppercase tracking-wider text-faint`}>
-          <button
-            type="button"
-            role="checkbox"
-            aria-checked={allShown}
-            aria-label="Select all rows"
-            onClick={toggleAll}
-            className="-m-3 flex items-center justify-center p-3"
-          >
-            <span className={`flex h-[18px] w-[18px] items-center justify-center rounded-[5px] ${allShown ? 'bg-brand text-white' : 'border-[1.5px] border-slate-300 bg-white'}`}>{allShown && <Check size={12} strokeWidth={3.4} />}</span>
-          </button>
           <span>Client</span>
           <span>Received</span>
           <span>Needs</span>
@@ -336,7 +242,6 @@ export default function Dashboard() {
         <div className="flex-1">
           {visible.length === 0 && <p className="p-8 text-sm text-muted">Nothing here right now.</p>}
           {shown.map((i, index) => {
-            const on = selected.has(i.id)
             const pct = i.total ? (i.got / i.total) * 100 : 0
             const chip =
               i.kind === 'received'
@@ -351,23 +256,8 @@ export default function Dashboard() {
                 key={i.id}
                 {...rowIn(index)}
                 onClick={() => navigate(i.href)}
-                className={`${ROW} group h-[68px] cursor-pointer border-b border-line transition-colors last:border-b-0 @max-2xl:h-auto @max-2xl:py-3.5 ${on ? 'bg-brand-soft/60' : 'hover:bg-slate-50'}`}
+                className={`${ROW} group h-[68px] ${rowHover} border-b border-line last:border-b-0 @max-2xl:h-auto @max-2xl:py-3.5`}
               >
-                {/* the whole height of the row beside the box counts as the checkbox, so nobody opens a request by mistake */}
-                <button
-                  type="button"
-                  role="checkbox"
-                  aria-checked={on}
-                  aria-label={`Select ${i.title}`}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    toggleOne(i.id)
-                  }}
-                  className="-mx-3 -my-[25px] flex items-center justify-center px-3 py-[25px] @max-2xl:hidden"
-                >
-                  <span className={`flex h-[18px] w-[18px] items-center justify-center rounded-[5px] ${on ? 'bg-brand text-white' : 'border-[1.5px] border-slate-300 bg-white group-hover:border-slate-400'}`}>{on && <Check size={12} strokeWidth={3.4} />}</span>
-                </button>
-
                 <div className="flex min-w-0 items-center gap-3 @max-2xl:order-1 @max-2xl:flex-[1_1_60%]">
                   {i.kind === 'unassigned' ? (
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-canvas text-muted">
@@ -456,7 +346,7 @@ export default function Dashboard() {
                 const d = parseISO(r.due)
                 const label = late ? `${-days} ${days === -1 ? 'day' : 'days'} late` : days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : `In ${days} days`
                 return (
-                  <MotionLink key={r.id} {...rowIn(n + 2)} to={`/requests/${r.id}`} className="-mx-2 flex items-center gap-3 rounded-xl px-2 py-2.5 transition-colors hover:bg-slate-50">
+                  <MotionLink key={r.id} {...rowIn(n + 2)} initial={false} to={`/requests/${r.id}`} className="-mx-2 flex items-center gap-3 rounded-xl px-2 py-2.5 transition-colors hover:bg-[#EAF5F0]">
                     <div className="flex w-12 shrink-0 flex-col overflow-hidden rounded-xl border border-line bg-white shadow-[0_1px_2px_rgba(14,27,44,0.06)]" aria-hidden="true">
                       <span className={`py-0.5 text-center text-[9px] font-bold uppercase tracking-widest text-white ${late ? 'bg-danger' : days <= 1 ? 'bg-[#D9822B]' : 'bg-brand'}`}>{d.toLocaleDateString('en-IN', { month: 'short' })}</span>
                       <span className={`py-1 text-center text-[19px] font-bold leading-none tabular-nums ${late ? 'text-danger' : ''}`}>{d.getDate()}</span>
@@ -487,7 +377,7 @@ export default function Dashboard() {
 
         </aside>
       </div>
-      {asking && toRemind.length > 0 && <ReminderDialog targets={toRemind.map((i) => ({ requestId: i.requestId!, clientId: i.clientId! }))} text={preview(toRemind[0].requestId!, toRemind[0].clientId!)} onSend={sendReminders} onClose={() => setAsking(false)} />}
+
 
       <Toast message={toast} />
     </div>

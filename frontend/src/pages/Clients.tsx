@@ -9,6 +9,7 @@ import Pagination, { usePaging } from '../components/Pagination'
 import { mainContact, useContacts } from '../data/contacts'
 import { book } from '../data/mock'
 import { serviceColor } from '../lib/status'
+import { trHover } from '../lib/ui'
 
 const MotionLink = motion.create(Link)
 
@@ -100,7 +101,7 @@ export default function Clients() {
             <tbody>
               {paging.rows.map((c) => {
                 return (
-                  <tr key={c.id} onClick={() => navigate(`/clients/${c.id}`)} className="cursor-pointer border-b border-line transition-colors last:border-b-0 hover:bg-slate-50">
+                  <tr key={c.id} onClick={() => navigate(`/clients/${c.id}`)} className={`${trHover} border-b border-line last:border-b-0`}>
                     <td className="py-3 pl-6 pr-3">
                       <Link to={`/clients/${c.id}`} onClick={(e) => e.stopPropagation()} className="flex items-center gap-3">
                         <Avatar name={c.name} size={40} />

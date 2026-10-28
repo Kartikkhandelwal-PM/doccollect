@@ -18,6 +18,7 @@ import { fmtDate, isReceived, useRequests } from '../data/requests'
 import type { DocRequest, RequestClient, RequestDoc } from '../data/requests'
 import type { Service } from '../data/types'
 import { serviceColor } from '../lib/status'
+import { rowHover, trHover } from '../lib/ui'
 
 type Tab = 'overview' | 'registrations' | 'requests' | 'documents'
 const tabs: { key: Tab; label: string }[] = [
@@ -83,7 +84,7 @@ function LinesTable({ lines, empty, paging, compact }: { lines: Line[]; empty: s
             const p = lineProgress(l.rc)
             const st = stateLabel[lineState(l.rc)]
             return (
-              <tr key={`${l.request.id}-${l.rc.clientId}`} onClick={() => navigate(`/requests/${l.request.id}?client=${l.rc.clientId}`)} className="cursor-pointer border-b border-line last:border-b-0 hover:bg-slate-50/70">
+              <tr key={`${l.request.id}-${l.rc.clientId}`} onClick={() => navigate(`/requests/${l.request.id}?client=${l.rc.clientId}`)} className={`${trHover} border-b border-line last:border-b-0`}>
                 <td className="py-3 pl-6 pr-3">
                   <div className="text-[14px] font-semibold">{l.request.title}</div>
                   <div className="text-xs text-muted">
@@ -387,7 +388,7 @@ export default function ClientDetail() {
                 </div>
                 {recent.length === 0 && <p className="pt-3 text-sm text-muted">Nothing received yet.</p>}
                 {recent.map((i) => (
-                  <Link key={`${i.line.request.id}-${i.line.rc.clientId}-${i.doc.id}`} to={docLink(i)} className="flex items-center gap-3 border-b border-line py-3 last:border-b-0 hover:bg-slate-50">
+                  <Link key={`${i.line.request.id}-${i.line.rc.clientId}-${i.doc.id}`} to={docLink(i)} className={`flex items-center gap-3 border-b border-line py-3 last:border-b-0 ${rowHover}`}>
                     <FileTypeIcon file={i.doc.fileName ?? 'file.pdf'} size={34} />
                     <div className="flex-1">
                       <div className="text-sm font-semibold">

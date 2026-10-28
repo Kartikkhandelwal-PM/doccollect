@@ -11,6 +11,7 @@ import type { DocRequest, RequestState } from '../data/requests'
 import { daysUntil } from '../lib/dates'
 import { SHARED_NUMBER_NAME } from '../lib/brand'
 import { ease, rowIn } from '../lib/motion'
+import { rowHover } from '../lib/ui'
 
 type Tab = 'all' | RequestState
 
@@ -165,7 +166,7 @@ export default function Requests() {
           }).length
           return (
             <Fragment key={r.id}>
-              <motion.div {...rowIn(index)} onClick={() => navigate(`/requests/${r.id}`)} className={`${GRID} min-h-[68px] cursor-pointer border-b border-line py-3 transition-colors hover:bg-slate-50 @max-4xl:py-3.5 ${isOpen ? 'bg-slate-50' : ''}`}>
+              <motion.div {...rowIn(index)} onClick={() => navigate(`/requests/${r.id}`)} className={`${GRID} min-h-[68px] ${rowHover} border-b border-line py-3 @max-4xl:py-3.5 ${isOpen ? 'bg-slate-50' : ''}`}>
                 <div className="flex min-w-0 items-center gap-2 @max-4xl:order-1 @max-4xl:flex-[1_1_40%]">
                 {people.length <= 1 ? (
                   <span className="w-[18px] shrink-0" />

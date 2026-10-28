@@ -22,6 +22,7 @@ import { useSetup } from '../data/setup'
 import { isExpired, todayISO } from '../lib/dates'
 import { serviceColor } from '../lib/status'
 import { SHARED_NUMBER_NAME } from '../lib/brand'
+import { rowHover } from '../lib/ui'
 
 const reviewOptions: Status[] = ['to_review', 'approved', 'rejected']
 const tileBtn = 'inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border border-line bg-white px-3 text-[13px] font-semibold text-slate-700 transition-colors hover:border-brand hover:text-brand-dark'
@@ -336,7 +337,7 @@ function RequestView({ request }: { request: DocRequest }) {
                   : { text: 'Complete', cls: 'bg-ok-soft text-ok' }
           return (
             <div key={rc.clientId} className="border-b border-line last:border-b-0">
-              <div onClick={() => toggle(rc.clientId)} className={`${CLIENT_ROW} group h-[68px] cursor-pointer transition-colors @max-3xl:h-auto @max-3xl:py-3.5 ${isOpen ? 'bg-[#EEF8F5]' : 'hover:bg-[#F3F9F7]'}`}>
+              <div onClick={() => toggle(rc.clientId)} className={`${CLIENT_ROW} group h-[68px] cursor-pointer transition-colors @max-3xl:h-auto @max-3xl:py-3.5 ${isOpen ? 'bg-[#EEF8F5]' : 'hover:bg-[#EAF5F0] hover:shadow-[inset_3px_0_0_#0B7A6B]'}`}>
                 <div className="flex min-w-0 items-center gap-3 @max-3xl:order-1 @max-3xl:flex-[1_1_50%]">
                   <Avatar name={c.name} size={36} />
                   <div className="min-w-0">
@@ -431,7 +432,7 @@ function RequestView({ request }: { request: DocRequest }) {
                         tabIndex={gotIt ? 0 : undefined}
                         onClick={gotIt ? () => setOpenDoc({ clientId: rc.clientId, docId: d.id }) : undefined}
                         onKeyDown={gotIt ? (e) => e.key === 'Enter' && setOpenDoc({ clientId: rc.clientId, docId: d.id }) : undefined}
-                        className={`flex items-center gap-4 border-t border-line px-6 py-3 pl-[72px] @max-3xl:gap-3 @max-3xl:px-4 ${gotIt ? 'cursor-pointer hover:bg-white' : ''} ${active ? 'bg-[#EEF8F5] shadow-[inset_3px_0_0_#0B7A6B]' : ''}`}
+                        className={`flex items-center gap-4 border-t border-line px-6 py-3 pl-[72px] @max-3xl:gap-3 @max-3xl:px-4 ${gotIt ? rowHover : ''} ${active ? 'bg-[#EEF8F5] shadow-[inset_3px_0_0_#0B7A6B]' : ''}`}
                       >
                         {gotIt && d.fileName ? <FileTypeIcon file={d.fileName} size={34} /> : <span className="flex h-[34px] w-[27px] items-center justify-center rounded border-[1.5px] border-dashed border-slate-300" />}
                         <div className="min-w-0 flex-1">
