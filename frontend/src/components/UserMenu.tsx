@@ -39,7 +39,7 @@ export default function UserMenu({ collapsed = false }: { collapsed?: boolean })
             <div className="border-b border-line px-4 py-3.5">
               <div className="text-[15px] font-bold">{me.name}</div>
               <div className="text-[13px] text-muted">{firm.name}</div>
-              <div className="mt-0.5 text-[11px] font-semibold uppercase tracking-wider text-faint">{me.role}</div>
+              <div className="mt-0.5 text-[12px] font-semibold uppercase tracking-wider text-faint">{me.role}</div>
             </div>
             <a role="menuitem" href={KDK_PROFILE_URL} className={item}>
               <User size={17} className="text-muted" />
@@ -63,15 +63,14 @@ export default function UserMenu({ collapsed = false }: { collapsed?: boolean })
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
         title={collapsed ? `${me.name} · ${firm.name}` : undefined}
-        className={`flex w-full items-center rounded-2xl text-left ${collapsed ? 'justify-center p-2' : 'gap-3 p-3'} ${open ? 'bg-slate-200/70' : 'bg-canvas hover:bg-slate-100'}`}
+        className={`flex w-full items-center rounded-2xl text-left ${collapsed ? 'justify-center p-2' : 'gap-2.5 px-2.5 py-3'} ${open ? 'bg-slate-200/70' : 'bg-canvas hover:bg-slate-100'}`}
       >
-        <Avatar name={me.name} size={38} />
+        <Avatar name={me.name} size={34} />
         <span className={`min-w-0 flex-1 leading-tight ${collapsed ? 'hidden' : ''}`}>
-          <span className="flex items-center gap-2">
-            <span className="truncate text-sm font-semibold">{me.name}</span>
-            <span className="shrink-0 rounded-md bg-brand-soft px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-dark">{me.role}</span>
+          <span className="block truncate text-sm font-semibold">{me.name}</span>
+          <span className="block truncate text-xs text-muted" title={`${me.role} · ${firm.name}`}>
+            {me.role} · {firm.name}
           </span>
-          <span className="block truncate text-xs text-muted">{firm.name}</span>
         </span>
         {!collapsed && <ChevronUp size={17} className={`shrink-0 text-muted transition-transform ${open ? '' : 'rotate-180'}`} />}
       </button>

@@ -11,18 +11,20 @@ import type { DocRequest, RequestState } from '../data/requests'
 import { daysUntil } from '../lib/dates'
 import { SHARED_NUMBER_NAME } from '../lib/brand'
 import { ease, rowIn } from '../lib/motion'
+import { rowFocus, rowHover, rowKeys } from '../lib/ui'
+import FilterSelect from '../components/FilterSelect'
+import EmptyState from '../components/EmptyState'
 
 type Tab = 'all' | RequestState
 
 const stateMeta: Record<RequestState, { label: string; className: string }> = {
-  review: { label: 'Needs review', className: 'bg-warn-soft text-warn' },
-  waiting: { label: 'Waiting for clients', className: 'bg-info-soft text-info' },
+  review: { label: 'To review', className: 'bg-warn-soft text-warn' },
+  waiting: { label: 'Waiting', className: 'bg-info-soft text-info' },
   completed: { label: 'Completed', className: 'bg-ok-soft text-ok' },
 }
 
 // On a phone every request is a small card instead of a table row.
 const GRID = 'grid grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_130px_110px_170px_150px] items-center gap-4 px-5 @max-4xl:flex @max-4xl:flex-wrap @max-4xl:gap-x-3 @max-4xl:gap-y-2.5 @max-4xl:px-4'
-const selectCls = 'h-10 rounded-xl border border-line bg-white px-3 text-sm font-medium text-ink outline-none focus:border-brand @max-4xl:min-w-0 @max-4xl:flex-1 @max-4xl:px-2 @max-4xl:text-[13px]'
 const SHOW_CLIENTS = 5
 
 // A request is late when its last date has passed and it is not complete.
@@ -73,8 +75,8 @@ export default function Requests() {
 
   const tabs: { key: Tab; label: string }[] = [
     { key: 'all', label: 'All' },
-    { key: 'review', label: 'Needs review' },
-    { key: 'waiting', label: 'Waiting for clients' },
+    { key: 'review', label: 'To review' },
+    { key: 'waiting', label: 'Waiting' },
     { key: 'completed', label: 'Completed' },
   ]
   const toggle = (id: string) =>
@@ -103,15 +105,16 @@ export default function Requests() {
       </div>
       }
       tabs={
-      <div className="flex gap-7 overflow-x-auto border-b border-line text-sm font-semibold text-muted">
+      <div className="flex gap-1 overflow-x-auto border-b border-line text-sm font-semibold text-muted [&>button:first-child]:-ml-3">
         {tabs.map((t) => (
           <button
             key={t.key}
             type="button"
             onClick={() => setTab(t.key)}
-            className={`flex h-11 shrink-0 items-center whitespace-nowrap border-b-[3px] ${tab === t.key ? 'border-brand text-brand-dark' : 'border-transparent hover:text-ink'}`}
+            className={`flex h-11 shrink-0 items-center whitespace-nowrap border-b-[3px] px-3 ${tab === t.key ? 'border-brand text-brand-dark' : 'border-transparent hover:text-ink'}`}
           >
             {t.label}
+            <span className="ml-1.5 rounded-md bg-canvas px-1.5 py-px text-xs">{t.key === 'all' ? requests.length : requests.filter((r) => requestState(r) === t.key).length}</span>
           </button>
         ))}
       </div>
@@ -125,20 +128,20 @@ export default function Requests() {
             <Search size={15} />
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search client or request number" className="w-full bg-transparent text-ink outline-none placeholder:text-muted" />
           </label>
-          <select value={due} onChange={(e) => setDue(e.target.value as typeof due)} className={selectCls} aria-label="Last date">
+          <FilterSelect value={due} onChange={(v) => setDue(v as typeof due)} label="Last date" width="w-[170px]">
             <option value="all">Any last date</option>
             <option value="late">Late</option>
             <option value="week">Due in 7 days</option>
             <option value="later">Due later</option>
-          </select>
-          <select value={from} onChange={(e) => setFrom(e.target.value as typeof from)} className={selectCls} aria-label="Sent from">
-            <option value="all">All numbers</option>
-            <option value="own">Your WhatsApp</option>
-            <option value="kdk">{SHARED_NUMBER_NAME}</option>
-          </select>
+          </FilterSelect>
+          <FilterSelect value={from} onChange={(v) => setFrom(v as typeof from)} label="Sent from" width="w-[210px]">
+            <option value="all">Sent from any number</option>
+            <option value="own">Sent from your WhatsApp</option>
+            <option value="kdk">Sent from {SHARED_NUMBER_NAME}</option>
+          </FilterSelect>
         </div>
 
-        <div className={`${GRID} @max-4xl:hidden border-b border-line bg-slate-50/80 py-2.5 text-[11px] font-bold uppercase tracking-wider text-faint`}>
+        <div className={`${GRID} @max-4xl:hidden border-b border-line bg-slate-50/80 py-2.5 text-[12px] font-bold uppercase tracking-wider text-faint`}>
           <span className="pl-[26px]">Request</span>
           <span>Clients</span>
           <span>Sent</span>
@@ -148,7 +151,20 @@ export default function Requests() {
         </div>
         </div>
 
-        {list.length === 0 && <p className="p-8 text-sm text-muted">No requests match.</p>}
+        {requests.length === 0 && (
+          <EmptyState art="requests" title="No requests yet" text="A request asks your clients for a checklist of documents on WhatsApp. Make the first one, then follow its progress here.">
+            <Link to="/requests/new" className="flex h-11 items-center gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white">
+              <Plus size={16} /> New request
+            </Link>
+          </EmptyState>
+        )}
+        {requests.length > 0 && list.length === 0 && (
+          <EmptyState art="search" compact title="No request found" text="Nothing matches what you typed or the filters you chose.">
+            <button type="button" onClick={() => { setQuery(''); setDue('all'); setFrom('all'); setTab('all') }} className="h-11 rounded-xl border border-line px-5 text-sm font-semibold hover:border-brand">
+              Clear filters
+            </button>
+          </EmptyState>
+        )}
         {listPaging.rows.map((r, index) => {
           const p = progress(r)
           const st = stateMeta[requestState(r)]
@@ -165,7 +181,7 @@ export default function Requests() {
           }).length
           return (
             <Fragment key={r.id}>
-              <motion.div {...rowIn(index)} onClick={() => navigate(`/requests/${r.id}`)} className={`${GRID} min-h-[68px] cursor-pointer border-b border-line py-3 transition-colors hover:bg-slate-50 @max-4xl:py-3.5 ${isOpen ? 'bg-slate-50' : ''}`}>
+              <motion.div {...rowIn(index)} {...rowKeys(() => navigate(`/requests/${r.id}`))} aria-label={`Open ${r.title} ${r.ref}`} onClick={() => navigate(`/requests/${r.id}`)} className={`${GRID} min-h-[68px] ${rowHover} ${rowFocus} border-b border-line py-3 @max-4xl:py-3.5 ${isOpen ? 'bg-slate-50' : ''}`}>
                 <div className="flex min-w-0 items-center gap-2 @max-4xl:order-1 @max-4xl:flex-[1_1_40%]">
                 {people.length <= 1 ? (
                   <span className="w-[18px] shrink-0" />
@@ -178,7 +194,7 @@ export default function Requests() {
                     e.stopPropagation()
                     toggle(r.id)
                   }}
-                  className="-m-1.5 flex shrink-0 items-center justify-center p-1.5 text-muted hover:text-ink"
+                  className="-m-2.5 flex shrink-0 items-center justify-center p-2.5 text-muted hover:text-ink"
                 >
                   <motion.span animate={{ rotate: isOpen ? 90 : 0 }} transition={ease} className="flex">
                     <ChevronRight size={18} />
@@ -194,10 +210,10 @@ export default function Requests() {
                   {people.length === 1 ? (
                     <Avatar name={people[0].name} size={32} />
                   ) : (
-                    <div className="flex shrink-0 -space-x-2">
+                    <div className="flex shrink-0 -space-x-1.5">
                       {people.slice(0, 3).map((c) => (
                         <span key={c.id} className="rounded-full ring-2 ring-white">
-                          <Avatar name={c.name} size={32} />
+                          <Avatar name={c.name} size={30} />
                         </span>
                       ))}
                     </div>
@@ -230,7 +246,7 @@ export default function Requests() {
                   </div>
                 </div>
                 <div className="@max-4xl:order-2 @max-4xl:shrink-0">
-                  <span className={`inline-block rounded-md px-2 py-1 text-[11px] font-semibold uppercase tracking-wide ${st.className}`}>{st.label}</span>
+                  <span className={`inline-block rounded-md px-2 py-1 text-[12px] font-semibold uppercase tracking-wide ${st.className}`}>{st.label}</span>
                 </div>
               </motion.div>
 
@@ -245,7 +261,7 @@ export default function Requests() {
                   className="overflow-hidden"
                 >
                 <div className="border-b border-line bg-slate-50/70 py-2 pl-[48px] pr-5 @max-4xl:pl-4 @max-4xl:pr-3">
-                  <div className="grid grid-cols-[minmax(0,1.4fr)_150px_150px_170px] gap-4 px-3 @max-4xl:grid-cols-[minmax(0,1fr)_64px_auto] @max-4xl:gap-2 py-1.5 text-[11px] font-bold uppercase tracking-wider text-faint">
+                  <div className="grid grid-cols-[minmax(0,1.4fr)_150px_150px_170px] gap-4 px-3 @max-4xl:grid-cols-[minmax(0,1fr)_64px_auto] @max-4xl:gap-2 py-1.5 text-[12px] font-bold uppercase tracking-wider text-faint">
                     <span>Client</span>
                     <span>Documents</span>
                     <span>Status</span>
@@ -269,7 +285,7 @@ export default function Requests() {
                           <b className="font-semibold text-slate-700">{got}</b> of {counted.length}
                         </span>
                         <span>
-                          <span className={`inline-block rounded-md px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${tone}`}>{label}</span>
+                          <span className={`inline-block rounded-md px-2 py-0.5 text-[12px] font-semibold uppercase tracking-wide ${tone}`}>{label}</span>
                         </span>
                         <span className="text-[13px] text-muted @max-4xl:hidden">{rc.lastReminder ?? 'None yet'}</span>
                       </Link>

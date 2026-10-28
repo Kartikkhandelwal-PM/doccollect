@@ -40,7 +40,7 @@ export default function MobileNav() {
   // moving to another page closes the sheet
   useEffect(() => setOpen(false), [pathname])
 
-  const tab = 'relative flex flex-1 flex-col items-center justify-center gap-0.5 pt-2 text-[11px] font-semibold'
+  const tab = 'relative flex flex-1 flex-col items-center justify-center gap-0.5 pt-2 text-[12px] font-semibold'
 
   return (
     <>

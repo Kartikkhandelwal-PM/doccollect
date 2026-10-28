@@ -11,7 +11,7 @@ import {
   Users,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useInbox } from '../data/inbox'
@@ -104,6 +104,12 @@ const readSaved = () => {
 export default function Layout() {
   const { unreadTotal } = useInbox()
   const { pathname } = useLocation()
+  // Each page names the browser tab, so tabs and history say where you are.
+  useEffect(() => {
+    const names: [string, string][] = [['/clients/', 'Client'], ['/clients', 'Clients'], ['/requests/new', 'New request'], ['/requests/', 'Request'], ['/requests', 'Requests'], ['/inbox', 'Inbox'], ['/master', 'Document Master'], ['/checklists', 'Checklists'], ['/documents', 'Documents'], ['/templates', 'Message templates'], ['/settings', 'Settings']]
+    const hit = names.find(([p]) => pathname === p || (p.endsWith('/') ? pathname.startsWith(p) : pathname.startsWith(p + '/')))
+    document.title = `${hit ? hit[1] : 'Dashboard'} · ${APP_NAME}`
+  }, [pathname])
   // The sidebar can shrink to icons only, and remembers the choice.
   const [collapsed, setCollapsed] = useState(readSaved)
   const toggle = () =>
@@ -140,7 +146,7 @@ export default function Layout() {
 
         <NavGroup items={main} dots={{ '/inbox': unreadTotal }} collapsed={collapsed} />
         <div>
-          {collapsed ? <div className="mx-2 mb-3 border-t border-line" /> : <div className="px-3 pb-1.5 text-[11px] font-bold uppercase tracking-widest text-faint">Setup</div>}
+          {collapsed ? <div className="mx-2 mb-3 border-t border-line" /> : <div className="px-3 pb-1.5 text-[12px] font-bold uppercase tracking-widest text-faint">Setup</div>}
           <NavGroup items={setup} collapsed={collapsed} />
         </div>
         <UserMenu collapsed={collapsed} />

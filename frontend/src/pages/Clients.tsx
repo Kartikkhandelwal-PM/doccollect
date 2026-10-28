@@ -8,7 +8,10 @@ import Avatar from '../components/Avatar'
 import Pagination, { usePaging } from '../components/Pagination'
 import { mainContact, useContacts } from '../data/contacts'
 import { book } from '../data/mock'
+import EmptyState from '../components/EmptyState'
 import { serviceColor } from '../lib/status'
+import { rowFocus, rowKeys, trHover } from '../lib/ui'
+import FilterSelect from '../components/FilterSelect'
 
 const MotionLink = motion.create(Link)
 
@@ -49,7 +52,7 @@ export default function Clients() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-[24px] font-bold tracking-tight">Clients</h1>
-          <p className="mt-0.5 text-sm text-muted">Last synced from KDK today, 08:30</p>
+          <p className="mt-0.5 text-sm text-muted">{book.length === 0 ? 'Not synced yet' : 'Last synced from KDK today, 08:30'}</p>
         </div>
         <div className="flex gap-3">
           <button type="button" aria-label="Sync from KDK" className="flex h-11 shrink-0 items-center whitespace-nowrap gap-2 rounded-xl border border-line bg-white px-4 text-sm font-semibold max-md:w-11 max-md:justify-center max-md:px-0">
@@ -60,23 +63,23 @@ export default function Clients() {
       </div>
 
       <div className="flex flex-wrap items-center gap-3 md:gap-4">
-        <select value={filter} onChange={(e) => setFilter(e.target.value as Filter)} aria-label="Filter by registration" className="h-11 rounded-xl border border-line bg-white px-4 text-sm font-semibold outline-none max-md:w-full">
+        <FilterSelect value={filter} onChange={(v) => setFilter(v as Filter)} label="Filter by registration" width="w-[210px]">
           {(Object.keys(filterLabel) as Filter[]).map((f) => (
             <option key={f} value={f}>{filterLabel[f]}</option>
           ))}
-        </select>
-        <select value={work} onChange={(e) => setWork(e.target.value as Work)} aria-label="Filter by requests" className="h-11 rounded-xl border border-line bg-white px-4 text-sm font-semibold outline-none max-md:w-full">
+        </FilterSelect>
+        <FilterSelect value={work} onChange={(v) => setWork(v as Work)} label="Filter by requests" width="w-[190px]">
           {(Object.keys(workLabel) as Work[]).map((w) => (
             <option key={w} value={w}>{workLabel[w]}</option>
           ))}
-        </select>
+        </FilterSelect>
         <label className="flex h-11 w-80 items-center max-md:w-full gap-2.5 rounded-xl border border-line bg-white px-4 text-sm text-muted">
           <Search size={16} />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="w-full bg-transparent outline-none placeholder:text-muted"
-            placeholder="Search by name, PAN, GSTIN, TAN or number"
+            placeholder="Name, PAN, GSTIN, TAN or number"
           />
         </label>
       </div>
@@ -84,11 +87,24 @@ export default function Clients() {
       }
     >
       <div className="overflow-clip rounded-[18px] border border-line bg-white">
-        {list.length === 0 && <p className="p-8 text-sm text-muted">No clients match your search.</p>}
+        {book.length === 0 && (
+          <EmptyState art="clients" title="No clients yet" text="Your clients come from KDK: one record for each PAN, with their GSTINs and TANs. Sync to bring them in, then send a request." >
+            <button type="button" className="flex h-11 items-center gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white">
+              <RefreshCw size={16} /> Sync from KDK
+            </button>
+          </EmptyState>
+        )}
+        {book.length > 0 && list.length === 0 && (
+          <EmptyState art="search" compact title="No client found" text="Nothing matches what you typed or the filters you chose.">
+            <button type="button" onClick={() => { setQuery(''); setFilter('All'); setWork('All') }} className="h-11 rounded-xl border border-line px-5 text-sm font-semibold hover:border-brand">
+              Clear filters
+            </button>
+          </EmptyState>
+        )}
         {list.length > 0 && (
           <table className="w-full text-left max-md:hidden">
             <thead>
-              <tr className="text-[11px] font-bold uppercase tracking-wider text-faint [&>th]:sticky [&>th]:-top-5 [&>th]:z-10 [&>th]:border-b [&>th]:border-line [&>th]:bg-slate-50">
+              <tr className="text-[12px] font-bold uppercase tracking-wider text-faint [&>th]:sticky [&>th]:-top-5 [&>th]:z-10 [&>th]:border-b [&>th]:border-line [&>th]:bg-slate-50">
                 <th className="py-2.5 pl-6 pr-3 font-bold">Client</th>
                 <th className="px-3 py-2.5 font-bold">Registrations</th>
                 <th className="px-3 py-2.5 font-bold">Main contact</th>
@@ -100,7 +116,7 @@ export default function Clients() {
             <tbody>
               {paging.rows.map((c) => {
                 return (
-                  <tr key={c.id} onClick={() => navigate(`/clients/${c.id}`)} className="cursor-pointer border-b border-line transition-colors last:border-b-0 hover:bg-slate-50">
+                  <tr key={c.id} {...rowKeys(() => navigate(`/clients/${c.id}`))} aria-label={`Open ${c.name}`} onClick={() => navigate(`/clients/${c.id}`)} className={`${trHover} ${rowFocus} border-b border-line last:border-b-0`}>
                     <td className="py-3 pl-6 pr-3">
                       <Link to={`/clients/${c.id}`} onClick={(e) => e.stopPropagation()} className="flex items-center gap-3">
                         <Avatar name={c.name} size={40} />

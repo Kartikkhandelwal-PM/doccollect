@@ -14,7 +14,7 @@ export default function StatusBadge({ status, onChange, options = changeableStat
   const [open, setOpen] = useState(false)
   const meta = statusMeta[status]
   const base =
-    'inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold uppercase tracking-wide'
+    'inline-flex items-center gap-1 rounded-md px-2 py-1 text-[12px] font-semibold uppercase tracking-wide'
 
   if (!onChange) return <span className={`${base} ${meta.className}`}>{meta.label}</span>
 
@@ -60,7 +60,7 @@ export default function StatusBadge({ status, onChange, options = changeableStat
                 }}
                 className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-canvas"
               >
-                <span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold uppercase ${statusMeta[s].className}`}>
+                <span className={`rounded px-1.5 py-0.5 text-[12px] font-semibold uppercase ${statusMeta[s].className}`}>
                   {statusMeta[s].label}
                 </span>
                 {s === status && <Check size={14} className="text-brand" />}

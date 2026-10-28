@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { MasterFile } from './master'
+import { emptyOn } from '../lib/demo'
 
 // A folder the CA created. parentId is any folder id, or null for the top level.
 export interface CustomFolder {
@@ -67,8 +68,8 @@ const seedUploads: MasterFile[] = [
 ]
 
 export function MasterProvider({ children }: { children: ReactNode }) {
-  const [folders, setFolders] = useState<CustomFolder[]>(seedFolders)
-  const [uploads, setUploads] = useState<MasterFile[]>(seedUploads)
+  const [folders, setFolders] = useState<CustomFolder[]>(emptyOn() ? seedFolders.filter((f) => f.id === FIRM_FOLDER) : seedFolders)
+  const [uploads, setUploads] = useState<MasterFile[]>(emptyOn() ? [] : seedUploads)
   const [fileEdits, setFileEdits] = useState<Record<string, FileEdit>>({})
   const [folderNames, setFolderNames] = useState<Record<string, string>>({})
 

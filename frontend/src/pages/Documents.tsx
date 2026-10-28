@@ -1,19 +1,21 @@
 import { ArrowLeft, FileText, MoreHorizontal, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
 import Page from '../components/Page'
 import { useState } from 'react'
+import FilterSelect from '../components/FilterSelect'
+import EmptyState from '../components/EmptyState'
 import { useSetup } from '../data/setup'
 
 const ALL = '__all'
 
 export default function Documents() {
-  const { documents, categories, compliances, addDocument, renameDocument, moveDocument, removeDocument, addCategory, renameCategory, removeCategory } = useSetup()
+  const { documents, categories, compliances, addDocument, setDocumentMultiple, renameDocument, moveDocument, removeDocument, addCategory, renameCategory, removeCategory } = useSetup()
 
   const [selected, setSelected] = useState<string>(categories[0] ?? ALL)
   // On a phone you see the categories, or the documents of one category.
   const [showDocs, setShowDocs] = useState(false)
   const [query, setQuery] = useState('')
   // A document is made or changed in a small window: id null means a new one.
-  const [form, setForm] = useState<{ id: string | null; name: string; group: string; sure?: boolean } | null>(null)
+  const [form, setForm] = useState<{ id: string | null; name: string; group: string; multiple: boolean; sure?: boolean } | null>(null)
   // The row menu is drawn over the page (fixed), so the list can never cut it off. It opens upward near the bottom of the screen.
   const [rowMenu, setRowMenu] = useState<{ id: string; top: number; right: number } | null>(null)
   const [confirmId, setConfirmId] = useState<string | null>(null)
@@ -37,18 +39,19 @@ export default function Documents() {
   const list = documents.filter((d) => (searching ? d.name.toLowerCase().includes(query.toLowerCase()) : current === ALL || d.group === current))
   const showCategoryTag = searching || current === ALL
 
-  const startNew = () => setForm({ id: null, name: '', group: current === ALL ? (categories[0] ?? 'Other') : current })
+  const startNew = () => setForm({ id: null, name: '', group: '', multiple: false })
   const saveForm = () => {
     if (!form) return
     const n = form.name.trim()
-    if (!n) return
+    if (!n || !form.group) return
     // A document that sits in checklists is renamed there too, so the CA is asked once.
     const was = form.id ? documents.find((d) => d.id === form.id) : undefined
     if (was && n !== was.name && usedIn(was.id) > 0 && !form.sure) return setForm({ ...form, sure: true })
     if (form.id === null) {
-      addDocument(n, form.group)
+      addDocument(n, form.group, form.multiple)
     } else {
       renameDocument(form.id, n)
+      setDocumentMultiple(form.id, form.multiple)
       const was = documents.find((d) => d.id === form.id)
       if (was && was.group !== form.group) moveDocument(form.id, form.group)
     }
@@ -100,7 +103,7 @@ export default function Documents() {
       <div className="grid h-full min-h-0 grid-cols-1 gap-5 md:grid-cols-[300px_1fr]">
         {/* Categories */}
         <aside className={`flex min-h-0 flex-col overflow-hidden rounded-[18px] border border-line bg-white ${showDocs || searching ? 'max-md:hidden' : ''}`}>
-          <div className="shrink-0 px-5 pb-1 pt-4 text-[11px] font-bold uppercase tracking-widest text-faint">Categories</div>
+          <div className="shrink-0 px-5 pb-1 pt-4 text-[12px] font-bold uppercase tracking-widest text-faint">Categories</div>
           <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-2">
           <button
             type="button"
@@ -152,11 +155,11 @@ export default function Documents() {
                     <span className="text-xs font-medium text-muted">{countOf(c)}</span>
                   </button>
                   <div className="absolute right-9 top-1/2 hidden -translate-y-1/2 gap-0.5 group-focus-within:flex group-hover:flex">
-                    <button type="button" aria-label={`Rename ${c}`} onClick={() => startCategoryForm(c)} className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-white hover:text-ink">
+                    <button type="button" aria-label={`Rename ${c}`} onClick={() => startCategoryForm(c)} className="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-white hover:text-ink">
                       <Pencil size={13} />
                     </button>
                     {countOf(c) === 0 && (
-                      <button type="button" aria-label={`Delete ${c}`} onClick={() => setConfirmCat(c)} className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-white hover:text-danger">
+                      <button type="button" aria-label={`Delete ${c}`} onClick={() => setConfirmCat(c)} className="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-white hover:text-danger">
                         <Trash2 size={13} />
                       </button>
                     )}
@@ -203,7 +206,7 @@ export default function Documents() {
 
           <div className="min-h-0 flex-1 overflow-y-auto">
             {showCategoryTag && list.length > 0 && (
-              <div className="sticky top-0 z-[1] grid grid-cols-[1fr_180px_150px_48px] gap-4 border-b border-line bg-slate-50 px-6 py-2 text-[11px] font-bold uppercase tracking-wider text-faint max-lg:hidden">
+              <div className="sticky top-0 z-[1] grid grid-cols-[1fr_180px_150px_48px] gap-4 border-b border-line bg-slate-50 px-6 py-2 text-[12px] font-bold uppercase tracking-wider text-faint max-lg:hidden">
                 <span>Document</span>
                 <span>Category</span>
                 <span>Used in</span>
@@ -211,17 +214,13 @@ export default function Documents() {
               </div>
             )}
             {list.length === 0 && (
-              <div className="flex flex-col items-center gap-2 px-6 py-16 text-center">
-                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-canvas text-muted">
-                  <FileText size={22} />
-                </span>
-                <p className="text-[15px] font-semibold">{searching ? 'No document matches your search' : 'No documents here yet'}</p>
+              <EmptyState art={searching ? 'search' : 'files'} title={searching ? 'No document matches' : 'No documents here yet'} text={searching ? 'Try another word, or look in All documents.' : 'A document is one thing you ask a client for, like a PAN card or a bank statement.'}>
                 {!searching && (
-                  <button type="button" onClick={startNew} className="mt-1 flex h-10 items-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-white">
-                    <Plus size={15} /> New document
+                  <button type="button" onClick={startNew} className="flex h-11 items-center gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white">
+                    <Plus size={16} /> New document
                   </button>
                 )}
-              </div>
+              </EmptyState>
             )}
 
             {list.map((d) => {
@@ -232,7 +231,8 @@ export default function Documents() {
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-canvas text-muted">
                       <FileText size={17} />
                     </span>
-                    <span className="truncate text-[14.5px] font-semibold">{d.name}</span>
+                    <span className="truncate text-[15px] font-semibold">{d.name}</span>
+                    {d.multiple && <span className="shrink-0 rounded-md bg-canvas px-1.5 py-0.5 text-[12px] font-semibold text-muted">Several files</span>}
                   </div>
                   {showCategoryTag && <span className="truncate text-[13px] text-slate-600 max-lg:hidden">{d.group}</span>}
                   <span className="max-lg:hidden">
@@ -270,7 +270,7 @@ export default function Documents() {
               onClick={() => {
                 const d = documents.find((x) => x.id === rowMenu.id)
                 setRowMenu(null)
-                if (d) setForm({ id: d.id, name: d.name, group: d.group })
+                if (d) setForm({ id: d.id, name: d.name, group: d.group, multiple: !!d.multiple })
               }}
               className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm font-semibold hover:bg-canvas"
             >
@@ -364,23 +364,38 @@ export default function Documents() {
             ) : (
               <>
             <div className="text-base font-bold">{form.id ? 'Edit document' : 'New document'}</div>
+            {/* Category first, chosen by the user (nothing is pre-selected), then the name. */}
+            <label className="mt-4 block text-[13px] font-semibold text-muted">
+              Category
+              <span className="mt-1 block">
+                <FilterSelect value={form.group} onChange={(v) => setForm({ ...form, group: v })} label="Category" width="w-full">
+                  <option value="" disabled>
+                    Choose a category
+                  </option>
+                  {categories.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </FilterSelect>
+              </span>
+            </label>
             <label className="mt-4 block text-[13px] font-semibold text-muted">
               Name
               <input
-                autoFocus
+                autoFocus={!!form.id}
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 placeholder="For example, Rent agreement"
                 className="mt-1 block h-11 w-full rounded-xl border border-line px-3.5 text-[15px] font-medium text-ink outline-none focus:border-brand"
               />
             </label>
-            <label className="mt-4 block text-[13px] font-semibold text-muted">
-              Category
-              <select value={form.group} onChange={(e) => setForm({ ...form, group: e.target.value })} className="mt-1 block h-11 w-full rounded-xl border border-line bg-white px-3 text-sm font-medium text-ink outline-none focus:border-brand">
-                {categories.map((c) => (
-                  <option key={c}>{c}</option>
-                ))}
-              </select>
+            <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-line px-3.5 py-3">
+              <input type="checkbox" checked={form.multiple} onChange={(e) => setForm({ ...form, multiple: e.target.checked })} className="mt-0.5 h-[18px] w-[18px] shrink-0 accent-[#0F7B6C]" />
+              <span className="text-sm">
+                <span className="block font-semibold text-ink">Allow more than one file</span>
+                <span className="mt-0.5 block text-[13px] leading-snug text-muted">For things like the front and back of a card, or a few months of statements. Without this, the client can send only one file for it.</span>
+              </span>
             </label>
               </>
             )}
@@ -394,7 +409,7 @@ export default function Documents() {
                   Cancel
                 </button>
               )}
-              <button type="submit" disabled={!form.name.trim()} className="h-10 rounded-xl bg-brand px-5 text-sm font-semibold text-white disabled:opacity-40">
+              <button type="submit" disabled={!form.name.trim() || !form.group} className="h-10 rounded-xl bg-brand px-5 text-sm font-semibold text-white disabled:opacity-40">
                 {form.sure ? 'Yes, change it' : form.id ? 'Save' : 'Add document'}
               </button>
             </div>

@@ -5,7 +5,9 @@ import { Bell, ChevronRight, MessageCircle, RefreshCw, Search, X } from 'lucide-
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
+import EmptyState from '../components/EmptyState'
 import DocPreviewDrawer from '../components/DocPreviewDrawer'
+import ApproveSaveDialog from '../components/ApproveSaveDialog'
 import Pagination, { usePaging } from '../components/Pagination'
 import ReminderDialog from '../components/ReminderDialog'
 import { useMessenger } from '../data/messenger'
@@ -19,8 +21,10 @@ import { fmtDate, progress, useRequests } from '../data/requests'
 import type { Status } from '../data/types'
 import { useSetup } from '../data/setup'
 import { isExpired, todayISO } from '../lib/dates'
+import { demoOn } from '../lib/demo'
 import { serviceColor } from '../lib/status'
 import { SHARED_NUMBER_NAME } from '../lib/brand'
+import { rowFocus, rowHover, rowKeys } from '../lib/ui'
 
 const reviewOptions: Status[] = ['to_review', 'approved', 'rejected']
 const tileBtn = 'inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border border-line bg-white px-3 text-[13px] font-semibold text-slate-700 transition-colors hover:border-brand hover:text-brand-dark'
@@ -43,12 +47,11 @@ export default function RequestDetail() {
   const request = id ? getRequest(id) : undefined
   if (!request) {
     return (
-      <div className="p-8">
-        <p className="text-muted">Request not found.</p>
-        <Link to="/requests" className="mt-2 inline-block font-semibold text-brand">
+      <EmptyState art="search" title="Request not found" text="This request may have been removed, or the link is not right.">
+        <Link to="/requests" className="flex h-11 items-center rounded-xl bg-brand px-5 text-sm font-semibold text-white">
           Back to requests
         </Link>
-      </div>
+      </EmptyState>
     )
   }
   return <RequestView request={request} />
@@ -58,7 +61,7 @@ export default function RequestDetail() {
 const numberLabel = { GST: 'GSTIN', TDS: 'TAN', ITR: 'PAN' } as const
 function regInfo(id: string) {
   const r = getBookClient(id)?.registrations.find((x) => x.id === id)
-  return r ? { number: r.number, label: numberLabel[r.type], place: r.type === 'ITR' ? 'Income tax' : (r.label ?? '') } : null
+  return r ? { number: r.number, label: numberLabel[r.type], place: r.type === 'ITR' ? 'ITR' : (r.label ?? '') } : null
 }
 
 // Who gets the messages for this registration: its contact's name and mobile.
@@ -71,7 +74,7 @@ function contactFor(id: string) {
 function RequestView({ request }: { request: DocRequest }) {
   useContacts()
   const [params] = useSearchParams()
-  const { setDocStatus, simulateReply, changeDue, unsorted, useUnsorted } = useRequests()
+  const { setDocStatus, setDocFiled, simulateReply, changeDue } = useRequests()
   const { graceDays, ownNumber, whatsapp } = useSetup()
 
   const [openDoc, setOpenDoc] = useState<{ clientId: string; docId: string } | null>(() => {
@@ -82,13 +85,13 @@ function RequestView({ request }: { request: DocRequest }) {
   const [reason, setReason] = useState('')
   const [remark, setRemark] = useState('')
   const [toast, setToast] = useState<string | null>(null)
+  const [approving, setApproving] = useState<{ clientId: string; docId: string; next: boolean } | null>(null) // Approve asks where to keep the document
   const [dateOpen, setDateOpen] = useState(false)
   const [dateValue, setDateValue] = useState('')
   const [linkFor, setLinkFor] = useState<string | null>(null)
   const [filter, setFilter] = useState<Filter>('all')
   const [query, setQuery] = useState('')
   const [asking, setAsking] = useState(false)
-  const [openFile, setOpenFile] = useState<{ fileId: string; clientId: string } | null>(null) // a file we could not match, open in the preview
   // Clients whose documents are showing. One client can be opened straight from the Dashboard (?client=).
   const [open, setOpen] = useState<Set<string>>(() => {
     const c = params.get('client') ?? (params.get('doc') ?? '').split(':')[0]
@@ -125,13 +128,12 @@ function RequestView({ request }: { request: DocRequest }) {
         const counted = rc.docs.filter((d) => d.status !== 'na')
         const missing = counted.filter((d) => d.status === 'pending' || d.status === 'rejected').length
         const toReview = counted.filter((d) => d.status === 'to_review').length
-        const waiting = unsorted.filter((f) => f.phone === c.phone)
         const got = counted.filter((d) => d.status !== 'pending' && d.status !== 'rejected').length
         const late = missing > 0 && request.due < today
-        const state: Filter = toReview > 0 || (waiting.length > 0 && missing > 0) ? 'review' : missing > 0 ? 'waiting' : 'done'
-        return [{ rc, c, missing, toReview, waiting, got, total: counted.length, late, state }]
+        const state: Filter = toReview > 0 ? 'review' : missing > 0 ? 'waiting' : 'done'
+        return [{ rc, c, missing, toReview, got, total: counted.length, late, state }]
       }),
-    [request, today, unsorted],
+    [request, today],
   )
   const counts = { all: rows.length, review: rows.filter((r) => r.state === 'review').length, waiting: rows.filter((r) => r.missing > 0).length, done: rows.filter((r) => r.state === 'done').length }
   const shown = rows.filter(
@@ -174,22 +176,21 @@ function RequestView({ request }: { request: DocRequest }) {
   }
 
   // After a decision, jump to the next document that still needs a look. Close when none are left.
-  const advance = () => {
+  const advance = (done?: string) => {
     const next =
       received.slice(idx + 1).find((x) => x.doc.status === 'to_review') ??
       received.find((x, i) => i !== idx && x.doc.status === 'to_review')
     if (next) setOpenDoc({ clientId: next.clientId, docId: next.doc.id })
     else {
       setOpenDoc(null)
-      setToast('All done. Nothing left to review in this request.')
+      setToast(`${done ? `${done}. ` : ''}All done. Nothing left to review in this request.`)
     }
   }
 
+  // Approving asks where to keep the document first (the dialog); the approval itself happens when the CA answers.
   const approveOpen = () => {
     if (!current) return
-    setDocStatus(request.id, current.clientId, current.doc.id, 'approved')
-    setToast(`${current.doc.name} approved`)
-    advance()
+    setApproving({ clientId: current.clientId, docId: current.doc.id, next: true })
   }
 
   const rejectOpen = () => {
@@ -204,8 +205,8 @@ function RequestView({ request }: { request: DocRequest }) {
       setRejecting({ clientId, docId, docName })
       return
     }
+    if (next === 'approved') return setApproving({ clientId, docId, next: false })
     setDocStatus(request.id, clientId, docId, next)
-    if (next === 'approved') setToast(`${docName} approved`)
   }
 
   const confirmReject = () => {
@@ -213,7 +214,7 @@ function RequestView({ request }: { request: DocRequest }) {
     const text = [reason, remark].filter(Boolean).join(' · ') || 'Please send it again'
     setDocStatus(request.id, rejecting.clientId, rejecting.docId, 'rejected', text)
     sendRejected(request.id, rejecting.clientId, rejecting.docName, reason, remark)
-    setToast(`${rejecting.docName} sent back. The client was told on WhatsApp.`)
+    setToast(`${rejecting.docName} rejected. The client was told on WhatsApp.`)
     setRejecting(null)
     if (current && current.clientId === rejecting.clientId && current.doc.id === rejecting.docId) advance()
   }
@@ -233,7 +234,7 @@ function RequestView({ request }: { request: DocRequest }) {
         <div>
           <h1 className="flex flex-wrap items-center gap-3 text-[24px] font-bold tracking-tight">
             {request.title}
-            {[...new Set(request.clients.map((rc) => getClient(rc.clientId)?.service).filter((x): x is NonNullable<typeof x> => !!x))].map((k) => (
+            {[...new Set(request.clients.map((rc) => getClient(rc.clientId)?.service).filter((x): x is NonNullable<typeof x> => !!x))].filter((k) => !request.title.includes(k)).map((k) => (
               <span key={k} className={`rounded-md bg-white px-2 py-0.5 text-xs font-bold shadow-sm ring-1 ring-black/5 ${serviceColor[k]}`}>
                 {k}
               </span>
@@ -247,20 +248,20 @@ function RequestView({ request }: { request: DocRequest }) {
                 setDateValue(request.due)
                 setDateOpen(true)
               }}
-              className="ml-2 font-semibold text-brand hover:underline"
+              className="-my-2 ml-1 inline-block px-1 py-2 font-semibold text-brand hover:underline"
             >
               Change date
             </button>
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 md:gap-3">
-          <button
+          {demoOn() && <button
             type="button"
             onClick={() => setToast(simulateReply(request.id) ? 'Demo: a client just sent a document' : 'Nothing is pending')}
             className="h-10 rounded-xl px-3 text-[13px] font-semibold text-muted hover:bg-white hover:text-ink"
           >
             Demo: simulate reply
-          </button>
+          </button>}
           {toNotify.length > 0 && (
             <button type="button" onClick={() => setAsking(true)} className="flex h-11 items-center gap-2 rounded-xl border border-line bg-white px-4 text-sm font-semibold hover:border-brand hover:text-brand-dark">
               <Bell size={16} />
@@ -295,6 +296,7 @@ function RequestView({ request }: { request: DocRequest }) {
 
       <section className="@container overflow-hidden rounded-[18px] border border-line bg-white">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3 md:px-6 md:py-3.5">
+          {rows.length > 1 ? (
           <div className="flex max-w-full overflow-x-auto rounded-xl bg-[#E9EEF5] p-1 text-[13px] font-semibold text-slate-600" role="group" aria-label="Show clients">
             {(
               [
@@ -304,18 +306,21 @@ function RequestView({ request }: { request: DocRequest }) {
                 ['done', 'Complete', counts.done],
               ] as [Filter, string, number][]
             ).map(([key, label, n]) => (
-              <button key={key} type="button" onClick={() => setFilter(key)} aria-pressed={filter === key} className={`shrink-0 whitespace-nowrap rounded-[9px] px-3.5 py-1.5 ${filter === key ? 'bg-white text-ink shadow-sm' : ''}`}>
+              <button key={key} type="button" onClick={() => setFilter(key)} aria-pressed={filter === key} className={`shrink-0 whitespace-nowrap rounded-[9px] px-3.5 py-2 ${filter === key ? 'bg-white text-ink shadow-sm' : ''}`}>
                 {label} <span className="ml-0.5 text-xs text-muted">{n}</span>
               </button>
             ))}
           </div>
+          ) : (
+            <span />
+          )}
           <label className="flex h-10 w-72 items-center gap-2 rounded-xl border border-transparent bg-canvas @max-3xl:w-full px-3.5 text-sm text-muted focus-within:border-brand focus-within:bg-white">
             <Search size={15} />
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search client" aria-label="Search client" className="w-full bg-transparent text-ink outline-none placeholder:text-muted" />
           </label>
         </div>
 
-        <div className={`${CLIENT_ROW} @max-3xl:hidden border-b border-line bg-slate-50/80 py-2 text-[11px] font-bold uppercase tracking-wider text-faint`}>
+        <div className={`${CLIENT_ROW} @max-3xl:hidden border-b border-line bg-slate-50/80 py-2 text-[12px] font-bold uppercase tracking-wider text-faint`}>
           <span>Client</span>
           <span>Contact</span>
           <span>Received</span>
@@ -325,11 +330,11 @@ function RequestView({ request }: { request: DocRequest }) {
         </div>
 
         {paging.rows.length === 0 && <p className="p-8 text-sm text-muted">No clients match.</p>}
-        {paging.rows.map(({ rc, c, missing, toReview, waiting, got, total, late, state }) => {
+        {paging.rows.map(({ rc, c, missing, toReview, got, total, late, state }) => {
           const isOpen = open.has(rc.clientId)
           const chip =
             state === 'review'
-              ? { text: toReview > 0 ? `${toReview} to review` : `${waiting.length} to place`, cls: 'bg-warn-soft text-warn' }
+              ? { text: `${toReview} to review`, cls: 'bg-warn-soft text-warn' }
               : late
                 ? { text: 'Overdue', cls: 'bg-danger-soft text-danger' }
                 : missing > 0
@@ -337,7 +342,7 @@ function RequestView({ request }: { request: DocRequest }) {
                   : { text: 'Complete', cls: 'bg-ok-soft text-ok' }
           return (
             <div key={rc.clientId} className="border-b border-line last:border-b-0">
-              <div onClick={() => toggle(rc.clientId)} className={`${CLIENT_ROW} group h-[68px] cursor-pointer transition-colors @max-3xl:h-auto @max-3xl:py-3.5 ${isOpen ? 'bg-[#EEF8F5]' : 'hover:bg-[#F3F9F7]'}`}>
+              <div onClick={() => toggle(rc.clientId)} {...rowKeys(() => toggle(rc.clientId))} aria-expanded={isOpen} aria-label={`${c.name}, ${isOpen ? 'close' : 'open'} documents`} className={`${rowFocus} ${CLIENT_ROW} group h-[68px] cursor-pointer transition-colors @max-3xl:h-auto @max-3xl:py-3.5 ${isOpen ? 'bg-[#EEF8F5]' : 'hover:bg-[#EAF5F0] hover:shadow-[inset_3px_0_0_#0B7A6B]'}`}>
                 <div className="flex min-w-0 items-center gap-3 @max-3xl:order-1 @max-3xl:flex-[1_1_50%]">
                   <Avatar name={c.name} size={36} />
                   <div className="min-w-0">
@@ -372,9 +377,8 @@ function RequestView({ request }: { request: DocRequest }) {
                   </span>
                 </div>
                 <div className="@max-3xl:order-4 @max-3xl:flex-1">
-                  <span className={`inline-block rounded-md px-2 py-1 text-[11px] font-bold uppercase tracking-wide ${chip.cls}`}>{chip.text}</span>
-                  {state === 'review' && missing > 0 && !(toReview > 0 && waiting.length > 0) && <div className="mt-1 text-xs text-muted">{missing} pending</div>}
-                  {state === 'review' && toReview > 0 && waiting.length > 0 && missing > 0 && <div className="mt-1 text-xs font-semibold text-warn">+ {waiting.length} to place</div>}
+                  <span className={`inline-block rounded-md px-2 py-1 text-[12px] font-bold uppercase tracking-wide ${chip.cls}`}>{chip.text}</span>
+                  {state === 'review' && missing > 0 && <div className="mt-1 text-xs text-muted">{missing} pending</div>}
                 </div>
                 <div onClick={(e) => e.stopPropagation()} className="flex justify-end @max-3xl:order-2 @max-3xl:shrink-0">
                   {missing > 0 ? (
@@ -423,29 +427,6 @@ function RequestView({ request }: { request: DocRequest }) {
 
               {isOpen && (
                 <div className="border-t border-line bg-slate-50/50">
-                  {waiting.length > 0 && missing > 0 && (
-                    <>
-                      {waiting.map((f) => (
-                        <div
-                          key={f.id}
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => setOpenFile({ fileId: f.id, clientId: rc.clientId })}
-                          onKeyDown={(e) => e.key === 'Enter' && setOpenFile({ fileId: f.id, clientId: rc.clientId })}
-                          className="flex cursor-pointer items-center gap-4 border-t border-line px-6 py-3 pl-[72px] @max-3xl:gap-3 @max-3xl:px-4 hover:bg-white"
-                        >
-                          <FileTypeIcon file={f.fileName} size={34} />
-                          <div className="min-w-0 flex-1">
-                            <div className="text-sm font-semibold">{f.fileName}</div>
-                            <div className="text-xs text-muted">
-                              {f.receivedAt} · via {f.source === 'Link' ? 'upload link' : 'WhatsApp'}
-                            </div>
-                          </div>
-                          <span className="rounded-md bg-warn-soft px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-warn">Not placed</span>
-                        </div>
-                      ))}
-                    </>
-                  )}
                   {rc.docs.map((d) => {
                     const gotIt = d.status !== 'pending' && d.status !== 'na'
                     const active = current?.clientId === rc.clientId && current.doc.id === d.id
@@ -456,7 +437,7 @@ function RequestView({ request }: { request: DocRequest }) {
                         tabIndex={gotIt ? 0 : undefined}
                         onClick={gotIt ? () => setOpenDoc({ clientId: rc.clientId, docId: d.id }) : undefined}
                         onKeyDown={gotIt ? (e) => e.key === 'Enter' && setOpenDoc({ clientId: rc.clientId, docId: d.id }) : undefined}
-                        className={`flex items-center gap-4 border-t border-line px-6 py-3 pl-[72px] @max-3xl:gap-3 @max-3xl:px-4 ${gotIt ? 'cursor-pointer hover:bg-white' : ''} ${active ? 'bg-[#EEF8F5] shadow-[inset_3px_0_0_#0B7A6B]' : ''}`}
+                        className={`flex items-center gap-4 border-t border-line px-6 py-3 pl-[72px] @max-3xl:gap-3 @max-3xl:px-4 ${gotIt ? rowHover : ''} ${active ? 'bg-[#EEF8F5] shadow-[inset_3px_0_0_#0B7A6B]' : ''}`}
                       >
                         {gotIt && d.fileName ? <FileTypeIcon file={d.fileName} size={34} /> : <span className="flex h-[34px] w-[27px] items-center justify-center rounded border-[1.5px] border-dashed border-slate-300" />}
                         <div className="min-w-0 flex-1">
@@ -489,49 +470,12 @@ function RequestView({ request }: { request: DocRequest }) {
           onClose={() => setOpenDoc(null)}
           onPrev={() => openAt(idx - 1)}
           onNext={() => openAt(idx + 1)}
+          hide={!!approving}
           onApprove={approveOpen}
           onReject={rejectOpen}
         />
       )}
 
-      {openFile && (() => {
-        const rc = request.clients.find((c) => c.clientId === openFile.clientId)
-        const client = getClient(openFile.clientId)
-        const list = unsorted.filter((f) => f.phone === client?.phone)
-        const at = list.findIndex((f) => f.id === openFile.fileId)
-        const f = list[at]
-        if (!rc || !client || !f) return null
-        const go = (i: number) => setOpenFile({ fileId: list[(i + list.length) % list.length].id, clientId: openFile.clientId })
-        const options = [
-          ...rc.docs.filter((d) => d.status === 'pending' || d.status === 'rejected').map((d) => ({ id: d.id, label: d.name, group: 'Not received yet' })),
-          ...rc.docs.filter((d) => d.status === 'to_review').map((d) => ({ id: d.id, label: d.name, group: 'Add as another file of' })),
-        ]
-        return (
-          <DocPreviewDrawer
-            key={f.id}
-            client={client}
-            doc={{ id: f.id, name: f.fileName, status: 'to_review', source: f.source, receivedAt: f.receivedAt, fileName: f.fileName }}
-            position={at + 1}
-            total={list.length}
-            onClose={() => setOpenFile(null)}
-            onPrev={() => go(at - 1)}
-            onNext={() => go(at + 1)}
-            onApprove={() => undefined}
-            onReject={() => undefined}
-            place={{
-              options,
-              onPlace: (docId) => {
-                const name = rc.docs.find((d) => d.id === docId)?.name
-                useUnsorted(f.id, request.id, rc.clientId, docId)
-                setToast(`${f.fileName} added to ${name}.`)
-                const next = list.filter((x) => x.id !== f.id)
-                if (next.length > 0 && options.length > 1) setOpenFile({ fileId: next[Math.min(at, next.length - 1)].id, clientId: openFile.clientId })
-                else setOpenFile(null)
-              },
-            }}
-          />
-        )
-      })()}
 
       {asking && <ReminderDialog targets={toNotify.map((r) => ({ requestId: request.id, clientId: r.rc.clientId }))} update={thanking} text={preview(request.id, toNotify[0].rc.clientId)} onSend={sendReminders} onClose={() => setAsking(false)} />}
 
@@ -590,9 +534,9 @@ function RequestView({ request }: { request: DocRequest }) {
       )}
 
       {rejecting && (
-        <motion.div {...backdropProps} className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="Send back document">
+        <motion.div {...backdropProps} className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="Reject document">
           <motion.div {...panelProps} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-            <h2 className="text-lg font-bold">Send “{rejecting.docName}” back?</h2>
+            <h2 className="text-lg font-bold">Reject “{rejecting.docName}”?</h2>
             <p className="mt-1 text-sm text-muted">Tell the client what is wrong. They get this on WhatsApp with a fresh upload link.</p>
             <div className="mt-4 flex flex-wrap gap-2">
               {reasons.map((r) => (
@@ -618,12 +562,34 @@ function RequestView({ request }: { request: DocRequest }) {
               </button>
               <button type="button" onClick={confirmReject} className="flex h-11 shrink-0 items-center whitespace-nowrap gap-2 rounded-xl bg-danger px-5 text-sm font-semibold text-white">
                 <X size={16} />
-                Send back
+                Reject
               </button>
             </div>
           </motion.div>
         </motion.div>
       )}
+
+      {approving && (() => {
+        const d = request.clients.find((c) => c.clientId === approving.clientId)?.docs.find((x) => x.id === approving.docId)
+        if (!d) return null
+        return (
+          <ApproveSaveDialog
+            request={request}
+            doc={d}
+            clientId={approving.clientId}
+            onClose={() => setApproving(null)}
+            onApprove={(folderId) => {
+              setDocStatus(request.id, approving.clientId, approving.docId, 'approved')
+              setDocFiled(request.id, approving.clientId, approving.docId, folderId)
+              const msg = folderId ? `${d.name} approved and saved in Document Master` : `${d.name} approved`
+              setToast(msg)
+              const goOn = approving.next
+              setApproving(null)
+              if (goOn) advance(msg)
+            }}
+          />
+        )
+      })()}
 
       <Toast message={toast} />
     </div>

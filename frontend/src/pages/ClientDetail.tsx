@@ -13,11 +13,12 @@ import Toast from '../components/Toast'
 import { mainContact, useContacts } from '../data/contacts'
 import { buildMaster } from '../data/master'
 import type { Registration } from '../data/mock'
-import { getBookClient, sameContact } from '../data/mock'
+import { getBookClient, parentIdOf, sameContact } from '../data/mock'
 import { fmtDate, isReceived, useRequests } from '../data/requests'
 import type { DocRequest, RequestClient, RequestDoc } from '../data/requests'
 import type { Service } from '../data/types'
 import { serviceColor } from '../lib/status'
+import { rowFocus, rowHover, rowKeys, trHover } from '../lib/ui'
 
 type Tab = 'overview' | 'registrations' | 'requests' | 'documents'
 const tabs: { key: Tab; label: string }[] = [
@@ -28,7 +29,7 @@ const tabs: { key: Tab; label: string }[] = [
 ]
 
 const stateLabel = {
-  review: { text: 'Needs review', className: 'bg-warn-soft text-warn' },
+  review: { text: 'To review', className: 'bg-warn-soft text-warn' },
   waiting: { text: 'Waiting for client', className: 'bg-info-soft text-info' },
   completed: { text: 'Completed', className: 'bg-ok-soft text-ok' },
 } as const
@@ -43,7 +44,7 @@ function Empty({ title, hint }: { title: string; hint?: string }) {
 }
 
 const btn = 'inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border border-line bg-white px-3 text-[13px] font-semibold text-brand-dark transition-colors hover:border-brand hover:bg-brand-soft'
-const chip = (t: Service) => `inline-block w-10 shrink-0 rounded-md bg-slate-100 py-0.5 text-center text-[11px] font-bold ${serviceColor[t]}`
+const chip = (t: Service) => `inline-block w-10 shrink-0 rounded-md bg-slate-100 py-0.5 text-center text-[12px] font-bold ${serviceColor[t]}`
 
 // One request for one registration: "GST monthly" for Karnataka is one line, for Maharashtra another.
 interface Line {
@@ -69,7 +70,7 @@ function LinesTable({ lines, empty, paging, compact }: { lines: Line[]; empty: s
     <>
       <table className="w-full text-left max-md:hidden">
         <thead>
-          <tr className="text-[11px] font-bold uppercase tracking-wider text-faint [&>th]:border-b [&>th]:border-line [&>th]:bg-slate-50 [&>th]:px-3 [&>th]:py-2.5 [&>th:first-child]:pl-6 [&>th:last-child]:pr-6">
+          <tr className="text-[12px] font-bold uppercase tracking-wider text-faint [&>th]:border-b [&>th]:border-line [&>th]:bg-slate-50 [&>th]:px-3 [&>th]:py-2.5 [&>th:first-child]:pl-6 [&>th:last-child]:pr-6">
             <th>Request</th>
             <th>Registration</th>
             {!compact && <th>Documents</th>}
@@ -83,7 +84,7 @@ function LinesTable({ lines, empty, paging, compact }: { lines: Line[]; empty: s
             const p = lineProgress(l.rc)
             const st = stateLabel[lineState(l.rc)]
             return (
-              <tr key={`${l.request.id}-${l.rc.clientId}`} onClick={() => navigate(`/requests/${l.request.id}?client=${l.rc.clientId}`)} className="cursor-pointer border-b border-line last:border-b-0 hover:bg-slate-50/70">
+              <tr key={`${l.request.id}-${l.rc.clientId}`} {...rowKeys(() => navigate(`/requests/${l.request.id}?client=${l.rc.clientId}`))} aria-label={`Open ${l.request.title} ${l.request.ref}`} onClick={() => navigate(`/requests/${l.request.id}?client=${l.rc.clientId}`)} className={`${trHover} ${rowFocus} border-b border-line last:border-b-0`}>
                 <td className="py-3 pl-6 pr-3">
                   <div className="text-[14px] font-semibold">{l.request.title}</div>
                   <div className="text-xs text-muted">
@@ -94,7 +95,7 @@ function LinesTable({ lines, empty, paging, compact }: { lines: Line[]; empty: s
                   <div className="flex items-center gap-2">
                     <span className={chip(l.reg.type)}>{l.reg.type}</span>
                     <span className="text-[13px]">
-                      <span className="block font-semibold">{l.reg.type === 'ITR' ? 'Income tax' : (l.reg.label ?? l.reg.number)}</span>
+                      <span className="block font-semibold">{l.reg.type === 'ITR' ? 'ITR' : (l.reg.label ?? l.reg.number)}</span>
                       <span className="block text-xs text-muted">{l.reg.number}</span>
                     </span>
                   </div>
@@ -112,7 +113,7 @@ function LinesTable({ lines, empty, paging, compact }: { lines: Line[]; empty: s
                 </td>
                 )}
                 <td className="px-3 py-3">
-                  <span className={`inline-block whitespace-nowrap rounded-md px-2 py-1 text-[11px] font-semibold uppercase tracking-wide ${st.className}`}>{st.text}</span>
+                  <span className={`inline-block whitespace-nowrap rounded-md px-2 py-1 text-[12px] font-semibold uppercase tracking-wide ${st.className}`}>{st.text}</span>
                 </td>
                 <td className="whitespace-nowrap px-3 py-3 text-[13px] font-semibold text-slate-600">{fmtDate(l.request.due)}</td>
                 <td className="py-3 pl-3 pr-6 text-right text-faint">
@@ -134,11 +135,11 @@ function LinesTable({ lines, empty, paging, compact }: { lines: Line[]; empty: s
                   <div className="text-[14px] font-semibold">{l.request.title}</div>
                   <div className="text-xs text-muted">{l.request.ref} · due {fmtDate(l.request.due)}</div>
                 </div>
-                <span className={`rounded-md px-2 py-1 text-[11px] font-semibold uppercase tracking-wide ${st.className}`}>{st.text}</span>
+                <span className={`rounded-md px-2 py-1 text-[12px] font-semibold uppercase tracking-wide ${st.className}`}>{st.text}</span>
               </div>
               <div className="flex items-center gap-2 text-[13px]">
                 <span className={chip(l.reg.type)}>{l.reg.type}</span>
-                <span className="font-semibold">{l.reg.type === 'ITR' ? 'Income tax' : (l.reg.label ?? l.reg.number)}</span>
+                <span className="font-semibold">{l.reg.type === 'ITR' ? 'ITR' : (l.reg.label ?? l.reg.number)}</span>
                 <span className="ml-auto text-slate-600">
                   {p.done}/{p.total} docs
                 </span>
@@ -195,7 +196,7 @@ export default function ClientDetail() {
     [requests, ids, regById],
   )
   const items: Item[] = useMemo(() => lines.flatMap((line) => line.rc.docs.map((doc) => ({ line, doc }))), [lines])
-  const folderFiles = useMemo(() => buildMaster(requests).filter((f) => f.folderId?.startsWith(`c:${client?.id}/`)), [requests, client?.id])
+  const folderFiles = useMemo(() => buildMaster(requests).filter((f) => f.folderId?.startsWith(`c:${client?.id}/`) || (!!f.clientId && parentIdOf(f.clientId) === client?.id)), [requests, client?.id])
 
   // Requests tab: filter by kind and search.
   const kindParam = params.get('kind')
@@ -237,7 +238,7 @@ export default function ClientDetail() {
   }
 
   const headStyle = {
-    ITR: { title: 'Income tax', icon: FileText, tile: 'bg-violet-50 text-violet-700', bar: 'bg-violet-500', none: 'Not on file' },
+    ITR: { title: 'ITR', icon: FileText, tile: 'bg-violet-50 text-violet-700', bar: 'bg-violet-500', none: 'Not on file' },
     GST: { title: 'GST', icon: BadgePercent, tile: 'bg-blue-50 text-info', bar: 'bg-info', none: 'Not registered for GST' },
     TDS: { title: 'TDS', icon: Wallet, tile: 'bg-amber-50 text-amber-700', bar: 'bg-amber-500', none: 'No TAN' },
   } as const
@@ -249,7 +250,7 @@ export default function ClientDetail() {
       return (
         <div key={t} className="flex flex-col rounded-2xl border border-dashed border-slate-300 bg-slate-50 text-muted">
           <span className="flex items-center gap-3 px-4 pb-2.5 pt-3.5">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
               <Icon size={20} />
             </span>
             <span className="min-w-0 flex-1">
@@ -295,7 +296,7 @@ export default function ClientDetail() {
   return (
     <div className="flex min-h-full flex-col gap-4 px-4 py-4 pb-8 max-md:pb-28 md:gap-5 md:px-8 md:py-6 md:pb-8">
       <nav className="flex items-center gap-2 text-[13px] text-muted">
-        <Link to="/clients" className="font-semibold text-brand">
+        <Link to="/clients" className="-my-2 inline-block py-2 font-semibold text-brand">
           ← Clients
         </Link>
         <span>/</span>
@@ -387,7 +388,7 @@ export default function ClientDetail() {
                 </div>
                 {recent.length === 0 && <p className="pt-3 text-sm text-muted">Nothing received yet.</p>}
                 {recent.map((i) => (
-                  <Link key={`${i.line.request.id}-${i.line.rc.clientId}-${i.doc.id}`} to={docLink(i)} className="flex items-center gap-3 border-b border-line py-3 last:border-b-0 hover:bg-slate-50">
+                  <Link key={`${i.line.request.id}-${i.line.rc.clientId}-${i.doc.id}`} to={docLink(i)} className={`flex items-center gap-3 border-b border-line py-3 last:border-b-0 ${rowHover}`}>
                     <FileTypeIcon file={i.doc.fileName ?? 'file.pdf'} size={34} />
                     <div className="flex-1">
                       <div className="text-sm font-semibold">
@@ -416,7 +417,6 @@ export default function ClientDetail() {
                   <Avatar name={main.name} size={44} />
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-[15px] font-semibold leading-tight">{main.name}</div>
-                    <div className="mt-0.5 text-xs font-semibold text-brand-dark">Main contact</div>
                   </div>
                 </div>
                 <dl className="mt-4 grid grid-cols-[auto_1fr] items-center border-t border-line pt-3 text-[13px]">

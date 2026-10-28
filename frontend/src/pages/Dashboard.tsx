@@ -1,10 +1,10 @@
 import { motion } from 'framer-motion'
 import Toast from '../components/Toast'
-import { Bell, Check, ChevronLeft, ChevronRight, MessageCircle, Plus, X } from 'lucide-react'
+import { Bell, ChevronLeft, ChevronRight, MessageCircle, Plus } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Avatar from '../components/Avatar'
-import ReminderDialog from '../components/ReminderDialog'
+import EmptyState from '../components/EmptyState'
 import { useMessenger } from '../data/messenger'
 import { useAttention } from '../data/attention'
 import { useSetup } from '../data/setup'
@@ -12,8 +12,8 @@ import { getClient } from '../data/mock'
 import type { DocRequest as Request } from '../data/requests'
 import { progress, requestState, useRequests } from '../data/requests'
 import { daysUntil, iso, parseISO, todayISO } from '../lib/dates'
-import { serviceColor } from '../lib/status'
 import { rowIn } from '../lib/motion'
+import { rowFocus, rowHover, rowKeys } from '../lib/ui'
 
 type Tab = 'all' | 'received' | 'no_response'
 
@@ -26,7 +26,7 @@ const greeting = () => {
 
 // One row height for every kind of item, so the table reads as a clean grid.
 // On a phone each row becomes a small card: who and the button on top, then how far along and what is needed.
-const ROW = 'grid grid-cols-[18px_minmax(0,1fr)_112px_148px_92px] items-center gap-4 px-6 @max-2xl:flex @max-2xl:flex-wrap @max-2xl:gap-x-3 @max-2xl:gap-y-2.5 @max-2xl:px-4'
+const ROW = 'grid grid-cols-[minmax(0,1fr)_112px_148px_92px] items-center gap-4 px-6 @max-2xl:flex @max-2xl:flex-wrap @max-2xl:gap-x-3 @max-2xl:gap-y-2.5 @max-2xl:px-4'
 
 // A month calendar. Every day is a box. Days with requests due show a coloured bar, and a click opens that day below.
 function MiniCalendar({ requests }: { requests: Request[] }) {
@@ -72,7 +72,7 @@ function MiniCalendar({ requests }: { requests: Request[] }) {
       </div>
 
       <div className="mt-3 overflow-hidden rounded-xl border border-line">
-        <div className="grid grid-cols-7 border-b border-line bg-slate-50 text-center text-[11px] font-bold uppercase tracking-wide text-faint">
+        <div className="grid grid-cols-7 border-b border-line bg-slate-50 text-center text-[12px] font-bold uppercase tracking-wide text-faint">
           {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
             <span key={d} className="py-1.5">
               {d}
@@ -100,7 +100,7 @@ function MiniCalendar({ requests }: { requests: Request[] }) {
                 <span className={`flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-[12px] tabular-nums ${isToday ? 'bg-brand font-bold text-white' : inMonth ? 'font-semibold' : 'text-faint/70'}`}>{d.getDate()}</span>
                 <span className="flex h-3 items-center gap-1">
                   {here.length > 0 && <span className={`h-1.5 w-1.5 rounded-full ${tone(day)}`} />}
-                  {here.length > 1 && <span className="text-[10px] font-bold leading-none tabular-nums text-muted">{here.length}</span>}
+                  {here.length > 1 && <span className="text-[12px] font-bold leading-none tabular-nums text-muted">{here.length}</span>}
                 </span>
               </button>
             )
@@ -132,10 +132,9 @@ export default function Dashboard() {
   const { team } = useSetup()
   const firstName = team[0].name.split(' ')[0]
   const { items, stats } = useAttention()
-  const { sendUpdate, preview } = useMessenger()
+  const { sendUpdate } = useMessenger()
   const [tab, setTab] = useState<Tab>('all')
   const { requests } = useRequests()
-  const [selected, setSelected] = useState<Set<string>>(new Set())
   const [toast, setToast] = useState<string | null>(null)
 
   useEffect(() => {
@@ -176,26 +175,6 @@ export default function Dashboard() {
   const shown = visible.slice(0, SHOW)
   const viewAll = tab === 'received' ? '/requests?tab=review' : tab === 'no_response' ? '/requests?tab=waiting' : '/requests'
 
-  const picked = items.filter((i) => selected.has(i.id))
-  const toRemind = picked.filter((i) => i.kind === 'no_response')
-  const [asking, setAsking] = useState(false)
-  const allShown = shown.length > 0 && shown.every((i) => selected.has(i.id))
-
-  const toggleOne = (id: string) =>
-    setSelected((s) => {
-      const next = new Set(s)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  const toggleAll = () => setSelected(allShown ? new Set() : new Set(shown.map((i) => i.id)))
-
-  const sendReminders = () => {
-    toRemind.forEach((i) => sendUpdate(i.requestId!, i.clientId!))
-    setToast(`Reminder sent to ${toRemind.length} ${toRemind.length === 1 ? 'client' : 'clients'} on WhatsApp`)
-    setSelected(new Set())
-    setAsking(false)
-  }
   const remindOne = (i: (typeof items)[number]) => {
     sendUpdate(i.requestId!, i.clientId!)
     setToast(`Reminder sent to ${i.title} on WhatsApp`)
@@ -216,7 +195,11 @@ export default function Dashboard() {
           <div className="text-[13px] font-semibold text-brand-dark">{dateText}</div>
           <h1 className="mt-1 text-[24px] font-bold tracking-tight md:text-[28px]">{greeting()}, {firstName}</h1>
           <p className="mt-1.5 text-[15px] text-slate-600">
-            {counts.received} {counts.received === 1 ? 'client has' : 'clients have'} sent documents to review, and {stats.overdue} {stats.overdue === 1 ? 'is' : 'are'} overdue.
+            {requests.length === 0
+              ? 'Nothing here yet. Send your first request and this page will show what needs you.'
+              : counts.received + stats.overdue === 0
+                ? 'Nothing needs you right now.'
+                : `${counts.received} ${counts.received === 1 ? 'client has' : 'clients have'} sent documents to review, and ${stats.overdue} ${stats.overdue === 1 ? 'is' : 'are'} overdue.`}
           </p>
         </div>
         <div className="grid grid-cols-2 gap-3 md:flex">
@@ -251,51 +234,27 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {picked.length > 0 && (
-          <div className="flex items-center gap-3 border-b border-[#BFDDD2] bg-brand-soft px-4 py-2.5 md:px-6 @max-2xl:hidden" role="toolbar" aria-label="Bulk actions">
-            <span className="whitespace-nowrap text-sm font-semibold text-brand-dark">{picked.length} selected</span>
-            <button
-              type="button"
-              onClick={() => setAsking(true)}
-              disabled={toRemind.length === 0}
-              title={toRemind.length === 0 ? 'Pick clients who still owe documents' : undefined}
-              className="flex h-9 items-center gap-1.5 rounded-lg bg-brand px-3.5 text-[13px] font-semibold text-white disabled:opacity-40"
-            >
-              <Bell size={14} />
-              Remind{toRemind.length ? ` (${toRemind.length})` : ''}
-            </button>
-            <span className="min-w-0 flex-1 truncate text-[13px] text-brand-dark">
-              {picked.length > toRemind.length && (toRemind.length === 0 ? 'Nothing to remind: these wait for your review' : `${picked.length - toRemind.length} skipped, waiting for your review`)}
-            </span>
-            <button type="button" onClick={() => setSelected(new Set())} className="flex h-9 shrink-0 items-center gap-1 rounded-lg px-3 text-[13px] font-semibold text-slate-600 hover:bg-white">
-              <X size={14} />
-              Clear
-            </button>
-          </div>
-        )}
-        <div className={`${ROW} @max-2xl:hidden border-b border-t border-line bg-slate-50/80 py-2 text-[11px] font-bold uppercase tracking-wider text-faint`}>
-          <button
-            type="button"
-            role="checkbox"
-            aria-checked={allShown}
-            aria-label="Select all rows"
-            onClick={toggleAll}
-            className="-m-3 flex items-center justify-center p-3"
-          >
-            <span className={`flex h-[18px] w-[18px] items-center justify-center rounded-[5px] ${allShown ? 'bg-brand text-white' : 'border-[1.5px] border-slate-300 bg-white'}`}>{allShown && <Check size={12} strokeWidth={3.4} />}</span>
-          </button>
+        <div className={`${ROW} @max-2xl:hidden border-b border-t border-line bg-slate-50/80 py-2 text-[12px] font-bold uppercase tracking-wider text-faint`}>
           <span>Client</span>
           <span>Received</span>
-          <span>Needs</span>
+          <span>Status</span>
           <span />
         </div>
 
         </div>
 
         <div className="flex-1">
-          {visible.length === 0 && <p className="p-8 text-sm text-muted">Nothing here right now.</p>}
+          {visible.length === 0 &&
+            (requests.length === 0 ? (
+              <EmptyState art="requests" title="No requests yet" text="Pick a checklist, choose who should send documents, and the work queue fills up as clients reply." compact>
+                <Link to="/requests/new" className="flex h-11 items-center gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white">
+                  <Plus size={16} /> New request
+                </Link>
+              </EmptyState>
+            ) : (
+              <EmptyState art="done" compact title="All caught up" text={tab === 'received' ? 'Nothing is waiting for your review.' : tab === 'no_response' ? 'You are not waiting on any client.' : 'Nothing needs you right now.'} />
+            ))}
           {shown.map((i, index) => {
-            const on = selected.has(i.id)
             const pct = i.total ? (i.got / i.total) * 100 : 0
             const chip =
               i.kind === 'received'
@@ -310,23 +269,10 @@ export default function Dashboard() {
                 key={i.id}
                 {...rowIn(index)}
                 onClick={() => navigate(i.href)}
-                className={`${ROW} group h-[68px] cursor-pointer border-b border-line transition-colors last:border-b-0 @max-2xl:h-auto @max-2xl:py-3.5 ${on ? 'bg-brand-soft/60' : 'hover:bg-slate-50'}`}
+                {...rowKeys(() => navigate(i.href))}
+                aria-label={`Open ${i.title}`}
+                className={`${ROW} group h-[68px] ${rowHover} ${rowFocus} border-b border-line last:border-b-0 @max-2xl:h-auto @max-2xl:py-3.5`}
               >
-                {/* the whole height of the row beside the box counts as the checkbox, so nobody opens a request by mistake */}
-                <button
-                  type="button"
-                  role="checkbox"
-                  aria-checked={on}
-                  aria-label={`Select ${i.title}`}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    toggleOne(i.id)
-                  }}
-                  className="-mx-3 -my-[25px] flex items-center justify-center px-3 py-[25px] @max-2xl:hidden"
-                >
-                  <span className={`flex h-[18px] w-[18px] items-center justify-center rounded-[5px] ${on ? 'bg-brand text-white' : 'border-[1.5px] border-slate-300 bg-white group-hover:border-slate-400'}`}>{on && <Check size={12} strokeWidth={3.4} />}</span>
-                </button>
-
                 <div className="flex min-w-0 items-center gap-3 @max-2xl:order-1 @max-2xl:flex-[1_1_60%]">
                   {i.kind === 'unassigned' ? (
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-canvas text-muted">
@@ -336,11 +282,10 @@ export default function Dashboard() {
                     <Avatar name={i.title} size={36} />
                   )}
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold">
+                    <div className="truncate text-sm font-semibold" title={i.title}>
                       {i.title}
-                      {i.service && <span className={`ml-2 text-xs font-bold ${serviceColor[i.service]}`}>{i.service}</span>}
                     </div>
-                    <div className="mt-0.5 truncate text-[13px] text-muted">{i.kind === 'unassigned' ? i.sub : `${i.request} · ${i.sub}`}</div>
+                    <div className="mt-0.5 truncate text-[13px] text-muted" title={i.kind === 'unassigned' ? i.sub : `${i.request} · ${i.sub}`}>{i.kind === 'unassigned' ? i.sub : `${i.request} · ${i.sub}`}</div>
                   </div>
                 </div>
 
@@ -360,7 +305,7 @@ export default function Dashboard() {
                 </div>
 
                 <div className="min-w-0 @max-2xl:order-4 @max-2xl:flex-1 @max-2xl:basis-[45%]">
-                  <span className={`inline-block rounded-md px-2 py-1 text-[11px] font-bold uppercase tracking-wide ${chip.cls}`}>{chip.text}</span>
+                  <span className={`inline-block rounded-md px-2 py-1 text-[12px] font-bold uppercase tracking-wide ${chip.cls}`}>{chip.text}</span>
                   <div className={`mt-1 truncate text-xs ${i.activityTone === 'danger' ? 'font-semibold text-danger' : 'text-muted'}`}>{i.activity}</div>
                 </div>
 
@@ -402,11 +347,11 @@ export default function Dashboard() {
           <section className="flex-1 rounded-[18px] border border-line bg-white px-5 pb-3 pt-4">
             <div className="flex items-baseline justify-between">
               <h2 className="text-base font-bold tracking-tight">Due this week</h2>
-              <Link to="/requests" className="text-[13px] font-semibold text-brand hover:underline">
+              <Link to="/requests" className="-my-2 py-2 text-[13px] font-semibold text-brand hover:underline">
                 All requests
               </Link>
             </div>
-            {dueSoon.length === 0 && <p className="py-4 text-sm text-muted">Nothing is due in the next 7 days.</p>}
+            {dueSoon.length === 0 && <p className="py-4 text-sm text-muted">{requests.length === 0 ? 'Requests you send show here with their last date.' : 'Nothing is due in the next 7 days.'}</p>}
             <div className="mt-2">
               {dueSoon.map(({ r, days }, n) => {
                 const p = progress(r)
@@ -415,9 +360,9 @@ export default function Dashboard() {
                 const d = parseISO(r.due)
                 const label = late ? `${-days} ${days === -1 ? 'day' : 'days'} late` : days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : `In ${days} days`
                 return (
-                  <MotionLink key={r.id} {...rowIn(n + 2)} to={`/requests/${r.id}`} className="-mx-2 flex items-center gap-3 rounded-xl px-2 py-2.5 transition-colors hover:bg-slate-50">
+                  <MotionLink key={r.id} {...rowIn(n + 2)} initial={false} to={`/requests/${r.id}`} className="-mx-2 flex items-center gap-3 rounded-xl px-2 py-2.5 transition-colors hover:bg-[#EAF5F0]">
                     <div className="flex w-12 shrink-0 flex-col overflow-hidden rounded-xl border border-line bg-white shadow-[0_1px_2px_rgba(14,27,44,0.06)]" aria-hidden="true">
-                      <span className={`py-0.5 text-center text-[9px] font-bold uppercase tracking-widest text-white ${late ? 'bg-danger' : days <= 1 ? 'bg-[#D9822B]' : 'bg-brand'}`}>{d.toLocaleDateString('en-IN', { month: 'short' })}</span>
+                      <span className={`py-0.5 text-center text-[12px] font-bold uppercase tracking-widest text-white ${late ? 'bg-danger' : days <= 1 ? 'bg-[#B35B00]' : 'bg-brand'}`}>{d.toLocaleDateString('en-IN', { month: 'short' })}</span>
                       <span className={`py-1 text-center text-[19px] font-bold leading-none tabular-nums ${late ? 'text-danger' : ''}`}>{d.getDate()}</span>
                     </div>
                     <div className="min-w-0 flex-1">
@@ -433,7 +378,7 @@ export default function Dashboard() {
                         <span className="h-1 flex-1 overflow-hidden rounded-full bg-slate-100">
                           <motion.span className={`block h-full rounded-full ${late ? 'bg-danger' : 'bg-brand'}`} initial={{ width: 0 }} animate={{ width: `${p.total ? (p.received / p.total) * 100 : 0}%` }} transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: 0.3 }} />
                         </span>
-                        <span className="text-[11px] tabular-nums text-muted">
+                        <span className="text-[12px] tabular-nums text-muted">
                           {p.received}/{p.total}
                         </span>
                       </div>
@@ -446,7 +391,7 @@ export default function Dashboard() {
 
         </aside>
       </div>
-      {asking && toRemind.length > 0 && <ReminderDialog targets={toRemind.map((i) => ({ requestId: i.requestId!, clientId: i.clientId! }))} text={preview(toRemind[0].requestId!, toRemind[0].clientId!)} onSend={sendReminders} onClose={() => setAsking(false)} />}
+
 
       <Toast message={toast} />
     </div>

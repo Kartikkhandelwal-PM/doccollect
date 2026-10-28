@@ -1,4 +1,5 @@
 import { todayISO } from '../lib/dates'
+import { emptyOn } from '../lib/demo'
 import { bulkNames } from './bulkClients'
 import { initialRequests, requestState } from './requests'
 import type { Client, Service } from './types'
@@ -153,7 +154,7 @@ const withAll = (rows: Client[]): Client[] => {
   return [...rows, ...added]
 }
 
-const base: Client[] = withAll(listed)
+const base: Client[] = emptyOn() ? [] : withAll(listed)
 
 // How many requests are still open for each client, and who is late, worked out from the requests themselves.
 const today = todayISO()

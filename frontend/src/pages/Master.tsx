@@ -5,12 +5,13 @@ import { Building2, ChevronDown, Folders, ChevronRight, Download, Folder, Folder
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import Avatar from '../components/Avatar'
+import EmptyState from '../components/EmptyState'
 import FileTypeIcon from '../components/FileTypeIcon'
 import OpenInTab from '../components/OpenInTab'
 import PaperPreview from '../components/PaperPreview'
 import { fileLink } from '../lib/fileLink'
 import Pagination, { usePaging } from '../components/Pagination'
-import { buildMaster } from '../data/master'
+import { buildMaster, clientFolderInfo } from '../data/master'
 import type { MasterFile } from '../data/master'
 import { FIRM_FOLDER, useMasterStore } from '../data/masterStore'
 import { getBookClient } from '../data/mock'
@@ -51,7 +52,7 @@ function ItemMenu({ label, actions, compact }: { label: string; actions: Action[
           e.stopPropagation()
           setOpen((v) => !v)
         }}
-        className={`flex items-center justify-center rounded-lg text-muted hover:bg-canvas hover:text-ink ${compact ? "h-7 w-7" : "h-8 w-8 bg-white/90 shadow-sm"}`}
+        className={`flex items-center justify-center rounded-lg text-muted hover:bg-canvas hover:text-ink ${compact ? "h-8 w-8" : "h-8 w-8 bg-white/90 shadow-sm"}`}
       >
         <MoreHorizontal size={compact ? 16 : 17} />
       </button>
@@ -81,6 +82,17 @@ function ItemMenu({ label, actions, compact }: { label: string; actions: Action[
   )
 }
 
+// The line under a client's name: the PAN. It is how two clients with a like name are told apart.
+function ClientLine({ id, compact }: { id?: string; compact?: boolean }) {
+  const info = id ? clientFolderInfo(id) : undefined
+  if (!info) return null
+  return (
+    <span className={`flex items-center gap-1.5 text-muted ${compact ? 'text-[12px] leading-tight' : 'mt-0.5 text-[13px]'}`}>
+      <span className="font-mono tracking-tight">{info.pan}</span>
+    </span>
+  )
+}
+
 type Target = { kind: 'folder' | 'file'; id: string; name: string }
 type Dialog = { type: 'rename' | 'move' | 'delete'; target: Target } | null
 
@@ -98,9 +110,14 @@ export default function Master() {
         .map((f) => {
           const e = fileEdits[f.id]
           return e ? { ...f, name: e.name ?? f.name, folderId: e.folderId !== undefined ? e.folderId : f.folderId } : f
-        }),
-    [requests, uploads, fileEdits],
+        })
+        // A file saved in a folder the CA has since deleted is not lost: it is "not in a folder yet" again.
+        .map((f) => (f.folderId && f.folderId.startsWith('f:') && !custom.some((c) => c.id === f.folderId) ? { ...f, folderId: null } : f)),
+    [requests, uploads, fileEdits, custom],
   )
+
+  // Approved documents saved in no folder (the CA chose "without saving", or the folder was deleted).
+  const unfiled = files.filter((f) => f.clientId && f.folderId === null).length
 
   const [current, setCurrent] = useState<string | null>(START)
   const [expanded, setExpanded] = useState<Set<string>>(
@@ -288,7 +305,8 @@ export default function Master() {
       if (target.kind === 'folder') {
         if (current && subtree(target.id).has(current)) go(byId.get(target.id)?.parentId ?? null)
         const ids = subtree(target.id)
-        files.filter((f) => ids.has(f.folderId)).forEach((f) => deleteAnyFile(f.id))
+        // An approved document the CA saved in a folder of their own is the request's: deleting the folder does not delete it, it just loses its folder.
+        files.filter((f) => ids.has(f.folderId) && !(f.clientId && f.folderId?.startsWith('f:'))).forEach((f) => deleteAnyFile(f.id))
         custom.filter((c) => ids.has(c.id) && !c.locked).forEach((c) => deleteFolder(c.id))
       } else deleteAnyFile(target.id)
       setToast(`“${target.name}” deleted`)
@@ -410,13 +428,20 @@ export default function Master() {
                 type="button"
                 aria-label={isOpen ? `Collapse ${n.name}` : `Expand ${n.name}`}
                 onClick={() => toggle(n.id)}
-                className={`flex h-7 w-6 items-center justify-center text-muted ${kids.length ? '' : 'invisible'}`}
+                className={`flex h-8 w-8 items-center justify-center text-muted ${kids.length ? '' : 'invisible'}`}
               >
                 {isOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
               </button>
               <button type="button" onClick={() => go(n.id)} className="flex min-w-0 flex-1 items-center gap-2 py-1.5 text-left">
-                {n.kind === 'client' ? <Avatar name={n.name} size={22} /> : n.kind === 'firm' ? <Building2 size={15} className="shrink-0" /> : <Folder size={15} className="shrink-0" />}
-                <span className="truncate">{n.name}</span>
+                {n.kind === 'client' ? <Avatar name={n.name} size={26} /> : n.kind === 'firm' ? <Building2 size={15} className="shrink-0" /> : <Folder size={15} className="shrink-0" />}
+                {n.kind === 'client' ? (
+                  <span className="min-w-0">
+                    <span className="block truncate leading-tight">{n.name}</span>
+                    <ClientLine id={n.clientId} compact />
+                  </span>
+                ) : (
+                  <span className="truncate">{n.name}</span>
+                )}
               </button>
               <div className="opacity-0 transition focus-within:opacity-100 group-hover:opacity-100 has-[[aria-expanded=true]]:opacity-100 pointer-coarse:opacity-100">
                 <ItemMenu compact label={n.name} actions={folderActions(n)} />
@@ -450,9 +475,18 @@ export default function Master() {
             <Folder size={15} />
             All folders
           </button>
-          <div className="px-3 pb-1 pt-3 text-[11px] font-bold uppercase tracking-widest text-faint">Firm</div>
+          {/* Approved documents the CA chose not to save in a folder wait at the top level. A line here says how many, so they are not forgotten. */}
+          {unfiled > 0 && (
+            <button type="button" onClick={() => go(null)} className="mb-1 flex w-full items-center gap-2 rounded-[10px] bg-warn-soft px-3 py-2 text-left text-[13px] font-semibold text-warn hover:brightness-95">
+              <span className="min-w-0 flex-1">
+                {unfiled} approved {unfiled === 1 ? 'file is' : 'files are'} not in a folder yet
+              </span>
+              <span className="shrink-0 underline">Show</span>
+            </button>
+          )}
+          <div className="px-3 pb-1 pt-3 text-[12px] font-bold uppercase tracking-widest text-faint">Firm</div>
           {renderTree(null, 0, (n) => n.kind === 'firm' || n.kind === 'custom')}
-          <div className="px-3 pb-1 pt-4 text-[11px] font-bold uppercase tracking-widest text-faint">Clients</div>
+          {nodes.some((n) => n.kind === 'client') && <div className="px-3 pb-1 pt-4 text-[12px] font-bold uppercase tracking-widest text-faint">Clients</div>}
           {renderTree(null, 0, (n) => n.kind === 'client', sideLimit)}
           {topMatches((n) => n.kind === 'client').length > sideLimit && (
             <button type="button" onClick={() => setSideLimit((l) => l + SIDE_PAGE)} className="mx-1 mt-1 w-[calc(100%-8px)] rounded-[10px] px-3 py-2 text-left text-[13px] font-semibold text-brand-dark hover:bg-canvas">
@@ -577,7 +611,7 @@ export default function Master() {
                 <button
                   type="button"
                   onClick={() => go(n.id)}
-                  className={`flex w-full items-center gap-3.5 rounded-2xl border bg-white p-4 pr-12 text-left hover:border-brand hover:shadow-sm ${isOver(n.id) ? 'border-brand bg-brand-soft ring-2 ring-brand' : 'border-line'}`}
+                  className={`flex h-full w-full items-center gap-3.5 rounded-2xl border bg-white p-4 pr-12 text-left hover:border-brand hover:shadow-sm ${isOver(n.id) ? 'border-brand bg-brand-soft ring-2 ring-brand' : 'border-line'}`}
                 >
                   {n.kind === 'client' ? (
                     <Avatar name={n.name} size={48} />
@@ -587,8 +621,9 @@ export default function Master() {
                     </span>
                   )}
                   <span className="min-w-0">
-                    <span className="block truncate text-[15px] font-semibold">{n.name}</span>
-                    <span className="text-[13px] text-muted">{folderMeta(n)}</span>
+                    <span className="line-clamp-2 break-words text-[15px] font-semibold leading-snug">{n.name}</span>
+                    {n.kind === 'client' && <ClientLine id={n.clientId} />}
+                    <span className="block text-[13px] text-muted">{folderMeta(n)}</span>
                   </span>
                 </button>
                 <div className="absolute inset-y-0 right-2 flex items-center opacity-0 transition focus-within:opacity-100 group-hover:opacity-100 has-[[aria-expanded=true]]:opacity-100 pointer-coarse:opacity-100">
@@ -603,14 +638,14 @@ export default function Master() {
             <>
               {firmFolders.length > 0 && (
                 <section>
-                  <h3 className="mb-2.5 text-[11px] font-bold uppercase tracking-widest text-faint">Firm folders</h3>
+                  <h3 className="mb-2.5 text-[12px] font-bold uppercase tracking-widest text-faint">Firm folders</h3>
                   {grid(firmFolders)}
                 </section>
               )}
               {(shownFolders.length > 0 || q) && (
                 <section>
                   <div className="mb-2.5 flex items-center justify-between gap-4">
-                    <h3 className="text-[11px] font-bold uppercase tracking-widest text-faint">{atTop ? `Client folders · ${subFolders.filter((n) => n.kind === 'client').length}` : 'Folders'}</h3>
+                    <h3 className="text-[12px] font-bold uppercase tracking-widest text-faint">{atTop ? `Client folders · ${subFolders.filter((n) => n.kind === 'client').length}` : 'Folders'}</h3>
                     {subFolders.length > PAGE && (
                       <label className="flex h-9 w-60 items-center gap-2 rounded-xl bg-white px-3 text-sm text-muted ring-1 ring-line focus-within:ring-brand">
                         <Search size={14} />
@@ -633,7 +668,7 @@ export default function Master() {
         {direct.length > 0 && (
           <div className="rounded-[18px] border border-line bg-white p-5">
             <div className="mb-4 flex items-center justify-between">
-              <span className="text-sm font-semibold text-muted">Files in this folder</span>
+              <span className="text-sm font-semibold text-muted">{current === null ? 'Not in a folder yet' : 'Files in this folder'}</span>
               <div className="flex rounded-lg bg-canvas p-1">
                 <button type="button" aria-label="Grid view" onClick={() => setView('grid')} className={`flex h-8 w-9 items-center justify-center rounded-md ${view === 'grid' ? 'bg-white shadow-sm' : 'text-muted'}`}>
                   <LayoutGrid size={16} />
@@ -687,9 +722,15 @@ export default function Master() {
         )}
 
         {subFolders.length === 0 && direct.length === 0 && (
-          <div className="rounded-[18px] border border-dashed border-slate-300 bg-white px-6 py-14 text-center">
-            <p className="text-[15px] font-semibold">This folder is empty</p>
-            <p className="mt-1 text-sm text-muted">Create a folder, upload a file, or drag files here.</p>
+          <div className="rounded-[18px] border border-dashed border-slate-300 bg-white">
+            <EmptyState art="folder" title="This folder is empty" text="Make a folder inside it, or add files. You can also drag files from your computer onto this page.">
+              <button type="button" onClick={() => openNewFolder(current)} className="flex h-11 items-center gap-2 rounded-xl border border-line bg-white px-5 text-sm font-semibold hover:border-brand">
+                <FolderPlus size={16} /> New folder
+              </button>
+              <button type="button" onClick={() => pickFiles(current)} className="flex h-11 items-center gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white">
+                <Upload size={16} /> Upload file
+              </button>
+            </EmptyState>
           </div>
         )}
         </motion.div>
@@ -817,9 +858,12 @@ export default function Master() {
                   {dlg.target.kind === 'folder'
                     ? (() => {
                         const ids = subtree(dlg.target.id)
-                        const nFiles = files.filter((f) => ids.has(f.folderId)).length
+                        const inside = files.filter((f) => ids.has(f.folderId))
+                        // Approved documents are the request's: they are not deleted, they just lose their folder.
+                        const kept = inside.filter((f) => f.clientId && f.folderId?.startsWith('f:')).length
+                        const nFiles = inside.length - kept
                         const nFolders = ids.size - 1
-                        return `This removes ${nFiles} ${nFiles === 1 ? 'file' : 'files'} and ${nFolders} ${nFolders === 1 ? 'folder' : 'folders'} inside it from Document Master. The requests they came from are not changed.`
+                        return `This removes ${nFiles} ${nFiles === 1 ? 'file' : 'files'} and ${nFolders} ${nFolders === 1 ? 'folder' : 'folders'} inside it from Document Master.${kept > 0 ? ` The ${kept} approved ${kept === 1 ? 'document' : 'documents'} in it ${kept === 1 ? 'is' : 'are'} not deleted: ${kept === 1 ? 'it stays' : 'they stay'} with the request and ${kept === 1 ? 'goes' : 'go'} to “not in a folder yet”.` : ' The requests they came from are not changed.'}`
                       })()
                     : 'This file is removed from Document Master. The request it came from is not changed.'}
                 </p>

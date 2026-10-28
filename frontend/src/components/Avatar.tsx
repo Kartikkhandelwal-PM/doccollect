@@ -31,7 +31,7 @@ export default function Avatar({ name, size = 40 }: Props) {
   return (
     <span
       className={`inline-flex shrink-0 select-none items-center justify-center rounded-full font-bold ${pick(name)}`}
-      style={{ width: size, height: size, fontSize: Math.max(10, Math.round(size * 0.36)) }}
+      style={{ width: size, height: size, fontSize: Math.max(11, Math.round(size * 0.36)) }}
       aria-hidden="true"
     >
       {initials(name)}

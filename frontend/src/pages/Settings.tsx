@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react'
 import Avatar from '../components/Avatar'
 import ConnectWhatsApp from '../components/ConnectWhatsApp'
 import PhoneInput from '../components/PhoneInput'
+import { useWaitingFiles } from '../data/waiting'
 import FirmLogo from '../components/FirmLogo'
 import WhatsAppIcon from '../components/WhatsAppIcon'
 import { useSearchParams } from 'react-router-dom'
@@ -40,7 +41,8 @@ function Field({ label, value, onChange }: { label: string; value: string; onCha
 // A short summary of the last 30 days, counted from what the app really holds. Delivered and read counts need the WhatsApp provider, so they come with the backend.
 function Usage() {
   const { conversations } = useInbox()
-  const { requests, unsorted } = useRequests()
+  const { requests } = useRequests()
+  const waiting = useWaitingFiles()
   const since = addDays(todayISO(), -30)
   const sent = conversations.flatMap((c) => c.msgs.filter((m) => m.from === 'ca' && m.day >= since).map(() => c))
   const byNumber = { own: sent.filter((c) => c.via === 'own').length, kdk: sent.filter((c) => c.via === 'kdk').length }
@@ -84,8 +86,8 @@ function Usage() {
           <Card n={count('to_review')} label="Waiting for review" />
         </div>
         <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4">
-          <Card n={count('rejected')} label="Sent back" />
-          <Card n={unsorted.length} label="Not placed yet" />
+          <Card n={count('rejected')} label="Rejected" />
+          <Card n={waiting.total} label="Not placed yet" />
         </div>
       </section>
       <p className="text-xs text-muted">We keep a record of every message sent from your account.</p>
@@ -206,7 +208,7 @@ export default function Settings() {
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center gap-2">
                       <span className="text-[15px] font-semibold">Your own WhatsApp</span>
-                      <span className={`rounded-md px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide ${whatsapp ? 'bg-ok-soft text-ok' : 'bg-canvas text-muted'}`}>{whatsapp ? 'Connected' : 'Not connected'}</span>
+                      <span className={`rounded-md px-1.5 py-0.5 text-[12px] font-bold uppercase tracking-wide ${whatsapp ? 'bg-ok-soft text-ok' : 'bg-canvas text-muted'}`}>{whatsapp ? 'Connected' : 'Not connected'}</span>
                     </span>
                     <span className="block text-[13px] text-muted">{whatsapp ? `Connected through ${whatsapp.provider} · clients can reply in the chat` : 'Clients get the message from your own number, and their files come straight to you.'}</span>
                   </span>
@@ -250,7 +252,7 @@ export default function Settings() {
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2">
                     <span className="text-[15px] font-semibold">{SHARED_NUMBER_NAME} number</span>
-                    <span className="rounded-md bg-ok-soft px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-ok">Always available</span>
+                    <span className="rounded-md bg-ok-soft px-1.5 py-0.5 text-[12px] font-bold uppercase tracking-wide text-ok">Always available</span>
                   </span>
                   <span className="block text-[13px] text-muted">Shared number from KDK, sent in your firm’s name · clients upload through the link, replies are not read</span>
                 </span>

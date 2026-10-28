@@ -4,6 +4,9 @@ interface CatalogDoc {
   name: string
 }
 
+// Documents that are naturally several files (the front and back of a card, a few months of statements). The firm can change this for each document.
+export const multipleIds = new Set(['aadhaar', 'salary', 'rent', 'bank', 'fd', 'loanstmt', 'health', '80g', 'tuition', 'lic'])
+
 export interface CatalogGroup {
   title: string
   docs: CatalogDoc[]

@@ -6,6 +6,7 @@ import DueDatePicker from '../components/DueDatePicker'
 import WaText from '../components/WaText'
 import { book, getBookClient, getClient, regSuffix } from '../data/mock'
 import { fmtDate, useRequests } from '../data/requests'
+import { useInbox } from '../data/inbox'
 import { useSetup } from '../data/setup'
 import type { DocRequest } from '../data/requests'
 import type { Service } from '../data/types'
@@ -14,12 +15,13 @@ import { useMessenger } from '../data/messenger'
 import { defaultDue } from '../lib/dates'
 import { serviceColor } from '../lib/status'
 import { fillTemplate, formatList } from '../lib/template'
-import { SHARED_NUMBER_NAME } from '../lib/brand'
+import { LINK_DOMAIN, SHARED_NUMBER_NAME } from '../lib/brand'
+import { linkToken } from '../lib/links'
 
-type CatalogDoc = { id: string; name: string }
+type CatalogDoc = { id: string; name: string; multiple?: boolean }
 type Kind = Service
 
-const kindName: Record<Kind, string> = { ITR: 'Income tax', GST: 'GST', TDS: 'TDS' }
+const kindName: Record<Kind, string> = { ITR: 'ITR', GST: 'GST', TDS: 'TDS' }
 
 function Box({ on }: { on: boolean }) {
   return (
@@ -79,11 +81,16 @@ function Stepper({ step }: { step: 1 | 2 | 3 }) {
 export default function NewRequest() {
   const navigate = useNavigate()
   useContacts()
-  const { create } = useRequests()
+  const { create, receiveFile } = useRequests()
+  const { markPlaced } = useInbox()
   const { sendRequest } = useMessenger()
   const { groups, compliances, messageTemplates, firm, ownNumber, whatsapp, addCompliance } = useSetup()
   const [params] = useSearchParams()
   const preselected = params.get('client')
+  // Opened from a file a client sent with no request: when the request is sent, that file goes on its document.
+  const fileParam = params.get('file')
+  const docParam = params.get('doc') ?? ''
+  const convParam = params.get('conv') ?? ''
   const preClient = preselected ? (getClient(preselected) ? getBookClient(preselected) : getBookClient(preselected)) : undefined
 
   // Kind first: it decides which checklists and which registrations are offered.
@@ -185,13 +192,26 @@ export default function NewRequest() {
     documents: formatList(chosenDocs.map((d) => d.name)),
     request: `${title}${first && regSuffix(first.id) ? ` (${regSuffix(first.id).replace(' · ', '')})` : ''}`,
     due_date: due ? fmtDate(due) : 'the last date',
+    link: `${LINK_DOMAIN}/u/${linkToken('R-' + (1050), first?.id ?? 'client', 1)}`,
   })
 
   const send = () => {
     if (complianceId === 'custom' && saveIt && customName.trim()) {
       addCompliance(customName.trim(), kind, docIds)
     }
-    const r = create({ title, due, via, clientIds: selected, docs: chosenDocs })
+    // The checklist may have no document for this file. Then one is added to the request, so the file is not left out.
+    const norm = (x: string) => x.toLowerCase().replace(/[^a-z0-9]/g, '')
+    const fits = (name: string) => norm(docParam).length > 2 && (norm(name).includes(norm(docParam)) || norm(docParam).includes(norm(name)))
+    const docs = fileParam && docParam && !chosenDocs.some((d) => fits(d.name)) ? [...chosenDocs, { id: `file-${Date.now()}`, name: docParam }] : chosenDocs
+    const r = create({ title, due, via, clientIds: selected, docs })
+    if (fileParam && convParam) {
+      const line = r.clients.find((c) => c.clientId === preselected) ?? r.clients[0]
+      const doc = line?.docs.find((d) => fits(d.name))
+      if (line && doc) {
+        receiveFile(r.id, line.clientId, doc.id, fileParam)
+        markPlaced(convParam, fileParam, `Filed as ${doc.name} · To review`, { requestId: r.id, clientId: line.clientId, docId: doc.id })
+      }
+    }
     sendRequest(r)
     setMessageCount(chosenClients.length)
     setCreated(r)
@@ -243,7 +263,7 @@ export default function NewRequest() {
           <br />
           2. You see each file in the request and set its status.
           <br />
-          3. Clients who do not reply stay under “Waiting for clients”. You can remind them in one click.
+          3. Clients who do not reply stay under “Waiting”. You can remind them in one click.
         </div>
         <div className="flex gap-3">
           <button type="button" onClick={reset} className="h-12 rounded-xl border border-line bg-white px-6 text-sm font-semibold">
@@ -284,6 +304,12 @@ export default function NewRequest() {
         </div>
       </div>
 
+      {fileParam && (
+        <div className="rounded-xl border border-brand/30 bg-brand-soft px-4 py-3 text-[14px]">
+          Started from <span className="font-semibold">{fileParam}</span>, which the client sent on WhatsApp. When you send the request, the file goes on its document.
+        </div>
+      )}
+
       <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-12">
         <div className={`flex min-w-0 flex-col gap-5 ${step === 3 ? 'lg:col-span-7' : 'lg:col-span-12'}`}>
           {/* ---------- 1. What ---------- */}
@@ -306,7 +332,7 @@ export default function NewRequest() {
                         onClick={() => setListKind(k)}
                         className={`flex h-9 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-[13px] font-semibold transition-colors ${listKind === k ? 'bg-white text-brand-dark shadow-sm' : 'text-slate-600 hover:text-ink'}`}
                       >
-                        {k === 'All' ? 'All' : k === 'ITR' ? 'Income tax' : k}
+                        {k === 'All' ? 'All' : k}
                         <span className={listKind === k ? 'text-brand-dark/70' : 'text-faint'}>{k === 'All' ? compliances.length : compliances.filter((c) => c.kind === k).length}</span>
                       </button>
                     ))}
@@ -321,7 +347,7 @@ export default function NewRequest() {
                       onClick={() => chooseChecklist(c.id)}
                       className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${complianceId === c.id ? 'bg-[#EEF8F5] ring-1 ring-inset ring-brand' : 'hover:bg-canvas'}`}
                     >
-                      <span className={`w-9 shrink-0 rounded-md bg-slate-100 py-0.5 text-center text-[10.5px] font-bold ${serviceColor[c.kind]}`}>{c.kind}</span>
+                      <span className={`w-9 shrink-0 rounded-md bg-slate-100 py-0.5 text-center text-[12px] font-bold ${serviceColor[c.kind]}`}>{c.kind}</span>
                       <span className="min-w-0 flex-1">
                         <span className={`block truncate text-[14px] ${complianceId === c.id ? 'font-bold text-brand-dark' : 'font-semibold'}`}>{c.name}</span>
                         <span className="block text-xs text-muted">{c.docIds.length} documents</span>
@@ -416,14 +442,14 @@ export default function NewRequest() {
                     </div>
                     <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
                       {canAddTyped && (
-                        <button type="button" onClick={() => addCustomNamed(docQuery)} className="mb-2 flex w-full items-center gap-2.5 rounded-lg border border-dashed border-brand/60 px-3 py-2.5 text-left text-[13.5px] font-semibold text-brand-dark hover:bg-brand-soft">
+                        <button type="button" onClick={() => addCustomNamed(docQuery)} className="mb-2 flex w-full items-center gap-2.5 rounded-lg border border-dashed border-brand/60 px-3 py-2.5 text-left text-[14px] font-semibold text-brand-dark hover:bg-brand-soft">
                           <Plus size={15} /> Add “{docQuery.trim()}” as a new document
                         </button>
                       )}
                       {shownGroups.length === 0 && !canAddTyped && <p className="px-2 py-4 text-sm text-muted">No document matches.</p>}
                       {shownGroups.map((g) => (
                         <div key={g.title} className="mb-4">
-                          <div className="mb-1 px-2 text-[11px] font-bold uppercase tracking-widest text-faint">{g.title}</div>
+                          <div className="mb-1 px-2 text-[12px] font-bold uppercase tracking-widest text-faint">{g.title}</div>
                           {g.docs.map((d) => {
                             const on = docIds.includes(d.id)
                             return (
@@ -433,7 +459,7 @@ export default function NewRequest() {
                                 role="checkbox"
                                 aria-checked={on}
                                 onClick={() => toggleDoc(d.id)}
-                                className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-[13.5px] ${on ? 'bg-[#EEF8F5] font-semibold' : 'font-medium hover:bg-canvas'}`}
+                                className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-[14px] ${on ? 'bg-[#EEF8F5] font-semibold' : 'font-medium hover:bg-canvas'}`}
                               >
                                 <Box on={on} />
                                 {d.name}
@@ -454,7 +480,7 @@ export default function NewRequest() {
                         <p className="text-xs text-muted">What the client is asked for.</p>
                       </div>
                       {docIds.length > 0 && (
-                        <button type="button" onClick={() => setDocIds([])} className="shrink-0 whitespace-nowrap text-[13px] font-semibold text-muted hover:text-danger">
+                        <button type="button" onClick={() => setDocIds([])} className="-my-2 shrink-0 whitespace-nowrap px-2 py-2 text-[13px] font-semibold text-muted hover:text-danger">
                           Clear all
                         </button>
                       )}
@@ -462,10 +488,10 @@ export default function NewRequest() {
                     <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
                       {chosenDocs.length === 0 && <div className="mx-2 rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm text-muted">Nothing here yet. Tick documents on the left.</div>}
                       {chosenDocs.map((d, i) => (
-                        <div key={d.id} className="flex items-center gap-3 rounded-lg px-2.5 py-2 text-[13.5px] font-medium hover:bg-white">
+                        <div key={d.id} className="flex items-center gap-3 rounded-lg px-2.5 py-2 text-[14px] font-medium hover:bg-white">
                           <span className="w-5 shrink-0 text-right text-xs text-faint">{i + 1}</span>
                           <span className="min-w-0 flex-1">{d.name}</span>
-                          <button type="button" onClick={() => toggleDoc(d.id)} aria-label={`Remove ${d.name}`} className="flex h-6 w-6 items-center justify-center rounded-md text-muted hover:bg-danger-soft hover:text-danger">
+                          <button type="button" onClick={() => toggleDoc(d.id)} aria-label={`Remove ${d.name}`} className="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-danger-soft hover:text-danger">
                             ✕
                           </button>
                         </div>
@@ -494,7 +520,7 @@ export default function NewRequest() {
               </span>
             </div>
             <div className="mt-3 max-h-[calc(100vh-360px)] min-h-[320px] overflow-y-auto rounded-xl border border-line">
-              <div className={`${ROW} sticky top-0 z-[1] border-b border-line bg-slate-50 py-2 text-[11px] font-bold uppercase tracking-wider text-faint max-md:hidden`}>
+              <div className={`${ROW} sticky top-0 z-[1] border-b border-line bg-slate-50 py-2 text-[12px] font-bold uppercase tracking-wider text-faint max-md:hidden`}>
                 <span />
                 <span>Client</span>
                 <span>{kind === 'GST' ? 'GSTIN' : kind === 'TDS' ? 'TAN' : 'PAN'}</span>
@@ -523,12 +549,12 @@ export default function NewRequest() {
                         {r.type !== 'ITR' && r.label && <span className="block truncate text-xs text-muted">{r.label}</span>}
                       </span>
                     </span>
-                    <span className="truncate font-mono text-[12.5px] text-slate-700 max-md:hidden">{r.number}</span>
+                    <span className="truncate font-mono text-[13px] text-slate-700 max-md:hidden">{r.number}</span>
                     <span className="min-w-0 max-md:hidden">
                       <span className="block truncate text-[13px] font-medium text-slate-700">{contact.name}</span>
                     </span>
                     <span className="truncate text-[13px] text-muted max-md:hidden">{contact.phone || 'No mobile number'}</span>
-                    <span className="flex justify-end">{waOff && <span className="whitespace-nowrap rounded-full bg-danger-soft px-2 py-0.5 text-[11px] font-semibold text-danger">WhatsApp off</span>}</span>
+                    <span className="flex justify-end">{waOff && <span className="whitespace-nowrap rounded-full bg-danger-soft px-2 py-0.5 text-[12px] font-semibold text-danger">WhatsApp off</span>}</span>
                   </button>
                 )
               })}
@@ -601,7 +627,7 @@ export default function NewRequest() {
               <span className="text-xs font-medium text-muted">{first ? `to ${first.name}` : 'sample'}</span>
             </div>
             <div className="mt-3 rounded-2xl bg-[#EFEAE2] p-3.5">
-              <div className="rounded-[10px] rounded-tr-none bg-[#D9FDD3] px-3 py-2.5 text-[13.5px] leading-relaxed shadow-sm">
+              <div className="rounded-[10px] rounded-tr-none bg-[#D9FDD3] px-3 py-2.5 text-[14px] leading-relaxed shadow-sm">
                 <WaText text={message} />
               </div>
             </div>

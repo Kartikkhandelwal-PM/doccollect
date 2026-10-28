@@ -3,6 +3,7 @@ import { todayISO } from '../lib/dates'
 import { useInbox } from './inbox'
 import { fmtDate, useRequests } from './requests'
 import { useSetup } from './setup'
+import { useWaitingFiles } from './waiting'
 
 export interface Notice {
   id: string // changes when the situation changes, so a bigger problem shows up as new again
@@ -19,6 +20,7 @@ export function useNotifications(): Notice[] {
   const { requests } = useRequests()
   const { conversations } = useInbox()
   const { readReplies, ownNumber } = useSetup()
+  const waiting = useWaitingFiles()
 
   return useMemo(() => {
     const today = todayISO()
@@ -38,8 +40,8 @@ export function useNotifications(): Notice[] {
 
     // WhatsApp files that could not be matched to a client.
     if (ownNumber && readReplies) {
-      const files = conversations.filter((c) => c.unassigned).reduce((n, c) => n + c.msgs.filter((m) => m.file).length, 0)
-      if (files > 0) out.push({ id: `u:${files}`, kind: 'unmatched', title: `${files} ${files === 1 ? 'file' : 'files'} could not be matched`, sub: 'Choose which client they belong to', href: `/inbox?chat=${conversations.find((c) => c.unassigned)?.id ?? ''}` })
+      const files = waiting.total
+      if (files > 0) out.push({ id: `u:${files}`, kind: 'unmatched', title: `${files} ${files === 1 ? 'file is' : 'files are'} not placed yet`, sub: 'Open the Inbox and choose where each goes', href: `/inbox?chat=${waiting.chats[0]?.id ?? ''}` })
     }
 
     // Documents that arrived today and are waiting for a decision.
@@ -55,5 +57,5 @@ export function useNotifications(): Notice[] {
     if (docs > 0) out.push({ id: `d:${docs}`, kind: 'documents', title: `${docs} new ${docs === 1 ? 'document' : 'documents'} today`, sub: `From ${who.size} ${who.size === 1 ? 'client' : 'clients'}, ready to review`, href: '/requests?tab=review' })
 
     return out
-  }, [requests, conversations, ownNumber, readReplies])
+  }, [requests, conversations, ownNumber, readReplies, waiting])
 }

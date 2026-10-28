@@ -68,7 +68,8 @@ export default function ClientUpload() {
     const list = files ? Array.from(files) : []
     if (list.length === 0) return
     clientUpload(request.id, rc.clientId, d.id, list[0].name)
-    list.slice(1).forEach((f) => clientAddFile(request.id, rc.clientId, d.id, f.name))
+    // Only a document that allows several files takes more than the first one.
+    if (d.multiple) list.slice(1).forEach((f) => clientAddFile(request.id, rc.clientId, d.id, f.name))
   }
 
   const banner = preview && (
@@ -153,18 +154,20 @@ export default function ClientUpload() {
     )
   }
 
+  document.title = `Documents for ${request.title} · ${firm.name}`
+
   return (
-    <div className="min-h-full bg-canvas">
+    <div className="min-h-full overflow-x-clip bg-canvas">
       {banner}
       <div className="mx-auto flex min-h-full max-w-[480px] flex-col bg-canvas">
-        <header className="bg-gradient-to-br from-[#DDF3EC] via-[#E7F4F6] to-[#E6EEFC] px-5 pb-14 pt-5">
+        <header className="relative isolate px-5 pb-14 pt-5 before:absolute before:inset-y-0 before:left-1/2 before:-z-10 before:w-screen before:-translate-x-1/2 before:bg-gradient-to-br before:from-[#DDF3EC] before:via-[#E7F4F6] before:to-[#E6EEFC]">
           <div className="flex items-center gap-3">
             <FirmLogo name={firm.name} logo={firm.logo} size={40} />
             <div className="min-w-0 flex-1 truncate text-[15px] font-bold">{firm.name}</div>
-            <span className="shrink-0 rounded-md bg-white/80 px-2 py-1 text-[11px] font-semibold text-slate-600">Ref {request.ref}</span>
+            <span className="shrink-0 rounded-md bg-white/80 px-2 py-1 text-[12px] font-semibold text-slate-600">Ref {request.ref}</span>
           </div>
           <p className="mt-6 text-sm font-medium text-slate-600">Hi {first}</p>
-          {regLine && <p className="mt-0.5 font-mono text-[12.5px] text-slate-500">{regLine}</p>}
+          {regLine && <p className="mt-0.5 font-mono text-[13px] text-slate-500">{regLine}</p>}
           <h1 className="mt-0.5 text-[26px] font-bold leading-tight tracking-tight">Documents for {request.title}</h1>
           <p className="mt-2 text-[15px] leading-snug text-slate-700">
             {firm.name} needs {total} {total === 1 ? 'document' : 'documents'} from you.
@@ -202,7 +205,7 @@ export default function ClientUpload() {
               <label className="flex h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-brand-soft text-sm font-semibold text-brand-dark active:bg-[#D3EDE6]">
                 <Upload size={16} />
                 {d.status === 'rejected' ? 'Upload again' : 'Upload'}
-                <input type="file" multiple className="sr-only" aria-label={`Upload ${d.name}`} onChange={(e) => pick(d, e.target.files)} />
+                <input type="file" multiple={!!d.multiple} className="sr-only" aria-label={`Upload ${d.name}`} onChange={(e) => pick(d, e.target.files)} />
               </label>
             )
 
@@ -284,10 +287,10 @@ export default function ClientUpload() {
                       </>
                     ) : (
                       <>
-                        <label className="cursor-pointer rounded-lg px-2.5 py-1.5 text-[13px] font-semibold text-brand hover:bg-white">
+                        {d.multiple && <label className="cursor-pointer rounded-lg px-2.5 py-1.5 text-[13px] font-semibold text-brand hover:bg-white">
                           Add another
                           <input type="file" multiple className="sr-only" aria-label={`Add another file to ${d.name}`} onChange={(e) => addMore(d, e.target.files)} />
-                        </label>
+                        </label>}
                         <label className="cursor-pointer rounded-lg px-2.5 py-1.5 text-[13px] font-semibold text-brand hover:bg-white">
                           Replace
                           <input type="file" className="sr-only" aria-label={`Replace ${d.name}`} onChange={(e) => pick(d, e.target.files)} />
