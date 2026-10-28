@@ -34,3 +34,16 @@ export function emptyOn(): boolean {
   }
   return emptyMode
 }
+
+// The profile menu's "Delete all data" and "Add sample data". The data is loaded once when the app starts, so the new mode is saved and the app starts again
+// from its start page. What this tab had saved is cleared, so the two modes never mix.
+export function setSampleData(on: boolean) {
+  try {
+    Object.keys(sessionStorage).filter((k) => k.startsWith('doccollect:')).forEach((k) => sessionStorage.removeItem(k))
+    if (on) sessionStorage.removeItem('doccollect-empty')
+    else sessionStorage.setItem('doccollect-empty', '1')
+  } catch {
+    /* storage blocked: the link /empty or /sample still works */
+  }
+  window.location.assign(import.meta.env.BASE_URL)
+}

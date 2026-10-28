@@ -175,3 +175,7 @@ Every time something changes in how the product works, update this file in the s
 | Same document sent twice | Amber line "may be a duplicate". A second file for a document already waiting is added as another file of it. |
 | Not a document (a photo) | Skipped, with a note in the chat. Nothing is saved. |
 | Start a request from the file | New request opens for that client; the file goes on its document when sent. If the checklist has no such document, one is added. |
+
+## Demo data
+
+The app opens with sample data. In the profile menu, **Delete all data** (after a confirmation) shows the app as a new firm: no clients, requests, chats, files or folders, and WhatsApp disconnected. Checklists, documents, message templates and settings stay. **Add sample data** brings the sample back. `/empty` and `/sample` do the same from a link.
