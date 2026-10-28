@@ -6,7 +6,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
 import Pagination, { usePaging } from '../components/Pagination'
 import { getClient, parentIdOf, partyName } from '../data/mock'
-import { fmtDate, isReceived, progress, requestState, useRequests } from '../data/requests'
+import { fmtDate, isReceived, lineRef, progress, requestState, useRequests } from '../data/requests'
 import type { DocRequest, RequestState } from '../data/requests'
 import { daysUntil } from '../lib/dates'
 import { SHARED_NUMBER_NAME } from '../lib/brand'
@@ -67,7 +67,7 @@ export default function Requests() {
     }
     if (q) {
       const names = r.clients.map((c) => partyName(c.clientId)).join(' ')
-      if (!`${r.title} ${r.ref} ${names}`.toLowerCase().includes(q)) return false
+      if (!`${r.title} ${r.ref} ${r.clients.map((c) => lineRef(r, c.clientId)).join(' ')} ${names}`.toLowerCase().includes(q)) return false
     }
     return true
   })

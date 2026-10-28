@@ -14,7 +14,7 @@ import { mainContact, useContacts } from '../data/contacts'
 import { buildMaster } from '../data/master'
 import type { Registration } from '../data/mock'
 import { getBookClient, parentIdOf, sameContact } from '../data/mock'
-import { fmtDate, isReceived, useRequests } from '../data/requests'
+import { fmtDate, isReceived, useRequests, lineRef } from '../data/requests'
 import type { DocRequest, RequestClient, RequestDoc } from '../data/requests'
 import type { Service } from '../data/types'
 import { serviceColor } from '../lib/status'
@@ -88,7 +88,7 @@ function LinesTable({ lines, empty, paging, compact }: { lines: Line[]; empty: s
                 <td className="py-3 pl-6 pr-3">
                   <div className="text-[14px] font-semibold">{l.request.title}</div>
                   <div className="text-xs text-muted">
-                    {l.request.ref} · sent {fmtDate(l.request.createdAt)}
+                    {lineRef(l.request, l.rc.clientId)} · sent {fmtDate(l.request.createdAt)}
                   </div>
                 </td>
                 <td className="px-3 py-3">
@@ -133,7 +133,7 @@ function LinesTable({ lines, empty, paging, compact }: { lines: Line[]; empty: s
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="text-[14px] font-semibold">{l.request.title}</div>
-                  <div className="text-xs text-muted">{l.request.ref} · due {fmtDate(l.request.due)}</div>
+                  <div className="text-xs text-muted">{lineRef(l.request, l.rc.clientId)} · due {fmtDate(l.request.due)}</div>
                 </div>
                 <span className={`rounded-md px-2 py-1 text-[12px] font-semibold uppercase tracking-wide ${st.className}`}>{st.text}</span>
               </div>

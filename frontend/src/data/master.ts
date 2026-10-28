@@ -1,4 +1,5 @@
 import type { DocRequest } from './requests'
+import { lineRef } from '../lib/refs'
 import { clients, getBookClient, getClient, parentIdOf, regSuffix } from './mock'
 import type { Client } from './types'
 import type { Service } from './types'
@@ -96,7 +97,7 @@ export function buildMaster(requests: DocRequest[]): MasterFile[] {
             fileName,
             size: sizeOf(d.name + rc.clientId + i),
             date: d.receivedAt ?? '',
-            from: r.ref,
+            from: lineRef(r, rc.clientId),
             clientId: rc.clientId,
           }))
         })

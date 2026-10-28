@@ -179,3 +179,7 @@ Every time something changes in how the product works, update this file in the s
 ## Demo data
 
 The app opens with sample data. In the profile menu, **Delete all data** (after a confirmation) shows the app as a new firm: no clients, requests, chats, files or folders, and WhatsApp disconnected. Checklists, documents, message templates and settings stay. **Add sample data** brings the sample back. `/empty` and `/sample` do the same from a link.
+
+## Request numbers
+
+A request is one batch with one number, such as R-1050, however many clients it goes to. Each client in it also has a number of their own, such as R-1050-03 (their place in the batch). The batch number is for the CA's view of the whole request; the client's number is for talking about one client (it is on their upload page, and search finds it).

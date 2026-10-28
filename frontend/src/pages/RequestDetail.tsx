@@ -17,7 +17,7 @@ import DueDatePicker from '../components/DueDatePicker'
 import { getBookClient, getClient, regSuffix } from '../data/mock'
 import { contactOf, useContacts } from '../data/contacts'
 import type { DocRequest } from '../data/requests'
-import { fmtDate, progress, useRequests } from '../data/requests'
+import { fmtDate, progress, useRequests, lineRef } from '../data/requests'
 import type { Status } from '../data/types'
 import { useSetup } from '../data/setup'
 import { isExpired, todayISO } from '../lib/dates'
@@ -360,6 +360,7 @@ function RequestView({ request }: { request: DocRequest }) {
                     </div>
                     <div className="mt-0.5 truncate text-[13px] text-muted">
                       {regInfo(c.id) && <span className="font-mono text-[12px] text-slate-600">{regInfo(c.id)!.number}</span>}
+                      <span title="This client's number in the request"> · {lineRef(request, rc.clientId)}</span>
                       {rc.lastReminder && ` · reminded ${rc.lastReminder}`}
                     </div>
                   </div>
