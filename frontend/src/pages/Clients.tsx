@@ -9,6 +9,7 @@ import Pagination, { usePaging } from '../components/Pagination'
 import { mainContact, useContacts } from '../data/contacts'
 import { book } from '../data/mock'
 import EmptyState from '../components/EmptyState'
+import Toast from '../components/Toast'
 import { serviceColor } from '../lib/status'
 import { rowFocus, rowKeys, trHover } from '../lib/ui'
 import FilterSelect from '../components/FilterSelect'
@@ -28,6 +29,12 @@ export default function Clients() {
   const [filter, setFilter] = useState<Filter>(fromLink === 'GST' || fromLink === 'TDS' ? fromLink : fromLink === 'ITR' ? 'ITR' : 'All')
   const [work, setWork] = useState<Work>('All')
   const [query, setQuery] = useState('')
+  const [toast, setToast] = useState<string | null>(null)
+  // Syncing needs the KDK connection. Until then the buttons say so, instead of doing nothing.
+  const sync = () => {
+    setToast('Sync needs the KDK connection. In this demo the clients are sample data.')
+    window.setTimeout(() => setToast(null), 3500)
+  }
 
   // One row per client. A client has an ITR (on the PAN), and maybe GSTINs and TANs; the filter shows clients that have that kind.
   const q = query.trim().toLowerCase()
@@ -55,7 +62,7 @@ export default function Clients() {
           <p className="mt-0.5 text-sm text-muted">{book.length === 0 ? 'Not synced yet' : 'Last synced from KDK today, 08:30'}</p>
         </div>
         <div className="flex gap-3">
-          <button type="button" aria-label="Sync from KDK" className="flex h-11 shrink-0 items-center whitespace-nowrap gap-2 rounded-xl border border-line bg-white px-4 text-sm font-semibold max-md:w-11 max-md:justify-center max-md:px-0">
+          <button type="button" onClick={sync} aria-label="Sync from KDK" className="flex h-11 shrink-0 items-center whitespace-nowrap gap-2 rounded-xl border border-line bg-white px-4 text-sm font-semibold max-md:w-11 max-md:justify-center max-md:px-0">
             <RefreshCw size={16} />
             <span className="max-md:hidden">Sync from KDK</span>
           </button>
@@ -89,7 +96,7 @@ export default function Clients() {
       <div className="overflow-clip rounded-[18px] border border-line bg-white">
         {book.length === 0 && (
           <EmptyState art="clients" title="No clients yet" text="Your clients come from KDK: one record for each PAN, with their GSTINs and TANs. Sync to bring them in, then send a request." >
-            <button type="button" className="flex h-11 items-center gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white">
+            <button type="button" onClick={sync} className="flex h-11 items-center gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white">
               <RefreshCw size={16} /> Sync from KDK
             </button>
           </EmptyState>
@@ -190,6 +197,7 @@ export default function Clients() {
         ))}
         <Pagination p={paging} noun="clients" />
       </div>
+      <Toast message={toast} />
     </Page>
   )
 }
