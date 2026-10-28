@@ -84,7 +84,7 @@ function Usage() {
           <Card n={count('to_review')} label="Waiting for review" />
         </div>
         <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4">
-          <Card n={count('rejected')} label="Sent back" />
+          <Card n={count('rejected')} label="Rejected" />
           <Card n={unsorted.length} label="Not placed yet" />
         </div>
       </section>

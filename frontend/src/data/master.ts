@@ -1,5 +1,5 @@
 import type { DocRequest } from './requests'
-import { clients, getClient, parentIdOf, regSuffix } from './mock'
+import { clients, getBookClient, getClient, parentIdOf, regSuffix } from './mock'
 import type { Client } from './types'
 import type { Service } from './types'
 
@@ -14,6 +14,7 @@ export interface MasterFile {
   size: string
   date: string
   from: string
+  clientId?: string // set for a file that came from a request, so it is the client's even when it sits in no folder
 }
 
 const sizeOf = (s: string) => {
@@ -62,7 +63,23 @@ const archive: MasterFile[] = clients.flatMap((c, i) =>
 const complianceOf = (title: string, fallback: Service): string =>
   title.startsWith('ITR') ? 'ITR' : title.startsWith('GST') ? 'GST' : title.startsWith('TDS') ? 'TDS' : title || fallback
 
-// Everything approved in a request is filed here automatically.
+// The folder we would suggest for a document of this request: the client, the year and the kind of work (with the place when the client has several GSTINs or TANs).
+export function autoFolderId(requestTitle: string, clientId: string): string {
+  const client = getClient(clientId)
+  const service = client?.service ?? 'ITR'
+  return folderIdOf(parentIdOf(clientId), 'FY 2025-26', `${complianceOf(requestTitle, service)}${service === 'ITR' ? '' : regSuffix(clientId)}`)
+}
+
+// A folder's name in full, for the ones the app makes (client > year > kind). A folder the CA made is named from the store, so the caller does that.
+export function autoFolderLabel(folderId: string): string | undefined {
+  const m = folderId.match(/^c:([^/]+)\/([^/]+)\/(.+)$/)
+  if (!m) return undefined
+  return `${getBookClient(m[1])?.name ?? m[1]} › ${m[2]} › ${m[3]}`
+}
+
+// What has been approved in requests, as files for Document Master.
+// A document the CA saved in a folder sits there. One approved before this was asked (the sample data) sits in its client's folder. One approved with
+// "without saving" sits in no folder (null) until the CA files it. A document of several files gives one file each.
 export function buildMaster(requests: DocRequest[]): MasterFile[] {
   const fromRequests = requests.flatMap((r) =>
     r.clients.flatMap((rc) => {
@@ -70,16 +87,33 @@ export function buildMaster(requests: DocRequest[]): MasterFile[] {
       if (!client) return []
       return rc.docs
         .filter((d) => d.status === 'approved')
-        .map((d) => ({
-          id: `${r.id}-${rc.clientId}-${d.id}`,
-          folderId: folderIdOf(parentIdOf(rc.clientId), 'FY 2025-26', `${complianceOf(r.title, client.service)}${client.service === 'ITR' ? '' : regSuffix(rc.clientId)}`),
-          name: d.name,
-          fileName: d.fileName ?? `${d.name}.pdf`,
-          size: sizeOf(d.name + rc.clientId),
-          date: d.receivedAt ?? '',
-          from: r.ref,
-        }))
+        .flatMap((d) => {
+          const folderId = d.filedTo === undefined ? autoFolderId(r.title, rc.clientId) : d.filedTo
+          return [d.fileName ?? `${d.name}.pdf`, ...(d.moreFiles ?? [])].map((fileName, i) => ({
+            id: i === 0 ? `${r.id}-${rc.clientId}-${d.id}` : `${r.id}-${rc.clientId}-${d.id}-${i}`,
+            folderId,
+            name: i === 0 ? d.name : `${d.name} (${i + 1})`,
+            fileName,
+            size: sizeOf(d.name + rc.clientId + i),
+            date: d.receivedAt ?? '',
+            from: r.ref,
+            clientId: rc.clientId,
+          }))
+        })
     }),
   )
   return [...fromRequests, ...archive]
+}
+
+// How a client folder is told apart from another one: the PAN.
+export interface ClientFolderInfo {
+  pan: string
+  services: Service[]
+  kind: 'person' | 'firm'
+}
+export function clientFolderInfo(clientId: string): ClientFolderInfo | undefined {
+  const b = getBookClient(clientId)
+  if (!b) return undefined
+  const services = [...new Set(b.registrations.map((r) => r.type))] as Service[]
+  return { pan: b.pan, services, kind: b.kind }
 }

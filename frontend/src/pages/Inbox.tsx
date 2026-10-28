@@ -1,25 +1,32 @@
 import { backdropProps, panelProps, rowIn } from '../lib/motion'
 import { motion } from 'framer-motion'
 import Toast from '../components/Toast'
-import { ArrowLeft, Check, Sparkles, CheckCheck, ChevronDown, Image as ImageIcon, Info, Lock, PanelRightOpen, Search, Send, X } from 'lucide-react'
+import { ArrowLeft, Check, Sparkles, CheckCheck, ChevronDown, ChevronRight, FolderOpen, Trash2, Image as ImageIcon, Info, Lock, PanelRightOpen, Search, Send, X } from 'lucide-react'
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
 import DocPreviewDrawer from '../components/DocPreviewDrawer'
+import AttachPanel from '../components/AttachPanel'
+import FilePane, { canPreview } from '../components/FilePane'
+import type { AttachData, AttachRequest, AttachSuggest, FolderChoice } from '../components/AttachPanel'
 import OpenInTab from '../components/OpenInTab'
-import PaperPreview from '../components/PaperPreview'
 import { fileLink } from '../lib/fileLink'
 import WaText from '../components/WaText'
 import WhatsAppIcon from '../components/WhatsAppIcon'
 import FileTypeIcon from '../components/FileTypeIcon'
 import StatusBadge from '../components/StatusBadge'
+import { useMessenger } from '../data/messenger'
 import { useInbox } from '../data/inbox'
-import { isDuplicate, suggestClient } from '../data/docRead'
-import type { DocRead, Suggestion } from '../data/docRead'
+import { findPlacement, isDuplicate, suggestClient } from '../data/docRead'
+import type { DocRead } from '../data/docRead'
 import type { Conversation, Msg } from '../data/inbox'
 import { addContact } from '../data/contacts'
-import { book, clients, getBookClient, getClient, regSuffix } from '../data/mock'
-import { folderIdOf } from '../data/master'
+import { book, getBookClient, getClient, parentIdOf, regSuffix } from '../data/mock'
+import { autoFolderId, autoFolderLabel, folderIdOf } from '../data/master'
+import ApproveSaveDialog from '../components/ApproveSaveDialog'
+import type { Approving } from '../components/ApproveSaveDialog'
+import FolderPickerDialog from '../components/FolderPickerDialog'
+import { createPortal } from 'react-dom'
 import { useMasterStore } from '../data/masterStore'
 import { useRequests } from '../data/requests'
 import type { RequestDoc } from '../data/requests'
@@ -29,6 +36,18 @@ import { dayLabel, todayISO } from '../lib/dates'
 import { SHARED_NUMBER_NAME } from '../lib/brand'
 
 type Filter = 'all' | 'unread' | 'unassigned'
+
+// What the demo sends, one after another. Each shows a different outcome of reading a file.
+const ARRIVALS: { phone: string; file: string; size: string; read: DocRead }[] = [
+  // The GSTIN is on the file and Priya Karnataka asked for GSTR-2B: placed by itself.
+  { phone: '+91 98450 11872', file: 'GSTR2B_092026.pdf', size: '4 pages · 520 KB', read: { kind: 'GSTR-2B', name: 'Priya Textiles Pvt Ltd', idNo: '29AAKCP7788Q1Z9', note: 'Sep 2026' } },
+  // Only the name is on a bank statement: a guess the CA confirms.
+  { phone: '+91 97222 33442', file: 'HDFC_stmt.pdf', size: '6 pages · 1.2 MB', read: { kind: 'Bank statement', name: 'Priya Textiles Pvt Ltd', idNo: 'A/c XXXX3310', note: 'Apr–Sep 2026' } },
+  // Ramesh's PAN, and his income tax request asked for it: placed by itself.
+  { phone: '+91 98111 22301', file: 'PAN_Ramesh.jpg', size: '1 page · 210 KB', read: { kind: 'PAN card', name: 'Ramesh Kumar', idNo: 'ABCPK4521F' } },
+  // A PAN we do not know, from a number we do not know: Unassigned.
+  { phone: '+91 90000 11122', file: 'IMG_7788.jpg', size: '1 page · 190 KB', read: { kind: 'PAN card', name: 'Vinod Patel', idNo: 'ADPPP5521K' } },
+]
 
 // The one-line peek shown in the chat list: the first real sentence, not the greeting, and without the bold stars.
 function preview(c: Conversation) {
@@ -42,6 +61,11 @@ function preview(c: Conversation) {
   return line.replace(/\*/g, '')
 }
 
+// The note under a placed file ends with where the document stands ("... · To review"). It is kept up to date from the document itself,
+// so when the CA approves or rejects it the chat says so too, and not what it said when the file arrived.
+const STAND: Record<string, string> = { to_review: 'To review', approved: 'Approved', rejected: 'Rejected' }
+const liveMatched = (text: string, status?: string) => (status && STAND[status] ? text.replace(/(To review|Approved|Rejected)$/, STAND[status]) : text)
+
 const readLine = (r: DocRead) => [r.kind, r.name, r.idNo, r.note].filter(Boolean).join(' · ')
 
 function Ticks({ tick }: { tick?: 'sent' | 'read' }) {
@@ -49,7 +73,7 @@ function Ticks({ tick }: { tick?: 'sent' | 'read' }) {
   return tick === 'read' ? <CheckCheck size={15} className="text-[#53BDEB]" /> : <CheckCheck size={15} className="text-slate-400" />
 }
 
-function Bubble({ m, onOpen }: { m: Msg; onOpen: (m: Msg) => void }) {
+function Bubble({ m, status, onOpen, onPlace, onNot }: { m: Msg; status?: string; onOpen: (m: Msg) => void; onPlace?: () => void; onNot?: () => void }) {
   const mine = m.from === 'ca'
   if (m.from === 'system')
     return (
@@ -106,7 +130,24 @@ function Bubble({ m, onOpen }: { m: Msg; onOpen: (m: Msg) => void }) {
             <WaText text={m.text} />
           </div>
         )}
-        {m.matched && <div className="mt-1 inline-block rounded-md bg-brand-soft px-2 py-0.5 text-xs font-semibold text-brand-dark">{m.matched}</div>}
+        {m.guess ? (
+          <div className="mt-1.5 rounded-lg border border-[#F5DFA8] bg-[#FEF6E4] p-2.5 text-xs text-[#7A3B00]">
+            <div className="font-bold">Looks like {m.guess.docName}</div>
+            <div className="mt-0.5">
+              {m.guess.clientName} · {m.guess.place} · {m.guess.requestTitle} <span className="opacity-70">({m.guess.how})</span>
+            </div>
+            <div className="mt-2 flex gap-2">
+              <button type="button" onClick={onPlace} className="h-7 rounded-md bg-brand px-3 font-semibold text-white hover:bg-brand-dark">
+                Place it
+              </button>
+              <button type="button" onClick={onNot} className="h-7 rounded-md border border-[#E7C98A] bg-white px-3 font-semibold hover:bg-[#FFF9EC]">
+                Not this
+              </button>
+            </div>
+          </div>
+        ) : (
+          m.matched && <div className="mt-1 inline-block rounded-md bg-brand-soft px-2 py-0.5 text-xs font-semibold text-brand-dark">{liveMatched(m.matched, status)}</div>
+        )}
         <div className="flex items-center justify-end gap-1 pt-0.5 text-[11px] text-slate-500">
           {m.time}
           {mine && <Ticks tick={m.tick} />}
@@ -117,120 +158,203 @@ function Bubble({ m, onOpen }: { m: Msg; onOpen: (m: Msg) => void }) {
 }
 
 // Opens a file from the chat, right where it arrived. If it was filed against a request, you can approve it here.
-function FileViewer({ msg, who, pan, doc, onClose, onApprove }: { msg: Msg; who: string; pan: string; doc?: RequestDoc; onClose: () => void; onApprove: () => void }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-  const file = msg.file!
-  return (
-    <motion.div {...backdropProps} className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label={`Preview of ${file.name}`}>
-      <motion.div {...panelProps} className="flex max-h-full w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-center gap-3 border-b border-line px-5 py-4">
-          <FileTypeIcon file={file.name} size={34} />
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-base font-bold">{file.name}</div>
-            <div className="truncate text-[13px] text-muted">
-              {who} · {file.size} · {msg.day === todayISO() ? msg.time : `${dayLabel(msg.day)}, ${msg.time}`}
-            </div>
-          </div>
-          <OpenInTab
-            iconOnly
-            href={fileLink({
-              name: doc?.name ?? file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' '),
-              fileName: file.name,
-              client: who,
-              pan,
-              from: msg.time,
-            })}
-          />
-          <button type="button" aria-label="Close" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-canvas">
-            <X size={20} />
-          </button>
-        </div>
-        <div className="overflow-y-auto bg-[#EDF0F5] px-6 py-7">
-          <PaperPreview
-            doc={{
-              name: doc?.name ?? file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' '),
-            }}
-            client={{ name: who, pan }}
-          />
-        </div>
-        <div className="flex items-center gap-3 border-t border-line px-5 py-3.5">
-          {doc ? (
-            <>
-              <StatusBadge status={doc.status} />
-              <span className="min-w-0 flex-1 truncate text-[13px] text-muted">Filed as {doc.name}</span>
-              <Link
-                to={`/requests/${msg.link!.requestId}?doc=${msg.link!.clientId}:${msg.link!.docId}`}
-                className="h-11 shrink-0 whitespace-nowrap rounded-xl border border-line px-4 text-sm font-semibold leading-[44px] hover:bg-canvas"
-              >
-                Open in request
-              </Link>
-              <button
-                type="button"
-                disabled={doc.status === 'approved'}
-                onClick={onApprove}
-                className="flex h-11 shrink-0 items-center gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white disabled:opacity-40"
-              >
-                <Check size={16} strokeWidth={2.8} />
-                {doc.status === 'approved' ? 'Approved' : 'Approve'}
-              </button>
-            </>
-          ) : (
-            <p className="flex-1 text-[13px] leading-snug text-muted">This file is not filed against a document yet. Match it from the panel on the right.</p>
-          )}
-        </div>
-      </motion.div>
-    </motion.div>
-  )
-}
+const SEND_BACK_REASONS = ['Blurry or unreadable', 'Wrong document', 'Pages missing', 'Wrong year']
 
-// Where a file goes when it is not part of the request: a folder in Document Master, or nowhere.
-function KeepFile({ fileName, clientName, onSave, onRemove, onClose }: { fileName: string; clientName: string; onSave: (folderId: string) => void; onRemove: () => void; onClose: () => void }) {
-  const { folders } = useMasterStore()
-  const [to, setTo] = useState('')
+function FileViewer({ msg, who, pan, doc, req, checklist, hide, filedText, onFile, attach, onAttach, onSaveFolder, onClose, onApprove, onSendBack, onMove }: { msg: Msg; who: string; pan: string; doc?: RequestDoc; req?: { title: string; ref: string; got: number; total: number }; checklist: RequestDoc[]; hide?: boolean; filedText?: string | null; onFile?: () => void; attach: AttachData; onAttach: (key: string) => void; onSaveFolder: (folderId: string) => void; onClose: () => void; onApprove: () => void; onSendBack: (reason: string, remark: string) => void; onMove: (toDocId: string | null) => void }) {
+  const [rejecting, setRejecting] = useState(false) // the bar asks why, in the same window, so the CA never leaves the chat
+  const [moveTo, setMoveTo] = useState<string | null>(null) // a checklist item picked to move this file to ('__none' = take it off the checklist)
+  const [windowOpen, setWindowOpen] = useState(false) // the Save-as / Add-to window is open: this preview hides
+  const [reason, setReason] = useState('')
+  const [remark, setRemark] = useState('')
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && (moveTo ? setMoveTo(null) : onClose())
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-  const label = (id: string) => {
-    const f = folders.find((x) => x.id === id)!
-    return f.parentId ? `${folders.find((x) => x.id === f.parentId)?.name} / ${f.name}` : f.name
+  }, [onClose, moveTo])
+
+  // A document can be several files (the front and back of a card, the sheets of a workbook). The chips above the file switch between them.
+  const files = doc ? [doc.fileName ?? msg.file!.name, ...(doc.moreFiles ?? [])] : [msg.file!.name]
+  const [fi, setFi] = useState(Math.max(0, files.indexOf(msg.file!.name)))
+  const current = files[Math.min(fi, files.length - 1)]
+  const size = current === msg.file!.name ? msg.file!.size : ''
+  const received = msg.time ? (msg.day === todayISO() ? `Today, ${msg.time}` : `${dayLabel(msg.day)}, ${msg.time}`) : ''
+  const docName = doc?.name ?? current.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ')
+
+  // The file on its own line says who it is from; for a file on a document, also how it came.
+  const sub = doc
+    ? [who, `came by ${doc.source === 'Link' ? 'upload link' : 'WhatsApp chat'}`, received, size, files.length > 1 ? `file ${fi + 1} of ${files.length}` : undefined].filter(Boolean).join(' · ')
+    : [who, size, files.length > 1 ? `file ${fi + 1} of ${files.length}` : undefined, received].filter(Boolean).join(' · ')
+  const header = (
+    <div className="flex items-center gap-3 border-b border-line px-5 py-3.5">
+      <FileTypeIcon file={current} size={34} />
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-[17px] font-bold">{current}</div>
+        <div className="truncate text-[13px] text-muted">{sub || ' '}</div>
+      </div>
+      {doc && <StatusBadge status={doc.status} />}
+      {canPreview(current) && <OpenInTab iconOnly href={fileLink({ name: docName, fileName: current, client: who, pan, from: msg.time })} />}
+      <button type="button" aria-label="Close" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-canvas">
+        <X size={20} />
+      </button>
+    </div>
+  )
+  const paper = (
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[#EDF0F5]">
+      {files.length > 1 && (
+        <div className="flex shrink-0 flex-wrap gap-2 border-b border-line bg-white px-5 py-2.5">
+          {files.map((f, i) => (
+            <button key={f + i} type="button" aria-pressed={i === fi} onClick={() => setFi(i)} className={`flex max-w-[240px] items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[13px] font-medium ${i === fi ? 'border-brand bg-brand-soft text-brand-dark' : 'border-line hover:border-brand'}`}>
+              <FileTypeIcon file={f} size={18} />
+              <span className="truncate">{f}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+        <div className="mx-auto w-[360px]" style={{ zoom: canPreview(current) ? 1.15 : 1 }}>
+          <FilePane fileName={current} docName={docName} client={{ name: who, pan }} />
+        </div>
+      </div>
+    </div>
+  )
+  const shell = 'flex h-[min(640px,calc(100vh-48px))] max-h-full w-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl'
+
+  // A file that is on no document: the file, and under it the bar to add it somewhere.
+  if (!doc) {
+    return (
+      <motion.div {...backdropProps} className={`fixed inset-0 z-30 items-center justify-center bg-ink/40 p-6 ${windowOpen ? 'hidden' : 'flex'}`} role="dialog" aria-modal="true" aria-label={`Preview of ${current}`}>
+        <motion.div {...panelProps} className={`${shell} max-w-3xl`}>
+          {header}
+          {paper}
+          <div className="border-t border-line px-6 py-4">
+            <AttachPanel {...attach} onWindow={setWindowOpen} onAttach={onAttach} onSave={onSaveFolder} />
+          </div>
+        </motion.div>
+      </motion.div>
+    )
   }
+
+  // A file on a document: the file on the left; on the right the whole checklist (this file's item marked, the others can be picked to move it), and the decision at the bottom.
+  const tag = (st: string) => (st === 'pending' ? 'Pending' : st === 'rejected' ? 'Rejected' : st === 'to_review' ? 'To review' : st === 'approved' ? 'Approved' : '')
+  const dot = (st: string) =>
+    st === 'approved' ? 'bg-ok text-white' : st === 'to_review' ? 'bg-warn text-white' : st === 'rejected' ? 'bg-danger text-white' : 'border-[1.5px] border-slate-300 bg-white'
+  const moveName = moveTo === '__none' ? '' : (checklist.find((c) => c.id === moveTo)?.name ?? '')
   return (
-    <motion.div {...backdropProps} className="fixed inset-0 z-[40] flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="Keep this file elsewhere">
-      <motion.div {...panelProps} className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
-        <div className="text-base font-bold">Not for this request</div>
-        <p className="mt-1 text-[13px] leading-relaxed text-muted">
-          {fileName} stays out of {clientName}&apos;s documents. Keep it in a folder, or remove it.
-        </p>
-        <label className="mt-4 block text-[13px] font-semibold text-muted">
-          Save in
-          <select
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            className="mt-1 block h-11 w-full rounded-xl border border-line bg-white px-3 text-sm font-medium text-ink outline-none focus:border-brand"
-          >
-            <option value="">Choose a folder</option>
-            {folders.map((f) => (
-              <option key={f.id} value={f.id}>
-                {label(f.id)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button type="button" disabled={!to} onClick={() => onSave(to)} className="mt-4 h-11 w-full rounded-xl bg-brand text-sm font-semibold text-white disabled:opacity-40">
-          Save in Document Master
-        </button>
-        <button type="button" onClick={onRemove} className="mt-3 block w-full text-center text-[13px] font-semibold text-danger hover:underline">
-          Remove the file
-        </button>
-        <button type="button" onClick={onClose} className="mt-3 block w-full text-center text-[13px] font-semibold text-muted hover:underline">
-          Cancel
-        </button>
+    <motion.div {...backdropProps} className={`fixed inset-0 z-30 items-center justify-center bg-ink/40 p-6 ${hide ? 'hidden' : 'flex'}`} role="dialog" aria-modal="true" aria-label={`Preview of ${current}`}>
+      <motion.div {...panelProps} className={`${shell} max-w-4xl`}>
+        {header}
+        <div className="flex min-h-0 flex-1">
+          {paper}
+          <aside className="flex w-[340px] shrink-0 flex-col border-l border-line">
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-4 pt-4">
+              {rejecting ? (
+                <div>
+                  <div className="text-sm font-bold">Why is it being rejected?</div>
+                  <div className="mt-2.5 flex flex-wrap gap-2">
+                    {SEND_BACK_REASONS.map((r) => (
+                      <button key={r} type="button" aria-pressed={reason === r} onClick={() => setReason(r)} className={`rounded-full border px-3 py-1.5 text-[13px] font-semibold transition-colors ${reason === r ? 'border-brand bg-brand-soft text-brand-dark' : 'border-line hover:border-brand'}`}>
+                        {r}
+                      </button>
+                    ))}
+                  </div>
+                  <input value={remark} onChange={(e) => setRemark(e.target.value)} placeholder="Add a note for the client (optional)" className="mt-3 h-11 w-full rounded-xl border border-line px-3 text-sm outline-none focus:border-brand" />
+                  <p className="mt-2 text-[12px] text-muted">The client is told on WhatsApp.</p>
+                </div>
+              ) : (
+                <div>
+                  {/* The checklist of this request: this file's item is marked; pick another to move the file there. */}
+                  <div className="mb-2 flex items-center justify-between gap-2 text-[12px] font-semibold text-muted">
+                    <span>Checklist</span>
+                    {req && (
+                      <Link to={`/requests/${msg.link!.requestId}?doc=${msg.link!.clientId}:${msg.link!.docId}`} className="flex min-w-0 items-center gap-0.5 truncate font-medium hover:text-brand-dark hover:underline">
+                        {req.title} · {req.ref} · {req.got} of {req.total} <ChevronRight size={13} className="shrink-0" />
+                      </Link>
+                    )}
+                  </div>
+                  <div role="radiogroup" aria-label="Checklist item" className="flex flex-col gap-1">
+                    {checklist.map((c) => {
+                      const here = c.id === doc.id
+                      const picked = moveTo === c.id
+                      const locked = !here && c.status === 'approved'
+                      // One highlight at a time: on this file's item until another is picked, then on the picked one.
+                      const marked = moveTo ? picked : here
+                      const label = picked ? (c.status === 'to_review' ? 'Swap' : 'Move here') : here ? (moveTo ? 'Now here' : 'This file') : tag(c.status)
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          role="radio"
+                          aria-checked={marked}
+                          disabled={locked || (here && !moveTo)}
+                          onClick={() => setMoveTo(here || picked ? null : c.id)}
+                          title={locked ? 'Already approved' : here ? (moveTo ? 'Keep it here' : 'This file is on this item') : picked ? 'Picked: click to undo' : 'Move this file here'}
+                          className={`flex items-center gap-2.5 rounded-lg border px-2.5 py-2 text-left text-[13.5px] ${marked ? 'border-brand bg-brand-soft' : 'border-transparent hover:bg-canvas'} ${locked ? 'opacity-60' : ''} disabled:cursor-default`}
+                        >
+                          <span className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${dot(c.status)}`}>{c.status === 'approved' || c.status === 'to_review' ? <Check size={11} strokeWidth={3.4} /> : c.status === 'rejected' ? '!' : ''}</span>
+                          <span className={`min-w-0 flex-1 leading-snug ${marked ? 'font-semibold text-brand-dark' : c.status === 'pending' ? 'text-muted' : 'font-medium'}`}>{c.name}</span>
+                          <span className={`shrink-0 text-[11px] ${marked ? 'font-bold uppercase tracking-wide text-brand-dark' : here ? 'font-semibold text-muted' : 'text-muted'}`}>{label}</span>
+                        </button>
+                      )
+                    })}
+                    <button type="button" role="radio" aria-checked={moveTo === '__none'} onClick={() => setMoveTo(moveTo === '__none' ? null : '__none')} className={`mt-1 rounded-lg border px-2.5 py-2 text-left text-[13px] ${moveTo === '__none' ? 'border-brand bg-brand-soft font-semibold text-brand-dark' : 'border-transparent text-muted hover:bg-canvas'}`}>
+                      None of these: take it off the checklist and keep the file waiting
+                    </button>
+                  </div>
+                  {files.length > 1 && moveTo && <p className="mt-2 text-[12px] text-muted">All {files.length} files of this document move together.</p>}
+                  {doc.status === 'rejected' && doc.reason && <p className="mt-3 rounded-lg bg-danger-soft px-3 py-2 text-[13px] font-medium text-danger">Rejected: {doc.reason}</p>}
+                </div>
+              )}
+            </div>
+
+            {/* The decision is always at the bottom. */}
+            <div className="shrink-0 border-t border-line bg-white px-5 py-4">
+              {rejecting ? (
+                <div className="grid grid-cols-2 gap-2.5">
+                  <button type="button" onClick={() => setRejecting(false)} className="h-12 rounded-xl border border-line text-[15px] font-semibold hover:bg-canvas">
+                    Back
+                  </button>
+                  <button type="button" disabled={!reason} onClick={() => onSendBack(reason, remark.trim())} className="h-12 rounded-xl bg-danger text-[15px] font-semibold text-white disabled:opacity-40">
+                    Reject
+                  </button>
+                </div>
+              ) : moveTo ? (
+                <div>
+                  <div className="mb-2.5 text-[13px] text-muted">{moveTo === '__none' ? 'Take this file off the checklist?' : `Move this file to ${moveName}?`}</div>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <button type="button" onClick={() => setMoveTo(null)} className="h-12 rounded-xl border border-line text-[15px] font-semibold hover:bg-canvas">
+                      Cancel
+                    </button>
+                    <button type="button" onClick={() => onMove(moveTo === '__none' ? null : moveTo)} className="h-12 rounded-xl bg-brand text-[15px] font-semibold text-white">
+                      {moveTo === '__none' ? 'Take off' : 'Move'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2.5">
+                  <button type="button" disabled={doc.status === 'rejected'} onClick={() => setRejecting(true)} className="h-12 rounded-xl border border-line text-[15px] font-semibold text-danger hover:bg-danger-soft disabled:opacity-40">
+                    {doc.status === 'rejected' ? 'Rejected' : 'Reject'}
+                  </button>
+                  <button type="button" disabled={doc.status === 'approved'} onClick={onApprove} className="flex h-12 items-center justify-center gap-2 rounded-xl bg-brand text-[15px] font-semibold text-white shadow-[0_6px_16px_rgba(11,122,107,0.25)] disabled:opacity-40 disabled:shadow-none">
+                    <Check size={18} strokeWidth={2.8} />
+                    {doc.status === 'approved' ? 'Approved' : 'Approve'}
+                  </button>
+                </div>
+              )}
+              {/* Where an approved document is kept in Document Master, and a way to save it there (or change it). */}
+              {doc.status === 'approved' && !rejecting && !moveTo && onFile && (
+                <div className="mt-3 flex items-center gap-2 text-[12.5px]">
+                  <FolderOpen size={14} className="shrink-0 text-muted" />
+                  <span className={`min-w-0 flex-1 truncate ${filedText ? 'text-muted' : 'font-medium text-warn'}`} title={filedText ?? undefined}>
+                    {filedText ?? 'Not saved in a folder yet'}
+                  </span>
+                  <button type="button" onClick={onFile} className="shrink-0 font-semibold text-brand-dark hover:underline">
+                    {filedText ? 'Change' : 'Save…'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </aside>
+        </div>
       </motion.div>
     </motion.div>
   )
@@ -303,198 +427,56 @@ function SaveContact({ phone, guessId, onSave, onClose }: { phone: string; guess
 }
 
 // One unread file in Unassigned: what we read, our guess, and its own place to save. Each file is saved on its own.
-function ReadCard({ m, sug, dup, onSave, onRemove }: { m: Msg; sug?: Suggestion; dup: boolean; onSave: (clientId: string) => void; onRemove: () => void }) {
-  const [to, setTo] = useState(sug?.clientId ?? '')
-  const opts = sug ? sug.options : clients.map((c) => c.id)
-  const label = (id: string) => {
-    const c = getClient(id)
-    return c ? `${c.name} · ${c.service}${regSuffix(id).replace(' ·', '')}` : id
-  }
-  const who = getClient(to)
-  return (
-    <div className="rounded-xl border border-line p-3">
-      <div className="truncate text-[12px] text-muted">{m.file!.name}</div>
-      {m.read ? (
-        <div className="mt-0.5 text-[14px] font-semibold leading-snug">{readLine(m.read)}</div>
-      ) : (
-        <div className="mt-0.5 text-[13.5px] text-warn">We could not read this clearly. Choose a client below.</div>
-      )}
-      {dup ? (
-        <>
-          <div className="mt-1.5 rounded-md bg-[#FEF1DC] px-2 py-1 text-xs font-semibold text-warn">Same document was already sent. Looks like a duplicate.</div>
-          <button type="button" onClick={onRemove} className="mt-2 h-9 w-full rounded-lg border border-line text-[13px] font-semibold text-danger hover:bg-slate-50">
-            Remove duplicate
-          </button>
-        </>
-      ) : (
-        <>
-          <div className="mt-1.5 text-[12.5px] text-muted">{sug ? `Looks like this is ${getClient(sug.clientId)?.name} (${sug.how})` : m.read ? 'No client matches this.' : ''}</div>
-          <select
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            aria-label="Save for"
-            className="mt-2 block h-10 w-full rounded-lg border border-line bg-white px-2.5 text-[13px] font-medium text-ink outline-none focus:border-brand"
-          >
-            <option value="">Choose a client</option>
-            {opts.map((id) => (
-              <option key={id} value={id}>
-                {label(id)}
-              </option>
-            ))}
-          </select>
-          <div className="mt-2 flex gap-2">
-            <button type="button" disabled={!who} onClick={() => onSave(to)} className="h-9 flex-1 rounded-lg bg-brand text-[13px] font-semibold text-white hover:bg-brand-dark disabled:opacity-40">
-              Save this file
-            </button>
-            <button type="button" onClick={onRemove} className="h-9 rounded-lg px-3 text-[13px] font-semibold text-danger hover:bg-slate-50">
-              Remove
-            </button>
-          </div>
-        </>
-      )}
-    </div>
-  )
-}
-
 // One person with two kinds of work (Ramesh Kumar for ITR and for GST) is still one person. Names and chips for telling clients apart
 // are only for a number that really belongs to different people or firms.
 const differentPeople = (ids: string[]) => new Set(ids.map((id) => getClient(id)?.name)).size > 1
 
-function RightPanel({ conv, onReview }: { conv: Conversation; onReview: () => void }) {
+function RightPanel({ conv, onReview, onPreview }: { conv: Conversation; onReview: (id: string) => void; onPreview: (m: Msg) => void }) {
   const { requests, unsorted } = useRequests()
   const { resolveFile, conversations } = useInbox()
-  const { folders, addUploads } = useMasterStore()
-  const [pickFolder, setPickFolder] = useState('')
-  const [pickClient, setPickClient] = useState('')
 
   const mine = conv.clientIds.length ? requests.filter((r) => r.clients.some((c) => conv.clientIds.includes(c.clientId))) : []
   const waiting = unsorted.filter((u) => u.phone === conv.phone)
 
+  // A number we do not know: its files wait here. Open one to read it, then add it to a request or save it in a folder, from the preview.
   if (conv.unassigned) {
     const files = conv.msgs.filter((m) => m.file && !m.matched)
-    const saveFor = (m: Msg, clientId: string) => {
-      const c = getClient(clientId)
-      if (!c || !m.file) return
-      addUploads([
-        {
-          id: `un-${Date.now()}-${m.id}`,
-          folderId: folderIdOf(c.id, 'FY 2025-26', c.service),
-          name: [m.read?.kind ?? m.file.name.replace(/\.[^.]+$/, ''), m.read?.idNo].filter(Boolean).join(' · '),
-          fileName: m.file.name,
-          size: m.file.size.split(' · ').pop() ?? m.file.size,
-          date: 'Just now',
-          from: 'WhatsApp',
-        },
-      ])
-      resolveFile(conv.id, m.id, `Saved for ${c.name}`)
-    }
-    const unread = files.filter((m) => !m.read)
-    const cards = files.map((m) => ({
-      m,
-      sug: suggestClient(m.read),
-      dup: isDuplicate(conversations, conv.id, m),
-    }))
-    const ready = cards.filter((x) => x.sug && !x.dup)
-    const client = pickClient ? getClient(pickClient) : undefined
-    const firmFolders = folders.map((f) => ({
-      id: f.id,
-      label: f.parentId ? `${folders.find((x) => x.id === f.parentId)?.name} / ${f.name}` : f.name,
-    }))
-    const masterTo = pickFolder === 'client' ? (client ? folderIdOf(client.id, 'FY 2025-26', client.service) : '') : pickFolder
-    const field = 'mt-1 block h-11 w-full rounded-xl border border-line bg-white px-3 text-sm font-medium text-ink outline-none focus:border-brand'
     return (
-      <div className="flex flex-col gap-4 p-5">
-        <div className="rounded-xl bg-[#FEF1DC] p-3.5 text-[13.5px] leading-relaxed text-warn">
-          <b>
-            {files.length} {files.length === 1 ? 'file is' : 'files are'} not saved anywhere yet.
-          </b>
-          <br />
-          Open {files.length === 1 ? 'it' : 'them'} in the chat, then choose where to save.
-        </div>
-
-        {cards.length > 0 && (
-          <div className="flex flex-col gap-2.5">
-            <div className="flex items-center gap-1.5 text-[13px] font-bold text-brand-dark">
-              <Sparkles size={14} /> What we read
-            </div>
-            {cards.map(({ m, sug, dup }) => (
-              <ReadCard key={m.id} m={m} sug={sug} dup={dup} onSave={(id) => saveFor(m, id)} onRemove={() => resolveFile(conv.id, m.id, dup ? 'Removed (duplicate)' : 'Removed')} />
-            ))}
-            {ready.length > 1 && (
-              <button
-                type="button"
-                onClick={() => ready.forEach((x) => saveFor(x.m, x.sug!.clientId))}
-                className="h-10 rounded-xl border border-brand text-sm font-semibold text-brand-dark hover:bg-brand-soft"
-              >
-                Save all {ready.length} matched files
-              </button>
-            )}
+      <div className="flex flex-col gap-3 p-5">
+        <div>
+          <div className="text-[15px] font-bold">
+            {files.length} {files.length === 1 ? 'file' : 'files'} to save
           </div>
-        )}
-
-        {cards.some((x) => !x.m.read) && (
-          <>
-            <label className="text-[13px] font-semibold text-muted">
-              Save in
-              <select value={pickFolder} onChange={(e) => setPickFolder(e.target.value)} className={field}>
-                <option value="">Choose a folder</option>
-                <optgroup label="Firm documents">
-                  {firmFolders.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.label}
-                    </option>
-                  ))}
-                </optgroup>
-                <option value="client">A client&apos;s folder</option>
-              </select>
-            </label>
-            {pickFolder === 'client' && (
-              <label className="text-[13px] font-semibold text-muted">
-                Client
-                <select value={pickClient} onChange={(e) => setPickClient(e.target.value)} className={field}>
-                  <option value="">Choose a client</option>
-                  {clients.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} · {c.service}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
-            <button
-              type="button"
-              disabled={!masterTo}
-              onClick={() => {
-                addUploads(
-                  unread.map((m, i) => ({
-                    id: `un-${Date.now()}-${i}`,
-                    folderId: masterTo,
-                    name: m.file!.name.replace(/\.[^.]+$/, ''),
-                    fileName: m.file!.name,
-                    size: m.file!.size.split(' · ').pop() ?? m.file!.size,
-                    date: 'Just now',
-                    from: 'WhatsApp',
-                  })),
-                )
-                unread.forEach((m) => resolveFile(conv.id, m.id, 'Saved in Document Master'))
-                setPickFolder('')
-                setPickClient('')
-              }}
-              className="h-11 rounded-xl bg-brand text-sm font-semibold text-white disabled:opacity-40"
-            >
-              Save in Document Master
-            </button>
-            <button type="button" onClick={() => unread.forEach((m) => resolveFile(conv.id, m.id, 'Removed'))} className="self-center text-[13px] font-semibold text-danger hover:underline">
-              Not a document, remove {unread.length === 1 ? 'it' : 'them'}
-            </button>
-          </>
-        )}
+          <p className="mt-0.5 text-[13px] leading-snug text-muted">Open a file to read it, then choose where it goes.</p>
+        </div>
+        {files.map((m) => {
+          const sug = suggestClient(m.read)
+          const dup = isDuplicate(conversations, conv.id, m)
+          const who = sug ? getBookClient(sug.clientId)?.name : undefined
+          return (
+            <div key={m.id} className="group flex items-center gap-1 rounded-xl border border-line pr-1.5 hover:border-brand">
+              <button type="button" onClick={() => onPreview(m)} className="flex min-w-0 flex-1 items-center gap-3 p-3 text-left">
+                <FileTypeIcon file={m.file!.name} size={34} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[14px] font-semibold">{m.file!.name}</span>
+                  <span className="block truncate text-[12.5px] text-muted">
+                    {dup ? 'Already sent before' : m.read ? [m.read.kind, who].filter(Boolean).join(' · ') : 'Could not read clearly'}
+                  </span>
+                </span>
+                <ChevronRight size={16} className="shrink-0 text-muted" />
+              </button>
+              <button type="button" aria-label={`Remove ${m.file!.name}`} title="Not a document, remove it" onClick={() => resolveFile(conv.id, m.id, dup ? 'Removed (duplicate)' : 'Removed')} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-danger-soft hover:text-danger">
+                <Trash2 size={16} />
+              </button>
+            </div>
+          )
+        })}
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col gap-3 p-5">
+    <div className="flex min-h-full flex-col gap-4 bg-canvas p-5">
       {mine.length === 0 && <p className="text-sm text-muted">No open requests for this client.</p>}
       {/* One card for each client in each request. When a number belongs to several clients, the card says whose it is. */}
       {mine
@@ -503,19 +485,32 @@ function RightPanel({ conv, onReview }: { conv: Conversation; onReview: () => vo
           const docs = c.docs.filter((d) => d.status !== 'na')
           const got = docs.filter((d) => d.status !== 'pending' && d.status !== 'rejected').length
           const several = differentPeople(conv.clientIds)
+          const place = regSuffix(c.clientId).replace(' · ', '')
           return (
-            <Link key={`${r.id}-${c.clientId}`} to={`/requests/${r.id}?client=${c.clientId}`} className="block rounded-xl border border-line p-3.5 hover:border-brand">
-              {several && (
-                <div className="mb-0.5 text-[13px] font-semibold text-brand-dark">
-                  {getClient(c.clientId)?.name} · {getClient(c.clientId)?.service}
-                  {regSuffix(c.clientId).replace(' ·', '')}
+            <div key={`${r.id}-${c.clientId}`} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_1px_3px_rgba(14,27,44,0.08)]">
+              {/* The card starts with the checklist's name (colour and weight, not size) and its number in plain muted text. No pills: the kind is already in the name.
+                  The client is not repeated when the chat is one client's (the chat header says it). It shows only where it tells cards apart:
+                  the name when the chat has several clients, the place when a client has several GSTINs or TANs. The whole band opens the request. */}
+              <Link to={`/requests/${r.id}?client=${c.clientId}`} title="Open this request" className="group block border-b border-slate-200 bg-[#F4F9F7] px-4 py-3 transition-colors hover:bg-[#E6F2EE]">
+                <div className="flex items-baseline gap-2">
+                  <span className="min-w-0 flex-1 truncate text-[15px] font-semibold leading-snug text-brand-dark">{r.title}</span>
+                  <span className="shrink-0 text-[12px] text-muted">{r.ref}</span>
+                  <ChevronRight size={15} className="shrink-0 self-center text-muted transition group-hover:translate-x-0.5 group-hover:text-brand-dark" />
                 </div>
-              )}
-              <div className="flex items-baseline justify-between">
-                <span className="text-[15px] font-semibold">{r.title}</span>
-                <span className="text-[13px] text-muted">{r.ref}</span>
-              </div>
-              <div className="mt-2 flex items-center gap-3">
+                {(several || place) && (
+                  <div className="mt-1.5 flex items-center gap-2">
+                    {several && <Avatar name={getClient(c.clientId)?.name ?? ''} size={20} />}
+                    {several && (
+                      <span className="min-w-0 truncate text-[13px] font-medium text-ink" title={`${getClient(c.clientId)?.name}${regSuffix(c.clientId)}`}>
+                        {getClient(c.clientId)?.name}
+                      </span>
+                    )}
+                    {place && <span className={`shrink-0 text-[12px] ${several ? 'text-muted' : 'font-medium text-slate-600'}`}>{place}</span>}
+                  </div>
+                )}
+              </Link>
+              <div className="p-4">
+              <div className="flex items-center gap-3">
                 <span className="block h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
                   <span
                     className="block h-full rounded-full bg-brand"
@@ -528,23 +523,70 @@ function RightPanel({ conv, onReview }: { conv: Conversation; onReview: () => vo
                   {got} <span className="font-medium text-muted">of {docs.length}</span>
                 </span>
               </div>
-              <div className="mt-2 text-[13px] font-semibold text-brand-dark">Open request</div>
-            </Link>
+              {/* The checklist of this request: what has come, what is still to come. */}
+              <ul className="mt-3 flex flex-col gap-0.5 border-t border-line pt-2.5">
+                {docs.map((d) => {
+                  const state = d.status === 'approved' ? 'approved' : d.status === 'to_review' ? 'review' : d.status === 'rejected' ? 'rejected' : 'pending'
+                  return (
+                    <li key={d.id}>
+                      {/* A document that has come can be opened right here, whichever way it came (this chat or the upload link). */}
+                      <button
+                        type="button"
+                        disabled={state === 'pending'}
+                        onClick={() =>
+                          onPreview({
+                            id: `doc-${d.id}`,
+                            from: 'client',
+                            day: todayISO(),
+                            time: '',
+                            file: { name: d.fileName ?? `${d.name}.pdf`, size: d.receivedAt ?? '' },
+                            link: { requestId: r.id, clientId: c.clientId, docId: d.id },
+                          })
+                        }
+                        className={`flex w-full items-center gap-2.5 rounded-lg px-1.5 py-1 text-left text-[13px] ${state === 'pending' ? 'cursor-default' : 'hover:bg-canvas'}`}
+                      >
+                        <span
+                          className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+                            state === 'approved' ? 'bg-ok text-white' : state === 'review' ? 'bg-warn text-white' : state === 'rejected' ? 'bg-danger text-white' : 'border-[1.5px] border-slate-300 bg-white'
+                          }`}
+                          aria-hidden="true"
+                        >
+                          {state === 'approved' || state === 'review' ? <Check size={11} strokeWidth={3.4} /> : state === 'rejected' ? '!' : ''}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className={`block truncate ${state === 'pending' ? 'text-muted' : 'font-medium'}`}>{d.name}</span>
+                          {state !== 'pending' && d.source && <span className="block text-[11px] text-muted">via {d.source === 'Link' ? 'upload link' : 'this chat'}</span>}
+                        </span>
+                        {state === 'review' && <span className="shrink-0 text-[11px] font-semibold text-warn">To review</span>}
+                        {state === 'rejected' && <span className="shrink-0 text-[11px] font-semibold text-danger">Rejected</span>}
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+              </div>
+            </div>
           )
         })}
 
       {waiting.length > 0 && (
         <div className="rounded-xl border border-[#F5DFA8] bg-[#FEF6E4] p-3.5">
           <div className="text-sm font-bold text-[#7A3B00]">
-            {waiting.length} {waiting.length === 1 ? 'file needs' : 'files need'} a place
+            {waiting.length} {waiting.length === 1 ? 'file' : 'files'} not placed yet
           </div>
-          <p className="mt-1 text-[12.5px] leading-relaxed text-[#7A3B00]">
-            We could not tell which document {waiting.length === 1 ? 'it is' : 'they are'}. Look at {waiting.length === 1 ? 'it' : 'each one'} and choose where{' '}
-            {waiting.length === 1 ? 'it goes' : 'they go'}.
-          </p>
-          <button type="button" onClick={onReview} className="mt-3 h-10 w-full rounded-xl bg-brand text-sm font-semibold text-white hover:bg-brand-dark">
-            Review {waiting.length === 1 ? 'the file' : `${waiting.length} files`}
-          </button>
+          <p className="mt-0.5 text-[12.5px] leading-snug text-[#7A3B00]">Open a file to read it, then choose where it goes.</p>
+          <div className="mt-2.5 flex flex-col gap-1.5">
+            {waiting.map((u) => (
+              <button key={u.id} type="button" onClick={() => onReview(u.id)} className="flex items-center gap-2.5 rounded-lg border border-[#F5DFA8] bg-white px-3 py-2 text-left hover:border-brand">
+                <FileTypeIcon file={u.fileName} size={26} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[13px] font-semibold">{u.fileName}</span>
+                  <span className="block truncate text-[11.5px] text-muted">{u.receivedAt}</span>
+                </span>
+                <ChevronRight size={15} className="shrink-0 text-muted" />
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -552,7 +594,8 @@ function RightPanel({ conv, onReview }: { conv: Conversation; onReview: () => vo
 }
 
 export default function Inbox() {
-  const { conversations: allConversations, markRead, send, markPlaced, linkChat } = useInbox()
+  const navigate = useNavigate()
+  const { conversations: allConversations, markRead, send, markPlaced, linkChat, arrive, patchMsg } = useInbox()
   const { messageTemplates, firm, readReplies, ownNumber, whatsapp } = useSetup()
   // Each WhatsApp number is shown by its name, with the number under it.
   const accounts = {
@@ -563,7 +606,8 @@ export default function Inbox() {
     own: whatsapp?.number ?? 'Not connected',
     kdk: 'Shared number · link only',
   } as const
-  const { requests, setDocStatus, unsorted, useUnsorted, dropUnsorted, addUnsorted } = useRequests()
+  const { sendRejected } = useMessenger()
+  const { requests, setDocStatus, setDocFiled, unsorted, useUnsorted, dropUnsorted, addUnsorted, receiveFile, moveFile } = useRequests()
   // Everything except the first-request message can be dropped into a chat.
   const templates = messageTemplates.filter((m) => m.id !== 'request')
   // ?client=... opens that client's chat (from the client page). Without it, the first chat.
@@ -585,9 +629,20 @@ export default function Inbox() {
   const [showTemplates, setShowTemplates] = useState(false)
   const [showAccounts, setShowAccounts] = useState(false)
   const [viewing, setViewing] = useState<Msg | null>(null)
+  const [approving, setApproving] = useState<Approving | null>(null) // Approve asks where to keep the document
+  const [filing, setFiling] = useState<Approving | null>(null) // an approved document being saved (or moved) in a folder later
   const [reviewing, setReviewing] = useState<string | null>(null)
-  const { addUploads } = useMasterStore()
-  const [keeping, setKeeping] = useState(false)
+  const { addUploads, folders: masterFolders } = useMasterStore()
+  // A folder the CA made, named in full (Firm documents › Agreements).
+  const folderPathName = (id: string) => {
+    const out: string[] = []
+    let f = masterFolders.find((x) => x.id === id)
+    while (f) {
+      out.unshift(f.name)
+      f = f.parentId ? masterFolders.find((x) => x.id === f!.parentId) : undefined
+    }
+    return out.length ? out.join(' › ') : null
+  }
   const [savingContact, setSavingContact] = useState(false)
   const [showInfo, setShowInfo] = useState(false)
   // The side panel sits beside the chat on a wide screen. On a phone or tablet it opens over the chat instead.
@@ -635,6 +690,40 @@ export default function Inbox() {
   const active = conversations.find((c) => c.id === activeId) ?? conversations[0]
   const taRef = useRef<HTMLTextAreaElement>(null)
 
+  // A file arrives: read it, find the registration and the document asked for, and put it there when we are sure.
+  // When we are not sure it waits for the CA with our guess; when we know nothing it goes to Unassigned.
+  const [demoStep, setDemoStep] = useState(0)
+  const arrival = () => {
+    const sc = ARRIVALS[demoStep % ARRIVALS.length]
+    setDemoStep((n) => n + 1)
+    const place = findPlacement(sc.read, requests)
+    const sure = place?.confidence === 'sure' ? place : undefined
+    const msg: Msg = {
+      id: `in${Date.now()}`,
+      from: 'client',
+      day: todayISO(),
+      time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false }),
+      file: { name: sc.file, size: sc.size },
+      read: sc.read,
+    }
+    if (sure) {
+      receiveFile(sure.requestId, sure.regId, sure.docId, sc.file)
+      msg.matched = `Placed on ${sure.docName} · ${sure.place} · To review`
+      msg.link = { requestId: sure.requestId, clientId: sure.regId, docId: sure.docId }
+    } else if (place) {
+      msg.guess = place
+      msg.matched = 'Needs a look'
+    }
+    const existing = allConversations.find((c) => c.via === 'own' && c.phone === sc.phone)
+    const id = existing?.id ?? `c-new-${Date.now()}`
+    arrive(sc.phone, msg, id, sure ? { title: sure.clientName, clientIds: [sure.regId] } : undefined)
+    setMode('own')
+    setFilter('all')
+    setActiveId(id)
+    setChatOpen(true)
+    setToast(sure ? `${sc.file} placed on ${sure.docName} · ${sure.clientName} ${sure.place === 'ITR' ? '' : sure.place}`.trim() : place ? `${sc.file} came in. Please check where it goes.` : `${sc.file} came from a number we do not know.`)
+  }
+
   useEffect(() => {
     markRead(active.id)
   }, [active.id, markRead])
@@ -665,31 +754,51 @@ export default function Inbox() {
 
   // Files in this chat that no document claimed yet, one at a time. Open from the panel or by tapping the file in the chat.
   const waitingList = unsorted.filter((u) => u.phone === active.phone)
+  // A file in the chat that is on no document. In a known chat the client is the chat's. From an unknown number the client is what we read from the file (a guess the CA can see and change).
+  const looseFile = viewing?.file && !viewing.link ? viewing : null
+  const looseSug = looseFile && active.unassigned ? suggestClient(looseFile.read) : undefined
+  const attachIds = active.unassigned ? (looseSug?.options ?? []) : active.clientIds
+  // Where a loose file of this chat can go: a pending (or rejected) document of this chat's requests, or a folder with no request.
+  const attachMap: Record<string, { requestId: string; clientId: string; docId: string; name: string }> = {}
+  const attachRequests: AttachRequest[] = []
+  for (const r of requests)
+    for (const c of r.clients)
+      if (attachIds.includes(c.clientId)) {
+        const docs: { key: string; name: string; extra?: boolean; multiple?: boolean; status?: string }[] = []
+        for (const d of c.docs)
+          if (d.status === 'pending' || d.status === 'rejected' || d.status === 'to_review') {
+            const key = `${r.id}:${c.clientId}:${d.id}`
+            attachMap[key] = { requestId: r.id, clientId: c.clientId, docId: d.id, name: d.name }
+            docs.push({ key, name: d.name, extra: d.status === 'to_review', multiple: d.multiple, status: d.status })
+          }
+        if (docs.some((d) => !d.extra)) attachRequests.push({ key: `${r.id}:${c.clientId}`, requestId: r.id, title: differentPeople(attachIds) ? `${r.title} · ${getBookClient(c.clientId)?.name}` : r.title, ref: r.ref, due: r.due, place: regSuffix(c.clientId).replace(' · ', ''), docs })
+      }
+  // Folders: the client's own year and compliance folders, then the ones the CA made.
+  const folderChoices: (FolderChoice & { regId?: string })[] = [
+    ...attachIds.flatMap((id) => {
+      const c = getClient(id)
+      return c ? [{ id: folderIdOf(parentIdOf(id), 'FY 2025-26', `${c.service}${c.service === 'ITR' ? '' : regSuffix(id)}`), label: `${getBookClient(id)?.name ?? c.name} / FY 2025-26 / ${c.service}${c.service === 'ITR' ? '' : regSuffix(id)}`, regId: id }] : []
+    }),
+    ...masterFolders.map((f) => ({ id: f.id, label: f.parentId ? `${masterFolders.find((x) => x.id === f.parentId)?.name} / ${f.name}` : f.name })),
+  ]
+  // What we read from the file picks a request and a folder to start with. The CA can change both.
+  const placed = looseFile ? findPlacement(looseFile.read, requests) : undefined
+  const placedKey = placed ? `${placed.requestId}:${placed.regId}:${placed.docId}` : ''
+  const attachSuggest: AttachSuggest | undefined = placed && attachMap[placedKey] ? { key: placedKey, docName: placed.docName, requestTitle: placed.requestTitle, ref: requests.find((r) => r.id === placed.requestId)?.ref ?? '' } : undefined
+  const kindService = (k = '') => (/gst/i.test(k) ? 'GST' : /tds|16a|tan/i.test(k) ? 'TDS' : 'ITR')
+  const ownFolders = folderChoices.filter((f) => f.regId)
+  const suggestedFolder = (placed ? ownFolders.find((f) => f.regId === placed.regId) : (ownFolders.find((f) => getClient(f.regId as string)?.service === kindService(looseFile?.read?.kind)) ?? ownFolders[0]))?.id
+  // Start a request from this file: the new-request page opens for this client, and when it is sent the file goes on its document.
+  const startId = looseFile ? (attachIds.find((id) => getClient(id)?.service === kindService(looseFile.read?.kind)) ?? attachIds[0]) : undefined
+  const startRequest = startId && looseFile ? () => navigate(`/requests/new?client=${startId}&kind=${getClient(startId)?.service ?? ''}&file=${encodeURIComponent(looseFile.file!.name)}&doc=${encodeURIComponent(looseFile.read?.kind ?? '')}&conv=${active.id}`) : undefined
+  // In a known chat, the file may be read as another client's (a PAN that is not this chat's). Say so before it is added to the wrong place.
+  const readSug = looseFile && !active.unassigned ? suggestClient(looseFile.read) : undefined
+  const otherClient = readSug && !active.clientIds.some((id) => parentIdOf(id) === parentIdOf(readSug.clientId)) ? getBookClient(readSug.clientId)?.name : undefined
+  const duplicate = looseFile ? isDuplicate(allConversations, active.id, looseFile) : false
+  const warn = duplicate ? 'The same document was already sent before. It may be a duplicate.' : otherClient ? `This file looks like ${otherClient}'s (${readSug!.how === 'Name matched' ? 'by name' : 'by number'}), not ${active.title}'s. Check before adding it.` : undefined
+  const forClient = looseSug ? { name: getBookClient(looseSug.clientId)?.name ?? '', guess: looseSug.how === 'Name matched' } : undefined
   const reviewIdx = waitingList.findIndex((u) => u.id === reviewing)
   const reviewFile = reviewIdx >= 0 ? waitingList[reviewIdx] : undefined
-  const placeable = requests.flatMap((r) => r.clients.filter((c) => active.clientIds.includes(c.clientId)).map((c) => ({ r, c })))
-  // With more than one request on this number, the list is split by request: ITR on its own, GST on its own.
-  const placeOptions = placeable.flatMap(({ r, c }) => {
-    const group = (extra: boolean) =>
-      placeable.length > 1 ? (differentPeople(active.clientIds) ? `${getClient(c.clientId)?.name} · ${r.title}` : r.title) : extra ? 'Add as another file of' : 'Not received yet'
-    return [
-      ...c.docs
-        .filter((d) => d.status === 'pending' || d.status === 'rejected')
-        .map((d) => ({
-          id: `${r.id}|${c.clientId}|${d.id}`,
-          label: d.name,
-          group: group(false),
-        })),
-      ...c.docs
-        .filter((d) => d.status === 'to_review')
-        .map((d) => ({
-          id: `${r.id}|${c.clientId}|${d.id}`,
-          label: d.name,
-          group: group(true),
-          extra: true,
-        })),
-    ]
-  })
   const afterOne = (gone: string) => {
     const rest = waitingList.filter((u) => u.id !== gone)
     setReviewing(rest.length > 0 ? rest[Math.min(reviewIdx, rest.length - 1)].id : null)
@@ -785,6 +894,11 @@ export default function Inbox() {
             <Search size={16} />
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search chats" className="w-full bg-transparent outline-none placeholder:text-[#54656F]" />
           </label>
+          {reading && (
+            <button type="button" onClick={arrival} className="mt-3 flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-dashed border-[#CFE6DE] text-[13px] font-semibold text-brand-dark hover:bg-brand-soft">
+              <Sparkles size={14} /> Demo: a file arrives
+            </button>
+          )}
           <div className={`mt-3 gap-2 text-[13px] font-semibold ${reading ? 'flex' : 'hidden'}`}>
             {(
               [
@@ -886,6 +1000,14 @@ export default function Inbox() {
               )}
               <Bubble
                 m={m}
+                status={m.link ? requests.find((r) => r.id === m.link!.requestId)?.clients.find((c) => c.clientId === m.link!.clientId)?.docs.find((d) => d.id === m.link!.docId)?.status : undefined}
+                onPlace={() => {
+                  if (!m.guess) return
+                  receiveFile(m.guess.requestId, m.guess.regId, m.guess.docId, m.file?.name ?? '')
+                  patchMsg(active.id, m.id, { guess: undefined, matched: `Placed on ${m.guess.docName} · ${m.guess.place} · To review`, link: { requestId: m.guess.requestId, clientId: m.guess.regId, docId: m.guess.docId } })
+                  setToast(`${m.file?.name} placed on ${m.guess.docName}`)
+                }}
+                onNot={() => patchMsg(active.id, m.id, { guess: undefined, matched: 'Not placed yet' })}
                 onOpen={(x) => {
                   const u = x.link ? undefined : unsorted.find((f) => f.phone === active.phone && f.fileName === x.file?.name)
                   if (u) setReviewing(u.id)
@@ -983,7 +1105,6 @@ export default function Inbox() {
 
       {reviewFile && client && (
         <DocPreviewDrawer
-          key={reviewFile.id}
           client={client}
           doc={{
             id: reviewFile.id,
@@ -1000,19 +1121,26 @@ export default function Inbox() {
           onNext={() => setReviewing(waitingList[(reviewIdx + 1) % waitingList.length].id)}
           onApprove={() => undefined}
           onReject={() => undefined}
-          place={{
-            options: placeOptions,
-            onElse: () => setKeeping(true),
-            onPlace: (key) => {
-              const [requestId, clientId, docId] = key.split('|')
-              const name =
-                requests
-                  .find((x) => x.id === requestId)
-                  ?.clients.find((c) => c.clientId === clientId)
-                  ?.docs.find((d) => d.id === docId)?.name ?? 'the request'
+          attach={{
+            data: { requests: attachRequests, folders: folderChoices, suggestedFolder: folderChoices[0]?.id, clientIds: [...new Set(active.clientIds.map(parentIdOf))], fileName: reviewFile.fileName },
+            onAttach: (key) => {
+              const { requestId, clientId, docId, name } = attachMap[key]
               useUnsorted(reviewFile.id, requestId, clientId, docId)
               markPlaced(active.id, reviewFile.fileName, `Filed as ${name} · To review`, { requestId, clientId, docId })
               setToast(`${reviewFile.fileName} added to ${name}`)
+              afterOne(reviewFile.id)
+            },
+            onRemove: () => {
+              dropUnsorted(reviewFile.id)
+              markPlaced(active.id, reviewFile.fileName, 'Removed')
+              setToast(`${reviewFile.fileName} removed`)
+              afterOne(reviewFile.id)
+            },
+            onSave: (folderId) => {
+              addUploads([{ id: `un-${Date.now()}`, folderId, name: reviewFile.fileName.replace(/\.[^.]+$/, ''), fileName: reviewFile.fileName, size: '—', date: 'Just now', from: 'WhatsApp' }])
+              dropUnsorted(reviewFile.id)
+              markPlaced(active.id, reviewFile.fileName, 'Saved in Document Master')
+              setToast(`${reviewFile.fileName} saved in Document Master`)
               afterOne(reviewFile.id)
             },
           }}
@@ -1041,44 +1169,12 @@ export default function Inbox() {
         />
       )}
 
-      {keeping && reviewFile && (
-        <KeepFile
-          fileName={reviewFile.fileName}
-          clientName={active.title}
-          onClose={() => setKeeping(false)}
-          onSave={(folderId) => {
-            addUploads([
-              {
-                id: `un-${Date.now()}`,
-                folderId,
-                name: reviewFile.fileName.replace(/\.[^.]+$/, ''),
-                fileName: reviewFile.fileName,
-                size: '—',
-                date: 'Just now',
-                from: 'WhatsApp',
-              },
-            ])
-            dropUnsorted(reviewFile.id)
-            markPlaced(active.id, reviewFile.fileName, 'Saved in Document Master')
-            setToast(`${reviewFile.fileName} saved in Document Master`)
-            setKeeping(false)
-            afterOne(reviewFile.id)
-          }}
-          onRemove={() => {
-            dropUnsorted(reviewFile.id)
-            markPlaced(active.id, reviewFile.fileName, 'Removed')
-            setToast(`${reviewFile.fileName} removed`)
-            setKeeping(false)
-            afterOne(reviewFile.id)
-          }}
-        />
-      )}
-
       {viewing?.file && (
         <FileViewer
           msg={viewing}
-          who={active.title}
-          pan={getClient(active.clientIds[0] ?? '')?.pan ?? '—'}
+          req={viewing.link ? (() => { const r = requests.find((x) => x.id === viewing.link!.requestId); const ds = (r?.clients.find((c) => c.clientId === viewing.link!.clientId)?.docs ?? []).filter((d) => d.status !== 'na'); return r ? { title: r.title, ref: r.ref, got: ds.filter((d) => d.status !== 'pending' && d.status !== 'rejected').length, total: ds.length } : undefined })() : undefined}
+          who={forClient?.name ?? active.title}
+          pan={looseSug ? (getBookClient(looseSug.clientId)?.pan ?? '—') : (getClient(active.clientIds[0] ?? '')?.pan ?? '—')}
           doc={
             viewing.link
               ? requests
@@ -1087,15 +1183,119 @@ export default function Inbox() {
                   ?.docs.find((d) => d.id === viewing.link!.docId)
               : undefined
           }
-          onClose={() => setViewing(null)}
-          onApprove={() => {
+          attach={{ requests: attachRequests, suggest: attachSuggest, folders: folderChoices, suggestedFolder, forClient: forClient ?? (active.clientIds.length ? { name: active.title, guess: false, known: true } : undefined), onStartRequest: startRequest, warn, clientIds: [...new Set(attachIds.map(parentIdOf))], fileName: viewing.file.name }}
+          onSaveFolder={(folderId) => {
+            const m = viewing!
+            addUploads([{ id: `un-${Date.now()}-${m.id}`, folderId, name: [m.read?.kind ?? m.file!.name.replace(/\.[^.]+$/, ''), m.read?.idNo].filter(Boolean).join(' · '), fileName: m.file!.name, size: m.file!.size.split(' · ').pop() ?? m.file!.size, date: 'Just now', from: 'WhatsApp' }])
+            markPlaced(active.id, m.file!.name, 'Saved in Document Master')
+            setToast(`${m.file!.name} saved in Document Master`)
+            setViewing(null)
+          }}
+          onAttach={(key) => {
+            const o = attachMap[key]
+            receiveFile(o.requestId, o.clientId, o.docId, viewing.file!.name)
+            markPlaced(active.id, viewing.file!.name, `Filed as ${o.name} · To review`)
+            setToast(`${viewing.file!.name} attached to ${o.name}`)
+            setViewing(null)
+          }}
+          checklist={
+            viewing.link
+              ? (requests
+                  .find((r) => r.id === viewing.link!.requestId)
+                  ?.clients.find((c) => c.clientId === viewing.link!.clientId)
+                  ?.docs.filter((d) => d.status !== 'na') ?? [])
+              : []
+          }
+          onMove={(toId) => {
             const l = viewing.link!
-            setDocStatus(l.requestId, l.clientId, l.docId, 'approved')
-            setToast(`${viewing.file!.name} approved`)
+            const docs = requests.find((r) => r.id === l.requestId)?.clients.find((c) => c.clientId === l.clientId)?.docs ?? []
+            const from = docs.find((d) => d.id === l.docId)
+            const to = docs.find((d) => d.id === toId)
+            const label = (st?: string) => (st ? (STAND[st] ?? 'To review') : 'To review')
+            moveFile(l.requestId, l.clientId, l.docId, toId)
+            // The chat says where each file is. Moving a file changes that note, and a swap changes the other file's note too.
+            active.msgs.forEach((m) => {
+              if (!m.link || m.link.requestId !== l.requestId || m.link.clientId !== l.clientId) return
+              if (m.link.docId === l.docId) {
+                if (to) patchMsg(active.id, m.id, { link: { ...m.link, docId: to.id }, matched: `Filed as ${to.name} · ${label(from?.status)}` })
+                else patchMsg(active.id, m.id, { link: undefined, matched: 'Not placed yet' })
+              } else if (to && m.link.docId === to.id && to.status !== 'pending') {
+                patchMsg(active.id, m.id, { link: { ...m.link, docId: l.docId }, matched: `Filed as ${from?.name} · ${label(to.status)}` })
+              }
+            })
+            if (!toId) {
+              // Every file of the document goes back to the waiting list.
+              const names = [from?.fileName ?? viewing.file!.name, ...(from?.moreFiles ?? [])]
+              addUnsorted(names.map((n, i) => ({ id: `u${Date.now()}-${i}`, phone: active.phone, fileName: n, receivedAt: 'Just now', source: 'WhatsApp' as const })))
+              setToast(`${names.length > 1 ? `${names.length} files are` : `${viewing.file!.name} is`} back in the waiting list`)
+            } else setToast(`${viewing.file!.name} moved to ${to?.name}`)
+            setViewing(null)
+          }}
+          onClose={() => setViewing(null)}
+          hide={!!approving || !!filing}
+          filedText={(() => {
+            const l = viewing.link
+            const r = l && requests.find((x) => x.id === l.requestId)
+            const d = r && r.clients.find((c) => c.clientId === l!.clientId)?.docs.find((x) => x.id === l!.docId)
+            if (!l || !r || !d || d.status !== 'approved' || d.filedTo === null) return null
+            const id = d.filedTo ?? autoFolderId(r.title, l.clientId)
+            return autoFolderLabel(id) ?? folderPathName(id)
+          })()}
+          onFile={() => viewing.link && setFiling(viewing.link)}
+          onApprove={() => viewing.link && setApproving(viewing.link)}
+          onSendBack={(reason, remark) => {
+            const l = viewing.link!
+            const docName = requests.find((r) => r.id === l.requestId)?.clients.find((c) => c.clientId === l.clientId)?.docs.find((d) => d.id === l.docId)?.name ?? 'the document'
+            setDocStatus(l.requestId, l.clientId, l.docId, 'rejected', remark ? `${reason} · ${remark}` : reason)
+            sendRejected(l.requestId, l.clientId, docName, reason, remark)
+            setToast(`${docName} rejected. The client has been told.`)
             setViewing(null)
           }}
         />
       )}
+
+      {approving && (() => {
+        const r = requests.find((x) => x.id === approving.requestId)
+        const d = r?.clients.find((c) => c.clientId === approving.clientId)?.docs.find((x) => x.id === approving.docId)
+        if (!r || !d) return null
+        return (
+          <ApproveSaveDialog
+            request={r}
+            doc={d}
+            clientId={approving.clientId}
+            onClose={() => setApproving(null)}
+            onApprove={(folderId) => {
+              setDocStatus(approving.requestId, approving.clientId, approving.docId, 'approved')
+              setDocFiled(approving.requestId, approving.clientId, approving.docId, folderId)
+              setToast(folderId ? `${d.name} approved and saved in Document Master` : `${d.name} approved`)
+              setApproving(null)
+              setViewing(null)
+            }}
+          />
+        )
+      })()}
+
+      {filing && (() => {
+        const r = requests.find((x) => x.id === filing.requestId)
+        const d = r?.clients.find((c) => c.clientId === filing.clientId)?.docs.find((x) => x.id === filing.docId)
+        if (!r || !d) return null
+        const files = [d.fileName ?? `${d.name}.pdf`, ...(d.moreFiles ?? [])]
+        return createPortal(
+          <FolderPickerDialog
+            fileName={files[0]}
+            more={files.slice(1)}
+            suggested={typeof d.filedTo === 'string' ? d.filedTo : autoFolderId(r.title, filing.clientId)}
+            clientIds={[parentIdOf(filing.clientId)]}
+            onClose={() => setFiling(null)}
+            onSave={(folderId) => {
+              setDocFiled(filing.requestId, filing.clientId, filing.docId, folderId)
+              setToast(`${d.name} saved in Document Master`)
+              setFiling(null)
+            }}
+          />,
+          document.body,
+        )
+      })()}
 
       <Toast message={toast} />
 
@@ -1116,7 +1316,7 @@ export default function Inbox() {
             {active.unassigned ? 'Save these files' : 'Requests'}
           </div>
           <div className="flex-1 overflow-y-auto">
-            <RightPanel key={active.id} conv={active} onReview={() => waitingList[0] && setReviewing(waitingList[0].id)} />
+            <RightPanel key={active.id} conv={active} onReview={(id) => setReviewing(id)} onPreview={(m) => setViewing(m)} />
           </div>
         </div>
       )}

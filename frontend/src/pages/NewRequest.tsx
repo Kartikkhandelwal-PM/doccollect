@@ -6,6 +6,7 @@ import DueDatePicker from '../components/DueDatePicker'
 import WaText from '../components/WaText'
 import { book, getBookClient, getClient, regSuffix } from '../data/mock'
 import { fmtDate, useRequests } from '../data/requests'
+import { useInbox } from '../data/inbox'
 import { useSetup } from '../data/setup'
 import type { DocRequest } from '../data/requests'
 import type { Service } from '../data/types'
@@ -16,7 +17,7 @@ import { serviceColor } from '../lib/status'
 import { fillTemplate, formatList } from '../lib/template'
 import { SHARED_NUMBER_NAME } from '../lib/brand'
 
-type CatalogDoc = { id: string; name: string }
+type CatalogDoc = { id: string; name: string; multiple?: boolean }
 type Kind = Service
 
 const kindName: Record<Kind, string> = { ITR: 'Income tax', GST: 'GST', TDS: 'TDS' }
@@ -79,11 +80,16 @@ function Stepper({ step }: { step: 1 | 2 | 3 }) {
 export default function NewRequest() {
   const navigate = useNavigate()
   useContacts()
-  const { create } = useRequests()
+  const { create, receiveFile } = useRequests()
+  const { markPlaced } = useInbox()
   const { sendRequest } = useMessenger()
   const { groups, compliances, messageTemplates, firm, ownNumber, whatsapp, addCompliance } = useSetup()
   const [params] = useSearchParams()
   const preselected = params.get('client')
+  // Opened from a file a client sent with no request: when the request is sent, that file goes on its document.
+  const fileParam = params.get('file')
+  const docParam = params.get('doc') ?? ''
+  const convParam = params.get('conv') ?? ''
   const preClient = preselected ? (getClient(preselected) ? getBookClient(preselected) : getBookClient(preselected)) : undefined
 
   // Kind first: it decides which checklists and which registrations are offered.
@@ -191,7 +197,19 @@ export default function NewRequest() {
     if (complianceId === 'custom' && saveIt && customName.trim()) {
       addCompliance(customName.trim(), kind, docIds)
     }
-    const r = create({ title, due, via, clientIds: selected, docs: chosenDocs })
+    // The checklist may have no document for this file. Then one is added to the request, so the file is not left out.
+    const norm = (x: string) => x.toLowerCase().replace(/[^a-z0-9]/g, '')
+    const fits = (name: string) => norm(docParam).length > 2 && (norm(name).includes(norm(docParam)) || norm(docParam).includes(norm(name)))
+    const docs = fileParam && docParam && !chosenDocs.some((d) => fits(d.name)) ? [...chosenDocs, { id: `file-${Date.now()}`, name: docParam }] : chosenDocs
+    const r = create({ title, due, via, clientIds: selected, docs })
+    if (fileParam && convParam) {
+      const line = r.clients.find((c) => c.clientId === preselected) ?? r.clients[0]
+      const doc = line?.docs.find((d) => fits(d.name))
+      if (line && doc) {
+        receiveFile(r.id, line.clientId, doc.id, fileParam)
+        markPlaced(convParam, fileParam, `Filed as ${doc.name} · To review`, { requestId: r.id, clientId: line.clientId, docId: doc.id })
+      }
+    }
     sendRequest(r)
     setMessageCount(chosenClients.length)
     setCreated(r)
@@ -283,6 +301,12 @@ export default function NewRequest() {
           <Stepper step={step as 1 | 2 | 3} />
         </div>
       </div>
+
+      {fileParam && (
+        <div className="rounded-xl border border-brand/30 bg-brand-soft px-4 py-3 text-[13.5px]">
+          Started from <span className="font-semibold">{fileParam}</span>, which the client sent on WhatsApp. When you send the request, the file goes on its document.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-12">
         <div className={`flex min-w-0 flex-col gap-5 ${step === 3 ? 'lg:col-span-7' : 'lg:col-span-12'}`}>

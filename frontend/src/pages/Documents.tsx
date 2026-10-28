@@ -6,14 +6,14 @@ import { useSetup } from '../data/setup'
 const ALL = '__all'
 
 export default function Documents() {
-  const { documents, categories, compliances, addDocument, renameDocument, moveDocument, removeDocument, addCategory, renameCategory, removeCategory } = useSetup()
+  const { documents, categories, compliances, addDocument, setDocumentMultiple, renameDocument, moveDocument, removeDocument, addCategory, renameCategory, removeCategory } = useSetup()
 
   const [selected, setSelected] = useState<string>(categories[0] ?? ALL)
   // On a phone you see the categories, or the documents of one category.
   const [showDocs, setShowDocs] = useState(false)
   const [query, setQuery] = useState('')
   // A document is made or changed in a small window: id null means a new one.
-  const [form, setForm] = useState<{ id: string | null; name: string; group: string; sure?: boolean } | null>(null)
+  const [form, setForm] = useState<{ id: string | null; name: string; group: string; multiple: boolean; sure?: boolean } | null>(null)
   // The row menu is drawn over the page (fixed), so the list can never cut it off. It opens upward near the bottom of the screen.
   const [rowMenu, setRowMenu] = useState<{ id: string; top: number; right: number } | null>(null)
   const [confirmId, setConfirmId] = useState<string | null>(null)
@@ -37,18 +37,19 @@ export default function Documents() {
   const list = documents.filter((d) => (searching ? d.name.toLowerCase().includes(query.toLowerCase()) : current === ALL || d.group === current))
   const showCategoryTag = searching || current === ALL
 
-  const startNew = () => setForm({ id: null, name: '', group: current === ALL ? (categories[0] ?? 'Other') : current })
+  const startNew = () => setForm({ id: null, name: '', group: '', multiple: false })
   const saveForm = () => {
     if (!form) return
     const n = form.name.trim()
-    if (!n) return
+    if (!n || !form.group) return
     // A document that sits in checklists is renamed there too, so the CA is asked once.
     const was = form.id ? documents.find((d) => d.id === form.id) : undefined
     if (was && n !== was.name && usedIn(was.id) > 0 && !form.sure) return setForm({ ...form, sure: true })
     if (form.id === null) {
-      addDocument(n, form.group)
+      addDocument(n, form.group, form.multiple)
     } else {
       renameDocument(form.id, n)
+      setDocumentMultiple(form.id, form.multiple)
       const was = documents.find((d) => d.id === form.id)
       if (was && was.group !== form.group) moveDocument(form.id, form.group)
     }
@@ -233,6 +234,7 @@ export default function Documents() {
                       <FileText size={17} />
                     </span>
                     <span className="truncate text-[14.5px] font-semibold">{d.name}</span>
+                    {d.multiple && <span className="shrink-0 rounded-md bg-canvas px-1.5 py-0.5 text-[11px] font-semibold text-muted">Several files</span>}
                   </div>
                   {showCategoryTag && <span className="truncate text-[13px] text-slate-600 max-lg:hidden">{d.group}</span>}
                   <span className="max-lg:hidden">
@@ -270,7 +272,7 @@ export default function Documents() {
               onClick={() => {
                 const d = documents.find((x) => x.id === rowMenu.id)
                 setRowMenu(null)
-                if (d) setForm({ id: d.id, name: d.name, group: d.group })
+                if (d) setForm({ id: d.id, name: d.name, group: d.group, multiple: !!d.multiple })
               }}
               className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm font-semibold hover:bg-canvas"
             >
@@ -364,23 +366,39 @@ export default function Documents() {
             ) : (
               <>
             <div className="text-base font-bold">{form.id ? 'Edit document' : 'New document'}</div>
+            {/* Category first, chosen by the user (nothing is pre-selected), then the name. */}
+            <label className="mt-4 block text-[13px] font-semibold text-muted">
+              Category
+              <select
+                autoFocus={!form.id}
+                value={form.group}
+                onChange={(e) => setForm({ ...form, group: e.target.value })}
+                className={`mt-1 block h-11 w-full rounded-xl border border-line bg-white px-3 text-sm font-medium outline-none focus:border-brand ${form.group ? 'text-ink' : 'text-muted'}`}
+              >
+                <option value="" disabled>
+                  Choose a category
+                </option>
+                {categories.map((c) => (
+                  <option key={c}>{c}</option>
+                ))}
+              </select>
+            </label>
             <label className="mt-4 block text-[13px] font-semibold text-muted">
               Name
               <input
-                autoFocus
+                autoFocus={!!form.id}
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 placeholder="For example, Rent agreement"
                 className="mt-1 block h-11 w-full rounded-xl border border-line px-3.5 text-[15px] font-medium text-ink outline-none focus:border-brand"
               />
             </label>
-            <label className="mt-4 block text-[13px] font-semibold text-muted">
-              Category
-              <select value={form.group} onChange={(e) => setForm({ ...form, group: e.target.value })} className="mt-1 block h-11 w-full rounded-xl border border-line bg-white px-3 text-sm font-medium text-ink outline-none focus:border-brand">
-                {categories.map((c) => (
-                  <option key={c}>{c}</option>
-                ))}
-              </select>
+            <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-line px-3.5 py-3">
+              <input type="checkbox" checked={form.multiple} onChange={(e) => setForm({ ...form, multiple: e.target.checked })} className="mt-0.5 h-[18px] w-[18px] shrink-0 accent-[#0F7B6C]" />
+              <span className="text-sm">
+                <span className="block font-semibold text-ink">Allow more than one file</span>
+                <span className="mt-0.5 block text-[12.5px] leading-snug text-muted">For things like the front and back of a card, or a few months of statements. Without this, the client can send only one file for it.</span>
+              </span>
             </label>
               </>
             )}
@@ -394,7 +412,7 @@ export default function Documents() {
                   Cancel
                 </button>
               )}
-              <button type="submit" disabled={!form.name.trim()} className="h-10 rounded-xl bg-brand px-5 text-sm font-semibold text-white disabled:opacity-40">
+              <button type="submit" disabled={!form.name.trim() || !form.group} className="h-10 rounded-xl bg-brand px-5 text-sm font-semibold text-white disabled:opacity-40">
                 {form.sure ? 'Yes, change it' : form.id ? 'Save' : 'Add document'}
               </button>
             </div>

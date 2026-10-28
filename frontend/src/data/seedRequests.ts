@@ -2,6 +2,7 @@ import { demoDay } from '../lib/dates'
 import type { DocRequest, RequestClient, RequestDoc, UnsortedFile } from './requests'
 import { bulkNames, slugOf } from './bulkClients'
 import type { Status } from './types'
+import { multipleIds } from './catalog'
 
 // Sample requests for the demo, in every state a CA meets: fresh, half done, waiting, late, finished.
 // All names and numbers are made up.
@@ -60,10 +61,11 @@ const fileFor = (name: string) => {
 function rc(clientId: string, defs: Def[], codes: string, n = 0, lastReminder?: string): RequestClient {
   const docs: RequestDoc[] = defs.map(([id, name], i) => {
     const status = CODE[codes[i] ?? 'P']
-    if (status === 'pending') return { id, name, status }
+    const multiple = multipleIds.has(id)
+    if (status === 'pending') return { id, name, status, multiple }
     const source: 'WhatsApp' | 'Link' = (n + i) % 3 === 0 ? 'WhatsApp' : 'Link'
     const receivedAt = status === 'to_review' ? fresh[(n + i) % fresh.length] : earlier[(n + i) % earlier.length]
-    return { id, name, status, source, receivedAt, fileName: fileFor(name), reason: status === 'rejected' ? why[(n + i) % why.length] : undefined }
+    return { id, name, status, multiple, source, receivedAt, fileName: fileFor(name), reason: status === 'rejected' ? why[(n + i) % why.length] : undefined }
   })
   return { clientId, docs, lastReminder }
 }

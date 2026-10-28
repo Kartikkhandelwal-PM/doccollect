@@ -7,7 +7,7 @@ import { useSetup } from './setup'
 import { useSessionState } from '../lib/session'
 import { addDays, todayISO } from '../lib/dates'
 import { LINK_DOMAIN } from '../lib/brand'
-import type { DocRead } from './docRead'
+import type { DocRead, Placement } from './docRead'
 
 export interface Msg {
   id: string
@@ -19,6 +19,7 @@ export interface Msg {
   photo?: boolean
   matched?: string
   read?: DocRead // what we read from the file: what it is, whose it is
+  guess?: Placement // where we think it goes. The CA confirms it.
   link?: { requestId: string; clientId: string; docId: string } // the request document this file became
   tick?: 'sent' | 'read'
   clientId?: string // which client a message sent by the firm was for. Matters when one number belongs to several clients.
@@ -352,6 +353,8 @@ interface Store {
   settle: (id: string, note: string, keep: boolean) => void
   linkChat: (convId: string, clientIds: string[], title: string) => void
   resolveFile: (convId: string, msgId: string, note: string) => void
+  arrive: (phone: string, msg: Msg, newId: string, owner?: { title: string; clientIds: string[] }) => void
+  patchMsg: (convId: string, msgId: string, patch: Partial<Msg>) => void
   markPlaced: (id: string, fileName: string, note: string, link?: NonNullable<Msg['link']>) => void
   notifyRejected: (convId: string, docName: string, reason: string) => void
 }
@@ -420,6 +423,20 @@ export function InboxProvider({ children }: { children: ReactNode }) {
     [patch],
   )
 
+  // A new file arrives on a number. It goes into that number's chat; a number we do not know gets a new Unassigned chat.
+  // When the file has already been put on a document, the chat is that client's chat right away.
+  const arrive = useCallback((phone: string, msg: Msg, newId: string, owner?: { title: string; clientIds: string[] }) => {
+    setConversations((prev) => {
+      const at = prev.findIndex((c) => c.via === 'own' && c.phone === phone)
+      if (at >= 0) return prev.map((c, i) => (i === at ? { ...c, unread: c.unread + 1, msgs: [...c.msgs, msg] } : c))
+      const fresh: Conversation = owner
+        ? { id: newId, title: owner.title, phone, clientIds: owner.clientIds, unread: 1, msgs: [msg], via: 'own' }
+        : { id: newId, title: phone, phone, clientIds: [], unassigned: true, unread: 1, msgs: [msg], via: 'own' }
+      return [fresh, ...prev]
+    })
+  }, [])
+  const patchMsg = useCallback((convId: string, msgId: string, patchWith: Partial<Msg>) => patch(convId, (c) => ({ ...c, msgs: c.msgs.map((m) => (m.id === msgId ? { ...m, ...patchWith } : m)) })), [patch])
+
   const notifyRejected = useCallback(
     (convId: string, docName: string, reason: string) =>
       patch(convId, (c) => ({
@@ -432,8 +449,8 @@ export function InboxProvider({ children }: { children: ReactNode }) {
   // Only the firm's own number is read, so only its chats can have something new.
   const unreadTotal = !readReplies ? 0 : conversations.filter((c) => c.via === 'own').reduce((n, c) => n + c.unread, 0)
   const value = useMemo(
-    () => ({ conversations, unreadTotal, markRead, send, postToClient, settle, resolveFile, linkChat, markPlaced, notifyRejected }),
-    [conversations, unreadTotal, markRead, send, postToClient, settle, resolveFile, linkChat, markPlaced, notifyRejected],
+    () => ({ conversations, unreadTotal, markRead, send, postToClient, settle, resolveFile, linkChat, arrive, patchMsg, markPlaced, notifyRejected }),
+    [conversations, unreadTotal, markRead, send, postToClient, settle, resolveFile, linkChat, arrive, patchMsg, markPlaced, notifyRejected],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

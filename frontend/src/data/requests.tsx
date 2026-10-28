@@ -2,6 +2,7 @@ import { demoDay } from '../lib/dates'
 import { createContext, useCallback, useContext, useMemo } from 'react'
 import { useSessionState } from '../lib/session'
 import type { ReactNode } from 'react'
+import { multipleIds } from './catalog'
 import { bulkRequest, moreRequests, rameshGst, seedUnsorted } from './seedRequests'
 import type { Status } from './types'
 
@@ -12,8 +13,12 @@ export interface RequestDoc {
   source?: 'WhatsApp' | 'Link'
   receivedAt?: string
   fileName?: string
-  moreFiles?: string[] // a document can be several files: the front and back of a card, the sheets of a workbook
+  multiple?: boolean // the client may send more than one file for this document (set on the document in the Documents page)
+  moreFiles?: string[] // the other files, for a document that allows several: the front and back of a card, the sheets of a workbook
   reason?: string
+  // Where the CA saved this approved document in Document Master (a folder id). Not set: it sits in its client's folder (the sample data).
+  // null: approved, but the CA chose not to save it in a folder yet.
+  filedTo?: string | null
 }
 
 // A file the client sent that we could not match to any document. It waits here until the CA puts it in the right one.
@@ -48,7 +53,7 @@ export interface NewRequestInput {
   due: string
   via: 'own' | 'kdk'
   clientIds: string[]
-  docs: { id: string; name: string }[]
+  docs: { id: string; name: string; multiple?: boolean }[]
 }
 
 export type RequestState = 'completed' | 'review' | 'waiting'
@@ -74,6 +79,7 @@ export const fmtDate = (iso: string) =>
 const doc = (id: string, name: string, status: Status, source?: 'WhatsApp' | 'Link', receivedAt?: string, reason?: string): RequestDoc => ({
   id,
   name,
+  multiple: multipleIds.has(id),
   status,
   source,
   receivedAt,
@@ -93,8 +99,8 @@ const seed: DocRequest[] = [
       {
         clientId: 'ramesh-itr',
         docs: [
-          { ...doc('pan', 'PAN card', 'approved', 'Link', 'Sep 28, 11:02'), fileName: 'PAN card front.jpg', moreFiles: ['PAN card back.jpg'] },
-          doc('aadhaar', 'Aadhaar card', 'approved', 'Link', 'Sep 28, 11:04'),
+          doc('pan', 'PAN card', 'approved', 'Link', 'Sep 28, 11:02'),
+          { ...doc('aadhaar', 'Aadhaar card', 'approved', 'Link', 'Sep 28, 11:04'), fileName: 'Aadhaar card front.jpg', moreFiles: ['Aadhaar card back.jpg'] },
           doc('form16', 'Form 16 (Part A & B)', 'to_review', 'WhatsApp', 'Today, 10:42'),
           doc('26as', 'Form 26AS / AIS', 'to_review', 'Link', 'Today, 09:15'),
           doc('bank', 'Bank statement Apr–Mar', 'to_review', 'WhatsApp', 'Today, 10:44'),
@@ -175,6 +181,9 @@ interface Store {
   remind: (requestId: string, clientId: string) => void
   simulateReply: (requestId: string) => boolean
   clientUpload: (requestId: string, clientId: string, docId: string, fileName: string) => void
+  receiveFile: (requestId: string, clientId: string, docId: string, fileName: string) => void
+  moveFile: (requestId: string, clientId: string, fromDocId: string, toDocId: string | null) => void
+  setDocFiled: (requestId: string, clientId: string, docId: string, folderId: string | null) => void
   markNotApplicable: (requestId: string, clientId: string, docId: string, on: boolean) => void
   resetClient: (requestId: string, clientId: string) => void
   clientRemove: (requestId: string, clientId: string, docId: string) => void
@@ -207,7 +216,7 @@ export function RequestsProvider({ children }: { children: ReactNode }) {
         via: input.via,
         clients: input.clientIds.map((clientId) => ({
           clientId,
-          docs: input.docs.map((d) => ({ id: d.id, name: d.name, status: 'pending' as Status })),
+          docs: input.docs.map((d) => ({ id: d.id, name: d.name, multiple: d.multiple, status: 'pending' as Status })),
         })),
       }
       setRequests((prev) => [r, ...prev])
@@ -236,6 +245,8 @@ export function RequestsProvider({ children }: { children: ReactNode }) {
       patchDoc(requestId, clientId, docId, { status, reason: status === 'rejected' ? reason : undefined }),
     [patchDoc],
   )
+
+  const setDocFiled = useCallback((requestId: string, clientId: string, docId: string, folderId: string | null) => patchDoc(requestId, clientId, docId, { filedTo: folderId }), [patchDoc])
 
   const remind = useCallback((requestId: string, clientId: string) => {
     setRequests((prev) =>
@@ -278,7 +289,7 @@ export function RequestsProvider({ children }: { children: ReactNode }) {
   )
   const clientAddFile = useCallback(
     (requestId: string, clientId: string, docId: string, fileName: string) =>
-      setRequests((prev) => prev.map((r) => (r.id !== requestId ? r : { ...r, clients: r.clients.map((c) => (c.clientId !== clientId ? c : { ...c, docs: c.docs.map((d) => (d.id === docId ? { ...d, moreFiles: [...(d.moreFiles ?? []), fileName] } : d)) })) }))),
+      setRequests((prev) => prev.map((r) => (r.id !== requestId ? r : { ...r, clients: r.clients.map((c) => (c.clientId !== clientId ? c : { ...c, docs: c.docs.map((d) => (d.id === docId && d.multiple ? { ...d, moreFiles: [...(d.moreFiles ?? []), fileName] } : d)) })) }))),
     [],
   )
   const markNotApplicable = useCallback(
@@ -289,7 +300,7 @@ export function RequestsProvider({ children }: { children: ReactNode }) {
 
   const clientRemove = useCallback(
     (requestId: string, clientId: string, docId: string) =>
-      patchDoc(requestId, clientId, docId, { status: 'pending', fileName: undefined, moreFiles: undefined, receivedAt: undefined, source: undefined, reason: undefined }),
+      patchDoc(requestId, clientId, docId, { status: 'pending', fileName: undefined, moreFiles: undefined, receivedAt: undefined, source: undefined, reason: undefined, filedTo: undefined }),
     [patchDoc],
   )
 
@@ -298,6 +309,55 @@ export function RequestsProvider({ children }: { children: ReactNode }) {
   const addUnsorted = useCallback((files: UnsortedFile[]) => setUnsorted((u) => [...files, ...u]), [])
   const dropUnsorted = useCallback((fileId: string) => setUnsorted((u) => u.filter((x) => x.id !== fileId)), [])
 
+  // The AI put a file on the wrong document. It moves to another one (the two swap if that one has a file), or goes back to waiting (toDocId null).
+  const moveFile = useCallback((requestId: string, clientId: string, fromDocId: string, toDocId: string | null) => {
+    const own = (d: RequestDoc) => ({ status: d.status, filedTo: d.filedTo, source: d.source, receivedAt: d.receivedAt, fileName: d.fileName, moreFiles: d.moreFiles, reason: d.reason })
+    const empty = { status: 'pending' as Status, filedTo: undefined, source: undefined, receivedAt: undefined, fileName: undefined, moreFiles: undefined, reason: undefined }
+    setRequests((prev) =>
+      prev.map((r) => {
+        if (r.id !== requestId) return r
+        return {
+          ...r,
+          clients: r.clients.map((c) => {
+            if (c.clientId !== clientId) return c
+            const from = c.docs.find((d) => d.id === fromDocId)
+            const to = toDocId ? c.docs.find((d) => d.id === toDocId) : undefined
+            if (!from) return c
+            const fromData = own(from)
+            const toData = to ? own(to) : empty
+            return { ...c, docs: c.docs.map((d) => (d.id === fromDocId ? { ...d, ...(to ? toData : empty) } : d.id === toDocId ? { ...d, ...fromData } : d)) }
+          }),
+        }
+      }),
+    )
+  }, [])
+
+  // A file that came on WhatsApp and was put on this document by reading it. A second file for a document already waiting is another page of it.
+  const receiveFile = useCallback((requestId: string, clientId: string, docId: string, fileName: string) => {
+    setRequests((prev) =>
+      prev.map((r) =>
+        r.id !== requestId
+          ? r
+          : {
+              ...r,
+              clients: r.clients.map((c) =>
+                c.clientId !== clientId
+                  ? c
+                  : {
+                      ...c,
+                      docs: c.docs.map((d) =>
+                        d.id !== docId
+                          ? d
+                          : d.status === 'to_review' && d.multiple
+                            ? { ...d, moreFiles: [...(d.moreFiles ?? []), fileName] }
+                            : { ...d, status: 'to_review' as Status, source: 'WhatsApp' as const, receivedAt: 'Just now', fileName, moreFiles: undefined, reason: undefined },
+                      ),
+                    },
+              ),
+            },
+      ),
+    )
+  }, [])
   const useUnsorted = useCallback(
     (fileId: string, requestId: string, clientId: string, docId: string) => {
       const f = unsorted.find((x) => x.id === fileId)
@@ -315,8 +375,8 @@ export function RequestsProvider({ children }: { children: ReactNode }) {
                         ...c,
                         docs: c.docs.map((d) => {
                           if (d.id !== docId) return d
-                          // The document already has a file: this one is another page of it.
-                          if (d.status === 'to_review') return { ...d, moreFiles: [...(d.moreFiles ?? []), f.fileName] }
+                          // The document already has a file and allows several: this one is another file of it. Otherwise it takes the place of the old one.
+                          if (d.status === 'to_review' && d.multiple) return { ...d, moreFiles: [...(d.moreFiles ?? []), f.fileName] }
                           return { ...d, status: 'to_review' as Status, source: f.source, receivedAt: f.receivedAt, fileName: f.fileName, moreFiles: undefined, reason: undefined }
                         }),
                       },
@@ -353,7 +413,7 @@ export function RequestsProvider({ children }: { children: ReactNode }) {
                   ? c
                   : {
                       ...c,
-                      docs: c.docs.map((d) => ({ id: d.id, name: d.name, status: 'pending' as Status })),
+                      docs: c.docs.map((d) => ({ id: d.id, name: d.name, multiple: d.multiple, status: 'pending' as Status })),
                     },
               ),
             },
@@ -362,8 +422,8 @@ export function RequestsProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo(
-    () => ({ requests, getRequest, create, setDocStatus, remind, simulateReply, clientUpload, markNotApplicable, resetClient, clientRemove, clientAddFile, unsorted, addUnsorted, useUnsorted, dropUnsorted, changeDue, newLink }),
-    [requests, getRequest, create, setDocStatus, remind, simulateReply, clientUpload, markNotApplicable, resetClient, clientRemove, clientAddFile, unsorted, useUnsorted, dropUnsorted, changeDue, newLink],
+    () => ({ requests, getRequest, create, setDocStatus, remind, simulateReply, clientUpload, receiveFile, moveFile, setDocFiled, markNotApplicable, resetClient, clientRemove, clientAddFile, unsorted, addUnsorted, useUnsorted, dropUnsorted, changeDue, newLink }),
+    [requests, getRequest, create, setDocStatus, remind, simulateReply, clientUpload, receiveFile, moveFile, setDocFiled, markNotApplicable, resetClient, clientRemove, clientAddFile, unsorted, useUnsorted, dropUnsorted, changeDue, newLink],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
 import DocPreviewDrawer from '../components/DocPreviewDrawer'
+import ApproveSaveDialog from '../components/ApproveSaveDialog'
 import Pagination, { usePaging } from '../components/Pagination'
 import ReminderDialog from '../components/ReminderDialog'
 import { useMessenger } from '../data/messenger'
@@ -71,7 +72,7 @@ function contactFor(id: string) {
 function RequestView({ request }: { request: DocRequest }) {
   useContacts()
   const [params] = useSearchParams()
-  const { setDocStatus, simulateReply, changeDue, unsorted, useUnsorted } = useRequests()
+  const { setDocStatus, setDocFiled, simulateReply, changeDue } = useRequests()
   const { graceDays, ownNumber, whatsapp } = useSetup()
 
   const [openDoc, setOpenDoc] = useState<{ clientId: string; docId: string } | null>(() => {
@@ -82,13 +83,13 @@ function RequestView({ request }: { request: DocRequest }) {
   const [reason, setReason] = useState('')
   const [remark, setRemark] = useState('')
   const [toast, setToast] = useState<string | null>(null)
+  const [approving, setApproving] = useState<{ clientId: string; docId: string; next: boolean } | null>(null) // Approve asks where to keep the document
   const [dateOpen, setDateOpen] = useState(false)
   const [dateValue, setDateValue] = useState('')
   const [linkFor, setLinkFor] = useState<string | null>(null)
   const [filter, setFilter] = useState<Filter>('all')
   const [query, setQuery] = useState('')
   const [asking, setAsking] = useState(false)
-  const [openFile, setOpenFile] = useState<{ fileId: string; clientId: string } | null>(null) // a file we could not match, open in the preview
   // Clients whose documents are showing. One client can be opened straight from the Dashboard (?client=).
   const [open, setOpen] = useState<Set<string>>(() => {
     const c = params.get('client') ?? (params.get('doc') ?? '').split(':')[0]
@@ -125,13 +126,12 @@ function RequestView({ request }: { request: DocRequest }) {
         const counted = rc.docs.filter((d) => d.status !== 'na')
         const missing = counted.filter((d) => d.status === 'pending' || d.status === 'rejected').length
         const toReview = counted.filter((d) => d.status === 'to_review').length
-        const waiting = unsorted.filter((f) => f.phone === c.phone)
         const got = counted.filter((d) => d.status !== 'pending' && d.status !== 'rejected').length
         const late = missing > 0 && request.due < today
-        const state: Filter = toReview > 0 || (waiting.length > 0 && missing > 0) ? 'review' : missing > 0 ? 'waiting' : 'done'
-        return [{ rc, c, missing, toReview, waiting, got, total: counted.length, late, state }]
+        const state: Filter = toReview > 0 ? 'review' : missing > 0 ? 'waiting' : 'done'
+        return [{ rc, c, missing, toReview, got, total: counted.length, late, state }]
       }),
-    [request, today, unsorted],
+    [request, today],
   )
   const counts = { all: rows.length, review: rows.filter((r) => r.state === 'review').length, waiting: rows.filter((r) => r.missing > 0).length, done: rows.filter((r) => r.state === 'done').length }
   const shown = rows.filter(
@@ -174,22 +174,21 @@ function RequestView({ request }: { request: DocRequest }) {
   }
 
   // After a decision, jump to the next document that still needs a look. Close when none are left.
-  const advance = () => {
+  const advance = (done?: string) => {
     const next =
       received.slice(idx + 1).find((x) => x.doc.status === 'to_review') ??
       received.find((x, i) => i !== idx && x.doc.status === 'to_review')
     if (next) setOpenDoc({ clientId: next.clientId, docId: next.doc.id })
     else {
       setOpenDoc(null)
-      setToast('All done. Nothing left to review in this request.')
+      setToast(`${done ? `${done}. ` : ''}All done. Nothing left to review in this request.`)
     }
   }
 
+  // Approving asks where to keep the document first (the dialog); the approval itself happens when the CA answers.
   const approveOpen = () => {
     if (!current) return
-    setDocStatus(request.id, current.clientId, current.doc.id, 'approved')
-    setToast(`${current.doc.name} approved`)
-    advance()
+    setApproving({ clientId: current.clientId, docId: current.doc.id, next: true })
   }
 
   const rejectOpen = () => {
@@ -204,8 +203,8 @@ function RequestView({ request }: { request: DocRequest }) {
       setRejecting({ clientId, docId, docName })
       return
     }
+    if (next === 'approved') return setApproving({ clientId, docId, next: false })
     setDocStatus(request.id, clientId, docId, next)
-    if (next === 'approved') setToast(`${docName} approved`)
   }
 
   const confirmReject = () => {
@@ -213,7 +212,7 @@ function RequestView({ request }: { request: DocRequest }) {
     const text = [reason, remark].filter(Boolean).join(' · ') || 'Please send it again'
     setDocStatus(request.id, rejecting.clientId, rejecting.docId, 'rejected', text)
     sendRejected(request.id, rejecting.clientId, rejecting.docName, reason, remark)
-    setToast(`${rejecting.docName} sent back. The client was told on WhatsApp.`)
+    setToast(`${rejecting.docName} rejected. The client was told on WhatsApp.`)
     setRejecting(null)
     if (current && current.clientId === rejecting.clientId && current.doc.id === rejecting.docId) advance()
   }
@@ -325,11 +324,11 @@ function RequestView({ request }: { request: DocRequest }) {
         </div>
 
         {paging.rows.length === 0 && <p className="p-8 text-sm text-muted">No clients match.</p>}
-        {paging.rows.map(({ rc, c, missing, toReview, waiting, got, total, late, state }) => {
+        {paging.rows.map(({ rc, c, missing, toReview, got, total, late, state }) => {
           const isOpen = open.has(rc.clientId)
           const chip =
             state === 'review'
-              ? { text: toReview > 0 ? `${toReview} to review` : `${waiting.length} to place`, cls: 'bg-warn-soft text-warn' }
+              ? { text: `${toReview} to review`, cls: 'bg-warn-soft text-warn' }
               : late
                 ? { text: 'Overdue', cls: 'bg-danger-soft text-danger' }
                 : missing > 0
@@ -373,8 +372,7 @@ function RequestView({ request }: { request: DocRequest }) {
                 </div>
                 <div className="@max-3xl:order-4 @max-3xl:flex-1">
                   <span className={`inline-block rounded-md px-2 py-1 text-[11px] font-bold uppercase tracking-wide ${chip.cls}`}>{chip.text}</span>
-                  {state === 'review' && missing > 0 && !(toReview > 0 && waiting.length > 0) && <div className="mt-1 text-xs text-muted">{missing} pending</div>}
-                  {state === 'review' && toReview > 0 && waiting.length > 0 && missing > 0 && <div className="mt-1 text-xs font-semibold text-warn">+ {waiting.length} to place</div>}
+                  {state === 'review' && missing > 0 && <div className="mt-1 text-xs text-muted">{missing} pending</div>}
                 </div>
                 <div onClick={(e) => e.stopPropagation()} className="flex justify-end @max-3xl:order-2 @max-3xl:shrink-0">
                   {missing > 0 ? (
@@ -423,29 +421,6 @@ function RequestView({ request }: { request: DocRequest }) {
 
               {isOpen && (
                 <div className="border-t border-line bg-slate-50/50">
-                  {waiting.length > 0 && missing > 0 && (
-                    <>
-                      {waiting.map((f) => (
-                        <div
-                          key={f.id}
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => setOpenFile({ fileId: f.id, clientId: rc.clientId })}
-                          onKeyDown={(e) => e.key === 'Enter' && setOpenFile({ fileId: f.id, clientId: rc.clientId })}
-                          className="flex cursor-pointer items-center gap-4 border-t border-line px-6 py-3 pl-[72px] @max-3xl:gap-3 @max-3xl:px-4 hover:bg-white"
-                        >
-                          <FileTypeIcon file={f.fileName} size={34} />
-                          <div className="min-w-0 flex-1">
-                            <div className="text-sm font-semibold">{f.fileName}</div>
-                            <div className="text-xs text-muted">
-                              {f.receivedAt} · via {f.source === 'Link' ? 'upload link' : 'WhatsApp'}
-                            </div>
-                          </div>
-                          <span className="rounded-md bg-warn-soft px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-warn">Not placed</span>
-                        </div>
-                      ))}
-                    </>
-                  )}
                   {rc.docs.map((d) => {
                     const gotIt = d.status !== 'pending' && d.status !== 'na'
                     const active = current?.clientId === rc.clientId && current.doc.id === d.id
@@ -489,49 +464,12 @@ function RequestView({ request }: { request: DocRequest }) {
           onClose={() => setOpenDoc(null)}
           onPrev={() => openAt(idx - 1)}
           onNext={() => openAt(idx + 1)}
+          hide={!!approving}
           onApprove={approveOpen}
           onReject={rejectOpen}
         />
       )}
 
-      {openFile && (() => {
-        const rc = request.clients.find((c) => c.clientId === openFile.clientId)
-        const client = getClient(openFile.clientId)
-        const list = unsorted.filter((f) => f.phone === client?.phone)
-        const at = list.findIndex((f) => f.id === openFile.fileId)
-        const f = list[at]
-        if (!rc || !client || !f) return null
-        const go = (i: number) => setOpenFile({ fileId: list[(i + list.length) % list.length].id, clientId: openFile.clientId })
-        const options = [
-          ...rc.docs.filter((d) => d.status === 'pending' || d.status === 'rejected').map((d) => ({ id: d.id, label: d.name, group: 'Not received yet' })),
-          ...rc.docs.filter((d) => d.status === 'to_review').map((d) => ({ id: d.id, label: d.name, group: 'Add as another file of' })),
-        ]
-        return (
-          <DocPreviewDrawer
-            key={f.id}
-            client={client}
-            doc={{ id: f.id, name: f.fileName, status: 'to_review', source: f.source, receivedAt: f.receivedAt, fileName: f.fileName }}
-            position={at + 1}
-            total={list.length}
-            onClose={() => setOpenFile(null)}
-            onPrev={() => go(at - 1)}
-            onNext={() => go(at + 1)}
-            onApprove={() => undefined}
-            onReject={() => undefined}
-            place={{
-              options,
-              onPlace: (docId) => {
-                const name = rc.docs.find((d) => d.id === docId)?.name
-                useUnsorted(f.id, request.id, rc.clientId, docId)
-                setToast(`${f.fileName} added to ${name}.`)
-                const next = list.filter((x) => x.id !== f.id)
-                if (next.length > 0 && options.length > 1) setOpenFile({ fileId: next[Math.min(at, next.length - 1)].id, clientId: openFile.clientId })
-                else setOpenFile(null)
-              },
-            }}
-          />
-        )
-      })()}
 
       {asking && <ReminderDialog targets={toNotify.map((r) => ({ requestId: request.id, clientId: r.rc.clientId }))} update={thanking} text={preview(request.id, toNotify[0].rc.clientId)} onSend={sendReminders} onClose={() => setAsking(false)} />}
 
@@ -590,7 +528,7 @@ function RequestView({ request }: { request: DocRequest }) {
       )}
 
       {rejecting && (
-        <motion.div {...backdropProps} className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="Send back document">
+        <motion.div {...backdropProps} className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="Reject document">
           <motion.div {...panelProps} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
             <h2 className="text-lg font-bold">Send “{rejecting.docName}” back?</h2>
             <p className="mt-1 text-sm text-muted">Tell the client what is wrong. They get this on WhatsApp with a fresh upload link.</p>
@@ -618,12 +556,34 @@ function RequestView({ request }: { request: DocRequest }) {
               </button>
               <button type="button" onClick={confirmReject} className="flex h-11 shrink-0 items-center whitespace-nowrap gap-2 rounded-xl bg-danger px-5 text-sm font-semibold text-white">
                 <X size={16} />
-                Send back
+                Reject
               </button>
             </div>
           </motion.div>
         </motion.div>
       )}
+
+      {approving && (() => {
+        const d = request.clients.find((c) => c.clientId === approving.clientId)?.docs.find((x) => x.id === approving.docId)
+        if (!d) return null
+        return (
+          <ApproveSaveDialog
+            request={request}
+            doc={d}
+            clientId={approving.clientId}
+            onClose={() => setApproving(null)}
+            onApprove={(folderId) => {
+              setDocStatus(request.id, approving.clientId, approving.docId, 'approved')
+              setDocFiled(request.id, approving.clientId, approving.docId, folderId)
+              const msg = folderId ? `${d.name} approved and saved in Document Master` : `${d.name} approved`
+              setToast(msg)
+              const goOn = approving.next
+              setApproving(null)
+              if (goOn) advance(msg)
+            }}
+          />
+        )
+      })()}
 
       <Toast message={toast} />
     </div>

@@ -15,7 +15,7 @@ A CA (or tax practitioner) asks clients for documents on WhatsApp, the clients s
 
 - **A request is one checklist** (a saved list of documents used for Income tax, GST or TDS) sent to one or more registrations of that kind, with a last date. Documents are not tied to a kind: PAN, Aadhaar or a bank statement can be in any checklist. "Income tax" covers everything filed on the PAN (ROC, KYC and the like).
 - **Every client gets their own message and their own link**, even when clients share a phone number.
-- A document has a status: `pending`, `to review`, `approved`, `sent back`, or `not applicable`.
+- A document has a status: `pending`, `to review`, `approved`, `rejected`, or `not applicable`.
 - A request is **Needs review** (something waits for the CA), **Waiting for clients**, or **Completed** (everything approved).
 - The CA is never asked to look at 400 documents. The unit of work is **one client in one request**.
 
@@ -26,7 +26,7 @@ A CA (or tax practitioner) asks clients for documents on WhatsApp, the clients s
 | **Dashboard** | Greeting, work queue (one row per client per request: Review or Remind), calendar of last dates, "Due this week". Remind works only for clients who still owe documents. Clients with documents waiting for review are skipped, and the bar says so. |
 | **Clients** | List with search and ITR / GST / TDS filter. A client page has Overview, Requests, Documents, Messages, Activity. Messages shows only that client's own messages. |
 | **Requests** | Table: Request, Clients, Sent, Last date, Documents, Status. Filters: search, last date, which number. Header stays in view. A row can expand to show its clients (first five). Under the clients it says how many are to review and how many are late or waiting. |
-| **Request page** | One row per client with Review, Remind or Send update. Open a client to see each document, approve or send back, copy or renew the link. Also: change last date, "Remind N clients" (or "Send update to N clients" when all are done). |
+| **Request page** | One row per client with Review, Remind or Send update. Open a client to see each document, approve or reject, copy or renew the link. Also: change last date, "Remind N clients" (or "Send update to N clients" when all are done). |
 | **New request** | Three steps: **What you need** (Income tax, GST or TDS, then a checklist for it, then tick or add documents), **Who to ask** (only registrations of that kind, with search and Select all), **Review and send** (send from, last date, send). A summary with a message preview stays on the right. |
 | **Inbox** | WhatsApp chats, grouped by number. Side panel shows the requests of that chat and files that need a place. |
 | **Document Master** | Firm folders on top, then one folder per client. Search, "Show more", rename, move, delete, drag and drop. |
@@ -43,7 +43,7 @@ Messages come from fixed, WhatsApp-approved templates. The CA does not edit the 
 | New request | Document request, one per client. A client with nothing to be asked gets none. |
 | Remind / Send update (one client or many) | Some approved and some missing: progress update ("2 approved, these are pending"). Nothing approved yet: pending list. Everything approved: "all documents received". |
 | New link | Fresh link message. The old link stops working. |
-| Document sent back | The template for the reason chosen (not clear, wrong document, pages missing, wrong year), or a general one with the CA's own words. |
+| Document rejected | The template for the reason chosen (not clear, wrong document, pages missing, wrong year), or a general one with the CA's own words. |
 | Approve one document | **Nothing is sent.** |
 | First message from another number | A short introduction goes first, once. |
 
@@ -74,7 +74,13 @@ Two numbers can work at the same time.
 - A file is matched to a document by its name. If it cannot be matched it waits in "Not placed yet", for that phone number.
 - **Files nobody asked for, and many at once:** any file on the firm's own number is read (type, name, PAN / account number). In Unassigned, every file gets its own card with a guess of the client (PAN match is surest, then name) and a "Save for client" button; "Save all matched" does the lot. A repeat of the same document is flagged as a duplicate. If we cannot tell, it waits for staff. We never ask the client.
 - **Save the contact:** in Unassigned, tap the unsaved number at the top of the chat. Enter a name and pick the client (name and PAN shown). The number is saved as an extra contact (the client's own number stays). Later files from it land in that client's chat. Files still waiting move to "files that need a place".
-- **Review the files** (Inbox side panel or the request): one at a time, search for the document and save. A document that already has a file can take the new one as "another file of" it (front and back of a card, sheets of a workbook).
+- **A file with no document:** open it in the chat. Attach it to a pending document of an open request (a suggestion from what the file was read as is on top; with several requests the CA picks the request first), or save it to a folder with no request (the folder is chosen from what the file was read as, and can be changed).
+- **Approving a document:** asks where to keep it in Document Master. The suggested folder (client, year, kind of work) is already chosen. The CA can approve and save there, approve without saving (it then waits at the top level of Document Master as "Not in a folder yet", and can be saved later from the preview), or cancel. Nothing is filed without that answer. Deleting a folder the CA made does not delete approved documents in it.
+- **More than one file for a document:** only if the document allows it (the checkbox "Allow more than one file" on the Documents page; a few such as Aadhaar and bank statements start with it on). A several-files document takes new files as more files of it; a one-file document takes a new file in place of the old one. The same rule is on the client's upload page.
+- **Files that cannot be shown:** PDF and images open in the preview. Anything else (Excel, Word, ZIP, HEIC) shows a card with a Download button instead; the CA downloads it, looks, and still approves or rejects in the app. A document may be several files; the preview has a chip for each.
+- **A document with no request:** the client may send a file when the CA has asked for nothing. Open it in the chat and either save it in a folder (Save-as window), or start a request with it (New request opens for that client, and the file goes on its document when the request is sent).
+- **Wrong match:** if the AI put a file on the wrong document, open its preview in the Inbox and use "Wrong document?": move it to another document of the request (two files swap if needed) or take it off the checklist (it goes back to waiting). Approving is always the CA's step.
+- **Review the files** (Inbox side panel): one at a time, choose the request and the document, or save it in a folder. A document that already has a file takes the new one as "another file of" it only if the document allows several files (front and back of a card, sheets of a workbook); otherwise the new file replaces the old one.
 - **Not for this request:** keep the file in a Document Master folder, or remove it.
 - A personal photo or a chat message is not saved. Only files that look like documents, for clients with an open request.
 
@@ -153,3 +159,19 @@ This was tried ("On file": PAN, Aadhaar and similar are kept and not asked again
 ## Keeping this file up to date
 
 Every time something changes in how the product works, update this file in the same change and add a line in `CHANGELOG.md`.
+
+## A file arrives: what happens (all cases)
+
+| Case | What happens |
+|---|---|
+| Client known, request open, file fits one pending document by number | Put on that document by itself ("To review"). The CA still approves. |
+| Same, but only a name matched, or it fits more than one place | The chat asks: "Looks like <document>" with Place it / Not this. Nothing is filed until the CA says. |
+| Client known, **no request raised** | The file waits ("Not placed yet"). Preview: Save in a folder (main) or Start a request with it. |
+| Client has a request, file comes from an **unknown number** | It goes to Unassigned and is never filed by itself (the number is not proven). The preview says "For <client>" (amber "Check client" if only the name matched) and offers the document and the two buttons. The CA can also save the number as the client's contact. |
+| Unknown number, nothing could be read or no client guessed | The preview says it could not tell whose file it is. The CA saves it in a folder (any client) or saves the contact first. |
+| Number belongs to several clients, or several requests are open | The request list names the client in each title; the CA picks the request, then the document. |
+| AI could not match (or got it wrong) | The CA uses "Add to a request…" (request, then document) or, if already placed, "Wrong document?" to move or take it off. |
+| File looks like another client's | Amber line: "This file looks like <client>'s … not <chat>'s. Check before adding it." |
+| Same document sent twice | Amber line "may be a duplicate". A second file for a document already waiting is added as another file of it. |
+| Not a document (a photo) | Skipped, with a note in the chat. Nothing is saved. |
+| Start a request from the file | New request opens for that client; the file goes on its document when sent. If the checklist has no such document, one is added. |

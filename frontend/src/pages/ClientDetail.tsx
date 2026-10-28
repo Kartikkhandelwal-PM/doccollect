@@ -13,7 +13,7 @@ import Toast from '../components/Toast'
 import { mainContact, useContacts } from '../data/contacts'
 import { buildMaster } from '../data/master'
 import type { Registration } from '../data/mock'
-import { getBookClient, sameContact } from '../data/mock'
+import { getBookClient, parentIdOf, sameContact } from '../data/mock'
 import { fmtDate, isReceived, useRequests } from '../data/requests'
 import type { DocRequest, RequestClient, RequestDoc } from '../data/requests'
 import type { Service } from '../data/types'
@@ -195,7 +195,7 @@ export default function ClientDetail() {
     [requests, ids, regById],
   )
   const items: Item[] = useMemo(() => lines.flatMap((line) => line.rc.docs.map((doc) => ({ line, doc }))), [lines])
-  const folderFiles = useMemo(() => buildMaster(requests).filter((f) => f.folderId?.startsWith(`c:${client?.id}/`)), [requests, client?.id])
+  const folderFiles = useMemo(() => buildMaster(requests).filter((f) => f.folderId?.startsWith(`c:${client?.id}/`) || (!!f.clientId && parentIdOf(f.clientId) === client?.id)), [requests, client?.id])
 
   // Requests tab: filter by kind and search.
   const kindParam = params.get('kind')

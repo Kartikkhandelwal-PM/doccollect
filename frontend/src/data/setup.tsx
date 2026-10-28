@@ -2,7 +2,7 @@ import { useSessionState } from '../lib/session'
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Service } from './types'
-import { groups as seedGroups, templates as seedTemplates } from './catalog'
+import { groups as seedGroups, multipleIds, templates as seedTemplates } from './catalog'
 import { seedMessages } from './messageTemplates'
 import type { MsgTemplate } from './messageTemplates'
 
@@ -16,10 +16,11 @@ export interface WhatsAppLink {
   channelId: string // the channel (sender / phone number) ID
 }
 
-interface DocItem {
+export interface DocItem {
   id: string
   name: string
   group: string
+  multiple?: boolean // the client may send more than one file for this document
 }
 export interface Compliance {
   id: string
@@ -42,7 +43,7 @@ export interface Firm {
   gstin: string
 }
 
-const seedDocs: DocItem[] = seedGroups.flatMap((g) => g.docs.map((d) => ({ id: d.id, name: d.name, group: g.title })))
+const seedDocs: DocItem[] = seedGroups.flatMap((g) => g.docs.map((d) => ({ id: d.id, name: d.name, group: g.title, multiple: multipleIds.has(d.id) })))
 const seedCompliances: Compliance[] = seedTemplates.filter((t) => t.id !== 'custom').map((t) => ({ id: t.id, name: t.name, kind: t.kind, docIds: t.docIds }))
 
 const seedTeam: TeamMember[] = [
@@ -55,7 +56,8 @@ interface Store {
   documents: DocItem[]
   groups: { title: string; docs: DocItem[] }[] // only categories that have documents (for checklists)
   categories: string[] // every category, including empty ones (for the Documents list page)
-  addDocument: (name: string, group: string) => string
+  addDocument: (name: string, group: string, multiple?: boolean) => string
+  setDocumentMultiple: (id: string, on: boolean) => void
   renameDocument: (id: string, name: string) => void
   moveDocument: (id: string, group: string) => void
   removeDocument: (id: string) => void
@@ -112,12 +114,13 @@ export function SetupProvider({ children }: { children: ReactNode }) {
   const [graceDays, setGraceDays] = useSessionState('graceDays', 7)
   const [readReplies, setReadReplies] = useSessionState('readReplies', true)
 
-  const addDocument = useCallback((name: string, group: string) => {
+  const addDocument = useCallback((name: string, group: string, multiple = false) => {
     const id = `d-${Date.now()}`
-    setDocuments((p) => [...p, { id, name, group }])
+    setDocuments((p) => [...p, { id, name, group, multiple }])
     setCategories((p) => (p.includes(group) ? p : [...p, group]))
     return id
   }, [])
+  const setDocumentMultiple = useCallback((id: string, on: boolean) => setDocuments((p) => p.map((d) => (d.id === id ? { ...d, multiple: on } : d))), [])
   const moveDocument = useCallback((id: string, group: string) => {
     setDocuments((p) => p.map((d) => (d.id === id ? { ...d, group } : d)))
     setCategories((p) => (p.includes(group) ? p : [...p, group]))
@@ -161,13 +164,13 @@ export function SetupProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<Store>(
     () => ({
-      documents, groups, categories, addDocument, renameDocument, moveDocument, removeDocument, addCategory, renameCategory, removeCategory,
+      documents, groups, categories, addDocument, setDocumentMultiple, renameDocument, moveDocument, removeDocument, addCategory, renameCategory, removeCategory,
       compliances, templates, addCompliance, updateCompliance, removeCompliance,
       messageTemplates,
       firm, saveFirm: setFirm, team, invite, setRole, removeMember,
       whatsapp, connectWhatsApp, ownNumber: whatsapp?.number ?? null, graceDays, setGraceDays, readReplies, setReadReplies,
     }),
-    [documents, groups, categories, addDocument, renameDocument, moveDocument, removeDocument, addCategory, renameCategory, removeCategory, compliances, templates, addCompliance, updateCompliance, removeCompliance, messageTemplates, firm, team, invite, setRole, removeMember, whatsapp, graceDays, readReplies],
+    [documents, groups, categories, addDocument, setDocumentMultiple, renameDocument, moveDocument, removeDocument, addCategory, renameCategory, removeCategory, compliances, templates, addCompliance, updateCompliance, removeCompliance, messageTemplates, firm, team, invite, setRole, removeMember, whatsapp, graceDays, readReplies],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
