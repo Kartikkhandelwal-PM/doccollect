@@ -6,7 +6,7 @@ import { useNotifications } from '../data/notifications'
 import type { Notice } from '../data/notifications'
 import { buildMaster } from '../data/master'
 import { book, getClient } from '../data/mock'
-import { useRequests } from '../data/requests'
+import { lineRef, useRequests } from '../data/requests'
 
 interface Result {
   id: string
@@ -71,7 +71,7 @@ function GlobalSearch() {
       )
 
     requests
-      .filter((r) => has(r.title, r.ref, ...r.clients.map((c) => getClient(c.clientId)?.name)))
+      .filter((r) => has(r.title, r.ref, ...r.clients.map((c) => lineRef(r, c.clientId)), ...r.clients.map((c) => getClient(c.clientId)?.name)))
       .slice(0, MAX_PER_GROUP)
       .forEach((r) =>
         out.push({

@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import FirmLogo from '../components/FirmLogo'
 import { getBookClient, getClient } from '../data/mock'
-import { fmtDate, useRequests } from '../data/requests'
+import { fmtDate, lineRef, useRequests } from '../data/requests'
 import type { RequestDoc } from '../data/requests'
 import { useSetup } from '../data/setup'
 import { expiresOn, isExpired } from '../lib/dates'
@@ -164,7 +164,7 @@ export default function ClientUpload() {
           <div className="flex items-center gap-3">
             <FirmLogo name={firm.name} logo={firm.logo} size={40} />
             <div className="min-w-0 flex-1 truncate text-[15px] font-bold">{firm.name}</div>
-            <span className="shrink-0 rounded-md bg-white/80 px-2 py-1 text-[12px] font-semibold text-slate-600">Ref {request.ref}</span>
+            <span className="shrink-0 rounded-md bg-white/80 px-2 py-1 text-[12px] font-semibold text-slate-600">Ref {lineRef(request, rc.clientId)}</span>
           </div>
           <p className="mt-6 text-sm font-medium text-slate-600">Hi {first}</p>
           {regLine && <p className="mt-0.5 font-mono text-[13px] text-slate-500">{regLine}</p>}

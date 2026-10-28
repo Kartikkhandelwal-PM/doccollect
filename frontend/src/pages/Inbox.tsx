@@ -29,7 +29,7 @@ import type { Approving } from '../components/ApproveSaveDialog'
 import FolderPickerDialog from '../components/FolderPickerDialog'
 import { createPortal } from 'react-dom'
 import { useMasterStore } from '../data/masterStore'
-import { useRequests } from '../data/requests'
+import { lineRef, useRequests } from '../data/requests'
 import type { RequestDoc } from '../data/requests'
 import { useSetup } from '../data/setup'
 import { fillTemplate, sample } from '../lib/template'
@@ -502,7 +502,7 @@ function RightPanel({ conv, onReview, onPreview }: { conv: Conversation; onRevie
               <Link to={`/requests/${r.id}?client=${c.clientId}`} title="Open this request" className="group block border-b border-slate-200 bg-[#F4F9F7] px-4 py-3 transition-colors hover:bg-[#E6F2EE]">
                 <div className="flex items-baseline gap-2">
                   <span className="min-w-0 flex-1 truncate text-[15px] font-semibold leading-snug text-brand-dark">{r.title}</span>
-                  <span className="shrink-0 text-[12px] text-muted">{r.ref}</span>
+                  <span className="shrink-0 text-[12px] text-muted">{lineRef(r, c.clientId)}</span>
                   <ChevronRight size={15} className="shrink-0 self-center text-muted transition group-hover:translate-x-0.5 group-hover:text-brand-dark" />
                 </div>
                 {(several || place) && (

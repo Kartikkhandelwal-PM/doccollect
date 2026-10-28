@@ -435,4 +435,6 @@ export function useRequests() {
   return v
 }
 const seed: DocRequest[] = emptyOn() ? [] : seedAll
+export { lineRef } from '../lib/refs'
+
 export { seed as initialRequests }
