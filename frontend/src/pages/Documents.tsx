@@ -1,6 +1,7 @@
 import { ArrowLeft, FileText, MoreHorizontal, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
 import Page from '../components/Page'
 import { useState } from 'react'
+import FilterSelect from '../components/FilterSelect'
 import { useSetup } from '../data/setup'
 
 const ALL = '__all'
@@ -101,7 +102,7 @@ export default function Documents() {
       <div className="grid h-full min-h-0 grid-cols-1 gap-5 md:grid-cols-[300px_1fr]">
         {/* Categories */}
         <aside className={`flex min-h-0 flex-col overflow-hidden rounded-[18px] border border-line bg-white ${showDocs || searching ? 'max-md:hidden' : ''}`}>
-          <div className="shrink-0 px-5 pb-1 pt-4 text-[11px] font-bold uppercase tracking-widest text-faint">Categories</div>
+          <div className="shrink-0 px-5 pb-1 pt-4 text-[12px] font-bold uppercase tracking-widest text-faint">Categories</div>
           <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-2">
           <button
             type="button"
@@ -153,11 +154,11 @@ export default function Documents() {
                     <span className="text-xs font-medium text-muted">{countOf(c)}</span>
                   </button>
                   <div className="absolute right-9 top-1/2 hidden -translate-y-1/2 gap-0.5 group-focus-within:flex group-hover:flex">
-                    <button type="button" aria-label={`Rename ${c}`} onClick={() => startCategoryForm(c)} className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-white hover:text-ink">
+                    <button type="button" aria-label={`Rename ${c}`} onClick={() => startCategoryForm(c)} className="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-white hover:text-ink">
                       <Pencil size={13} />
                     </button>
                     {countOf(c) === 0 && (
-                      <button type="button" aria-label={`Delete ${c}`} onClick={() => setConfirmCat(c)} className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-white hover:text-danger">
+                      <button type="button" aria-label={`Delete ${c}`} onClick={() => setConfirmCat(c)} className="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-white hover:text-danger">
                         <Trash2 size={13} />
                       </button>
                     )}
@@ -204,7 +205,7 @@ export default function Documents() {
 
           <div className="min-h-0 flex-1 overflow-y-auto">
             {showCategoryTag && list.length > 0 && (
-              <div className="sticky top-0 z-[1] grid grid-cols-[1fr_180px_150px_48px] gap-4 border-b border-line bg-slate-50 px-6 py-2 text-[11px] font-bold uppercase tracking-wider text-faint max-lg:hidden">
+              <div className="sticky top-0 z-[1] grid grid-cols-[1fr_180px_150px_48px] gap-4 border-b border-line bg-slate-50 px-6 py-2 text-[12px] font-bold uppercase tracking-wider text-faint max-lg:hidden">
                 <span>Document</span>
                 <span>Category</span>
                 <span>Used in</span>
@@ -233,8 +234,8 @@ export default function Documents() {
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-canvas text-muted">
                       <FileText size={17} />
                     </span>
-                    <span className="truncate text-[14.5px] font-semibold">{d.name}</span>
-                    {d.multiple && <span className="shrink-0 rounded-md bg-canvas px-1.5 py-0.5 text-[11px] font-semibold text-muted">Several files</span>}
+                    <span className="truncate text-[15px] font-semibold">{d.name}</span>
+                    {d.multiple && <span className="shrink-0 rounded-md bg-canvas px-1.5 py-0.5 text-[12px] font-semibold text-muted">Several files</span>}
                   </div>
                   {showCategoryTag && <span className="truncate text-[13px] text-slate-600 max-lg:hidden">{d.group}</span>}
                   <span className="max-lg:hidden">
@@ -369,19 +370,18 @@ export default function Documents() {
             {/* Category first, chosen by the user (nothing is pre-selected), then the name. */}
             <label className="mt-4 block text-[13px] font-semibold text-muted">
               Category
-              <select
-                autoFocus={!form.id}
-                value={form.group}
-                onChange={(e) => setForm({ ...form, group: e.target.value })}
-                className={`mt-1 block h-11 w-full rounded-xl border border-line bg-white px-3 text-sm font-medium outline-none focus:border-brand ${form.group ? 'text-ink' : 'text-muted'}`}
-              >
-                <option value="" disabled>
-                  Choose a category
-                </option>
-                {categories.map((c) => (
-                  <option key={c}>{c}</option>
-                ))}
-              </select>
+              <span className="mt-1 block">
+                <FilterSelect value={form.group} onChange={(v) => setForm({ ...form, group: v })} label="Category" width="w-full">
+                  <option value="" disabled>
+                    Choose a category
+                  </option>
+                  {categories.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </FilterSelect>
+              </span>
             </label>
             <label className="mt-4 block text-[13px] font-semibold text-muted">
               Name
@@ -397,7 +397,7 @@ export default function Documents() {
               <input type="checkbox" checked={form.multiple} onChange={(e) => setForm({ ...form, multiple: e.target.checked })} className="mt-0.5 h-[18px] w-[18px] shrink-0 accent-[#0F7B6C]" />
               <span className="text-sm">
                 <span className="block font-semibold text-ink">Allow more than one file</span>
-                <span className="mt-0.5 block text-[12.5px] leading-snug text-muted">For things like the front and back of a card, or a few months of statements. Without this, the client can send only one file for it.</span>
+                <span className="mt-0.5 block text-[13px] leading-snug text-muted">For things like the front and back of a card, or a few months of statements. Without this, the client can send only one file for it.</span>
               </span>
             </label>
               </>

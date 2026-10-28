@@ -156,7 +156,7 @@ export default function FolderPickerDialog({ fileName, suggested, clientIds, ste
           {isClient ? (
             <span className="min-w-0 flex-1">
               <span className="block truncate leading-tight">{n.name}</span>
-              <span className="block truncate font-mono text-[11px] font-normal leading-tight text-muted">{clientFolderInfo(n.id.slice(2))?.pan}</span>
+              <span className="block truncate font-mono text-[12px] font-normal leading-tight text-muted">{clientFolderInfo(n.id.slice(2))?.pan}</span>
             </span>
           ) : (
             <span className="min-w-0 flex-1 truncate">{n.name}</span>
@@ -197,9 +197,9 @@ export default function FolderPickerDialog({ fileName, suggested, clientIds, ste
               </label>
             </div>
             <div role="tree" aria-label="Folders" className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
-              {firm.length > 0 && <div className="px-3 pb-1 pt-1 text-[11px] font-bold uppercase tracking-widest text-faint">Firm</div>}
+              {firm.length > 0 && <div className="px-3 pb-1 pt-1 text-[12px] font-bold uppercase tracking-widest text-faint">Firm</div>}
               {firm.map((r) => row(r, 0))}
-              {(own.length > 0 || others.length > 0) && <div className="px-3 pb-1 pt-4 text-[11px] font-bold uppercase tracking-widest text-faint">Clients</div>}
+              {(own.length > 0 || others.length > 0) && <div className="px-3 pb-1 pt-4 text-[12px] font-bold uppercase tracking-widest text-faint">Clients</div>}
               {own.map((r) => row(r, 0))}
               {others.length > 0 && (
                 <>
@@ -233,7 +233,7 @@ export default function FolderPickerDialog({ fileName, suggested, clientIds, ste
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
               {(subfolders.length > 0 || inside.length > 0) && (
-                <div className="flex items-center gap-2.5 px-2.5 pb-1 text-[11px] font-bold uppercase tracking-wider text-faint">
+                <div className="flex items-center gap-2.5 px-2.5 pb-1 text-[12px] font-bold uppercase tracking-wider text-faint">
                   <span className="min-w-0 flex-1 pl-[30px]">Name</span>
                   <span className="w-20 shrink-0 text-right">Size</span>
                   <span className="w-24 shrink-0 text-right">Added</span>
@@ -251,8 +251,8 @@ export default function FolderPickerDialog({ fileName, suggested, clientIds, ste
                 <div key={f.id} className="flex h-11 items-center gap-2.5 rounded-lg px-2.5 text-sm text-ink/80">
                   <FileTypeIcon file={f.fileName} size={22} />
                   <span className="min-w-0 flex-1 truncate">{f.name}</span>
-                  <span className="w-20 shrink-0 text-right text-[12.5px] text-muted">{f.size}</span>
-                  <span className="w-24 shrink-0 text-right text-[12.5px] text-muted">{f.date}</span>
+                  <span className="w-20 shrink-0 text-right text-[13px] text-muted">{f.size}</span>
+                  <span className="w-24 shrink-0 text-right text-[13px] text-muted">{f.date}</span>
                 </div>
               ))}
               {!selected && <p className="px-3 py-10 text-center text-sm text-muted">Choose a folder on the left. Its files show here.</p>}

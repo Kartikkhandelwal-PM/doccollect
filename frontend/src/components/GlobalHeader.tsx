@@ -182,7 +182,7 @@ function GlobalSearch() {
           {query && results.length === 0 && <p className="px-4 py-6 text-center text-sm text-muted">Nothing found for “{q.trim()}”.</p>}
           {groups.map((g) => (
             <div key={g}>
-              <div className="px-4 pb-1 pt-2 text-[11px] font-bold uppercase tracking-widest text-faint">{g}</div>
+              <div className="px-4 pb-1 pt-2 text-[12px] font-bold uppercase tracking-widest text-faint">{g}</div>
               {results.map((r, i) =>
                 r.group !== g ? null : (
                   <button
@@ -253,7 +253,7 @@ function Notifications() {
       >
         <Bell size={19} />
         {unread > 0 && (
-          <span className="absolute right-0.5 top-0.5 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white">{unread > 9 ? '9+' : unread}</span>
+          <span className="absolute right-0.5 top-0.5 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-danger px-1 text-[12px] font-bold leading-none text-white ring-2 ring-white">{unread > 9 ? '9+' : unread}</span>
         )}
       </button>
 

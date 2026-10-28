@@ -11,9 +11,8 @@ import { getClient } from '../data/mock'
 import type { DocRequest as Request } from '../data/requests'
 import { progress, requestState, useRequests } from '../data/requests'
 import { daysUntil, iso, parseISO, todayISO } from '../lib/dates'
-import { serviceColor } from '../lib/status'
 import { rowIn } from '../lib/motion'
-import { rowHover } from '../lib/ui'
+import { rowFocus, rowHover, rowKeys } from '../lib/ui'
 
 type Tab = 'all' | 'received' | 'no_response'
 
@@ -72,7 +71,7 @@ function MiniCalendar({ requests }: { requests: Request[] }) {
       </div>
 
       <div className="mt-3 overflow-hidden rounded-xl border border-line">
-        <div className="grid grid-cols-7 border-b border-line bg-slate-50 text-center text-[11px] font-bold uppercase tracking-wide text-faint">
+        <div className="grid grid-cols-7 border-b border-line bg-slate-50 text-center text-[12px] font-bold uppercase tracking-wide text-faint">
           {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
             <span key={d} className="py-1.5">
               {d}
@@ -100,7 +99,7 @@ function MiniCalendar({ requests }: { requests: Request[] }) {
                 <span className={`flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-[12px] tabular-nums ${isToday ? 'bg-brand font-bold text-white' : inMonth ? 'font-semibold' : 'text-faint/70'}`}>{d.getDate()}</span>
                 <span className="flex h-3 items-center gap-1">
                   {here.length > 0 && <span className={`h-1.5 w-1.5 rounded-full ${tone(day)}`} />}
-                  {here.length > 1 && <span className="text-[10px] font-bold leading-none tabular-nums text-muted">{here.length}</span>}
+                  {here.length > 1 && <span className="text-[12px] font-bold leading-none tabular-nums text-muted">{here.length}</span>}
                 </span>
               </button>
             )
@@ -230,10 +229,10 @@ export default function Dashboard() {
           ))}
         </div>
 
-        <div className={`${ROW} @max-2xl:hidden border-b border-t border-line bg-slate-50/80 py-2 text-[11px] font-bold uppercase tracking-wider text-faint`}>
+        <div className={`${ROW} @max-2xl:hidden border-b border-t border-line bg-slate-50/80 py-2 text-[12px] font-bold uppercase tracking-wider text-faint`}>
           <span>Client</span>
           <span>Received</span>
-          <span>Needs</span>
+          <span>Status</span>
           <span />
         </div>
 
@@ -256,7 +255,9 @@ export default function Dashboard() {
                 key={i.id}
                 {...rowIn(index)}
                 onClick={() => navigate(i.href)}
-                className={`${ROW} group h-[68px] ${rowHover} border-b border-line last:border-b-0 @max-2xl:h-auto @max-2xl:py-3.5`}
+                {...rowKeys(() => navigate(i.href))}
+                aria-label={`Open ${i.title}`}
+                className={`${ROW} group h-[68px] ${rowHover} ${rowFocus} border-b border-line last:border-b-0 @max-2xl:h-auto @max-2xl:py-3.5`}
               >
                 <div className="flex min-w-0 items-center gap-3 @max-2xl:order-1 @max-2xl:flex-[1_1_60%]">
                   {i.kind === 'unassigned' ? (
@@ -267,11 +268,10 @@ export default function Dashboard() {
                     <Avatar name={i.title} size={36} />
                   )}
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold">
+                    <div className="truncate text-sm font-semibold" title={i.title}>
                       {i.title}
-                      {i.service && <span className={`ml-2 text-xs font-bold ${serviceColor[i.service]}`}>{i.service}</span>}
                     </div>
-                    <div className="mt-0.5 truncate text-[13px] text-muted">{i.kind === 'unassigned' ? i.sub : `${i.request} · ${i.sub}`}</div>
+                    <div className="mt-0.5 truncate text-[13px] text-muted" title={i.kind === 'unassigned' ? i.sub : `${i.request} · ${i.sub}`}>{i.kind === 'unassigned' ? i.sub : `${i.request} · ${i.sub}`}</div>
                   </div>
                 </div>
 
@@ -291,7 +291,7 @@ export default function Dashboard() {
                 </div>
 
                 <div className="min-w-0 @max-2xl:order-4 @max-2xl:flex-1 @max-2xl:basis-[45%]">
-                  <span className={`inline-block rounded-md px-2 py-1 text-[11px] font-bold uppercase tracking-wide ${chip.cls}`}>{chip.text}</span>
+                  <span className={`inline-block rounded-md px-2 py-1 text-[12px] font-bold uppercase tracking-wide ${chip.cls}`}>{chip.text}</span>
                   <div className={`mt-1 truncate text-xs ${i.activityTone === 'danger' ? 'font-semibold text-danger' : 'text-muted'}`}>{i.activity}</div>
                 </div>
 
@@ -333,7 +333,7 @@ export default function Dashboard() {
           <section className="flex-1 rounded-[18px] border border-line bg-white px-5 pb-3 pt-4">
             <div className="flex items-baseline justify-between">
               <h2 className="text-base font-bold tracking-tight">Due this week</h2>
-              <Link to="/requests" className="text-[13px] font-semibold text-brand hover:underline">
+              <Link to="/requests" className="-my-2 py-2 text-[13px] font-semibold text-brand hover:underline">
                 All requests
               </Link>
             </div>
@@ -348,7 +348,7 @@ export default function Dashboard() {
                 return (
                   <MotionLink key={r.id} {...rowIn(n + 2)} initial={false} to={`/requests/${r.id}`} className="-mx-2 flex items-center gap-3 rounded-xl px-2 py-2.5 transition-colors hover:bg-[#EAF5F0]">
                     <div className="flex w-12 shrink-0 flex-col overflow-hidden rounded-xl border border-line bg-white shadow-[0_1px_2px_rgba(14,27,44,0.06)]" aria-hidden="true">
-                      <span className={`py-0.5 text-center text-[9px] font-bold uppercase tracking-widest text-white ${late ? 'bg-danger' : days <= 1 ? 'bg-[#D9822B]' : 'bg-brand'}`}>{d.toLocaleDateString('en-IN', { month: 'short' })}</span>
+                      <span className={`py-0.5 text-center text-[12px] font-bold uppercase tracking-widest text-white ${late ? 'bg-danger' : days <= 1 ? 'bg-[#B35B00]' : 'bg-brand'}`}>{d.toLocaleDateString('en-IN', { month: 'short' })}</span>
                       <span className={`py-1 text-center text-[19px] font-bold leading-none tabular-nums ${late ? 'text-danger' : ''}`}>{d.getDate()}</span>
                     </div>
                     <div className="min-w-0 flex-1">
@@ -364,7 +364,7 @@ export default function Dashboard() {
                         <span className="h-1 flex-1 overflow-hidden rounded-full bg-slate-100">
                           <motion.span className={`block h-full rounded-full ${late ? 'bg-danger' : 'bg-brand'}`} initial={{ width: 0 }} animate={{ width: `${p.total ? (p.received / p.total) * 100 : 0}%` }} transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: 0.3 }} />
                         </span>
-                        <span className="text-[11px] tabular-nums text-muted">
+                        <span className="text-[12px] tabular-nums text-muted">
                           {p.received}/{p.total}
                         </span>
                       </div>

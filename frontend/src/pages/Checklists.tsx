@@ -5,7 +5,7 @@ import { useSetup } from '../data/setup'
 import type { Service } from '../data/types'
 import { serviceColor } from '../lib/status'
 
-const kindName: Record<Service, string> = { ITR: 'Income tax', GST: 'GST', TDS: 'TDS' }
+const kindName: Record<Service, string> = { ITR: 'ITR', GST: 'GST', TDS: 'TDS' }
 // Where a document typed in here goes in the Documents list, by what the checklist is used for.
 // A soft colour behind the title, by what the checklist is used for.
 const tint: Record<Service, string> = { ITR: 'from-violet-50 to-white', GST: 'from-blue-50 to-white', TDS: 'from-amber-50 to-white' }
@@ -98,7 +98,7 @@ export default function Checklists() {
                   onClick={() => setKindFilter(k)}
                   className={`flex h-9 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3.5 text-[13px] font-semibold transition-colors ${kindFilter === k ? 'bg-white text-brand-dark shadow-sm' : 'text-slate-600 hover:text-ink'}`}
                 >
-                  {k === 'All' ? 'All' : k === 'ITR' ? 'Income tax' : k}
+                  {k === 'All' ? 'All' : k}
                   <span className={kindFilter === k ? 'text-brand-dark/70' : 'text-faint'}>{count(k)}</span>
                 </button>
               ))}
@@ -117,7 +117,7 @@ export default function Checklists() {
                 }}
                 className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${selected?.id === c.id ? 'bg-[#EEF8F5] ring-1 ring-inset ring-brand' : 'hover:bg-canvas'}`}
               >
-                <span className={`w-9 shrink-0 rounded-md bg-slate-100 py-0.5 text-center text-[10.5px] font-bold ${serviceColor[c.kind]}`}>{c.kind}</span>
+                <span className={`w-9 shrink-0 rounded-md bg-slate-100 py-0.5 text-center text-[12px] font-bold ${serviceColor[c.kind]}`}>{c.kind}</span>
                 <span className="min-w-0 flex-1">
                   <span className={`block truncate text-[14px] ${selected?.id === c.id ? 'font-bold text-brand-dark' : 'font-semibold'}`}>{c.name}</span>
                   <span className="block text-xs text-muted">{c.docIds.length} documents</span>
@@ -227,7 +227,7 @@ export default function Checklists() {
                   {shownGroups.length === 0 && <p className="px-2 py-4 text-sm text-muted">No document matches.</p>}
                   {shownGroups.map((g) => (
                     <div key={g.title} className="mb-4">
-                      <div className="mb-1 px-2 text-[11px] font-bold uppercase tracking-widest text-faint">{g.title}</div>
+                      <div className="mb-1 px-2 text-[12px] font-bold uppercase tracking-widest text-faint">{g.title}</div>
                       {g.docs.map((d) => {
                         const on = selected.docIds.includes(d.id)
                         return (
@@ -237,7 +237,7 @@ export default function Checklists() {
                             role="checkbox"
                             aria-checked={on}
                             onClick={() => toggle(d.id)}
-                            className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-[13.5px] ${on ? 'bg-[#EEF8F5] font-semibold' : 'font-medium hover:bg-canvas'}`}
+                            className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-[14px] ${on ? 'bg-[#EEF8F5] font-semibold' : 'font-medium hover:bg-canvas'}`}
                           >
                             <Box on={on} />
                             {d.name}
@@ -258,7 +258,7 @@ export default function Checklists() {
                     <p className="text-xs text-muted">What clients are asked for.</p>
                   </div>
                   {selected.docIds.length > 0 && (
-                    <button type="button" onClick={() => updateCompliance(selected.id, { docIds: [] })} className="shrink-0 whitespace-nowrap text-[13px] font-semibold text-muted hover:text-danger">
+                    <button type="button" onClick={() => updateCompliance(selected.id, { docIds: [] })} className="-my-2 shrink-0 whitespace-nowrap px-2 py-2 text-[13px] font-semibold text-muted hover:text-danger">
                       Clear all
                     </button>
                   )}
@@ -268,10 +268,10 @@ export default function Checklists() {
                     <div className="mx-2 rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm text-muted">Nothing here yet. Tick documents on the left.</div>
                   )}
                   {selected.docIds.map((id, i) => (
-                    <div key={id} className="group flex items-center gap-3 rounded-lg px-2.5 py-2 text-[13.5px] font-medium hover:bg-white">
+                    <div key={id} className="group flex items-center gap-3 rounded-lg px-2.5 py-2 text-[14px] font-medium hover:bg-white">
                       <span className="w-5 shrink-0 text-right text-xs text-faint">{i + 1}</span>
                       <span className="min-w-0 flex-1">{nameOf(id)}</span>
-                      <button type="button" onClick={() => toggle(id)} aria-label={`Remove ${nameOf(id)}`} className="flex h-6 w-6 items-center justify-center rounded-md text-muted hover:bg-danger-soft hover:text-danger">
+                      <button type="button" onClick={() => toggle(id)} aria-label={`Remove ${nameOf(id)}`} className="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-danger-soft hover:text-danger">
                         ✕
                       </button>
                     </div>

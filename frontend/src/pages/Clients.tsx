@@ -9,7 +9,8 @@ import Pagination, { usePaging } from '../components/Pagination'
 import { mainContact, useContacts } from '../data/contacts'
 import { book } from '../data/mock'
 import { serviceColor } from '../lib/status'
-import { trHover } from '../lib/ui'
+import { rowFocus, rowKeys, trHover } from '../lib/ui'
+import FilterSelect from '../components/FilterSelect'
 
 const MotionLink = motion.create(Link)
 
@@ -61,23 +62,23 @@ export default function Clients() {
       </div>
 
       <div className="flex flex-wrap items-center gap-3 md:gap-4">
-        <select value={filter} onChange={(e) => setFilter(e.target.value as Filter)} aria-label="Filter by registration" className="h-11 rounded-xl border border-line bg-white px-4 text-sm font-semibold outline-none max-md:w-full">
+        <FilterSelect value={filter} onChange={(v) => setFilter(v as Filter)} label="Filter by registration" width="w-[210px]">
           {(Object.keys(filterLabel) as Filter[]).map((f) => (
             <option key={f} value={f}>{filterLabel[f]}</option>
           ))}
-        </select>
-        <select value={work} onChange={(e) => setWork(e.target.value as Work)} aria-label="Filter by requests" className="h-11 rounded-xl border border-line bg-white px-4 text-sm font-semibold outline-none max-md:w-full">
+        </FilterSelect>
+        <FilterSelect value={work} onChange={(v) => setWork(v as Work)} label="Filter by requests" width="w-[190px]">
           {(Object.keys(workLabel) as Work[]).map((w) => (
             <option key={w} value={w}>{workLabel[w]}</option>
           ))}
-        </select>
+        </FilterSelect>
         <label className="flex h-11 w-80 items-center max-md:w-full gap-2.5 rounded-xl border border-line bg-white px-4 text-sm text-muted">
           <Search size={16} />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="w-full bg-transparent outline-none placeholder:text-muted"
-            placeholder="Search by name, PAN, GSTIN, TAN or number"
+            placeholder="Name, PAN, GSTIN, TAN or number"
           />
         </label>
       </div>
@@ -85,11 +86,20 @@ export default function Clients() {
       }
     >
       <div className="overflow-clip rounded-[18px] border border-line bg-white">
-        {list.length === 0 && <p className="p-8 text-sm text-muted">No clients match your search.</p>}
+        {list.length === 0 && (
+          <div className="flex flex-col items-start gap-3 p-8">
+            <p className="text-sm text-muted">No clients match{query || filter !== 'All' || work !== 'All' ? ' these filters' : ''}.</p>
+            {(query || filter !== 'All' || work !== 'All') && (
+              <button type="button" onClick={() => { setQuery(''); setFilter('All'); setWork('All') }} className="h-10 rounded-xl border border-line px-4 text-sm font-semibold hover:border-brand">
+                Clear filters
+              </button>
+            )}
+          </div>
+        )}
         {list.length > 0 && (
           <table className="w-full text-left max-md:hidden">
             <thead>
-              <tr className="text-[11px] font-bold uppercase tracking-wider text-faint [&>th]:sticky [&>th]:-top-5 [&>th]:z-10 [&>th]:border-b [&>th]:border-line [&>th]:bg-slate-50">
+              <tr className="text-[12px] font-bold uppercase tracking-wider text-faint [&>th]:sticky [&>th]:-top-5 [&>th]:z-10 [&>th]:border-b [&>th]:border-line [&>th]:bg-slate-50">
                 <th className="py-2.5 pl-6 pr-3 font-bold">Client</th>
                 <th className="px-3 py-2.5 font-bold">Registrations</th>
                 <th className="px-3 py-2.5 font-bold">Main contact</th>
@@ -101,7 +111,7 @@ export default function Clients() {
             <tbody>
               {paging.rows.map((c) => {
                 return (
-                  <tr key={c.id} onClick={() => navigate(`/clients/${c.id}`)} className={`${trHover} border-b border-line last:border-b-0`}>
+                  <tr key={c.id} {...rowKeys(() => navigate(`/clients/${c.id}`))} aria-label={`Open ${c.name}`} onClick={() => navigate(`/clients/${c.id}`)} className={`${trHover} ${rowFocus} border-b border-line last:border-b-0`}>
                     <td className="py-3 pl-6 pr-3">
                       <Link to={`/clients/${c.id}`} onClick={(e) => e.stopPropagation()} className="flex items-center gap-3">
                         <Avatar name={c.name} size={40} />

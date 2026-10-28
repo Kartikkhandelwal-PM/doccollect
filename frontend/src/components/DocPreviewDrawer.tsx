@@ -84,7 +84,7 @@ export default function DocPreviewDrawer({ client, doc, position, total, onClose
         </div>
         <div className="flex items-center gap-3">
           {attach ? (
-            <span className="rounded-md bg-warn-soft px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-warn">Not placed</span>
+            <span className="rounded-md bg-warn-soft px-2 py-1 text-[12px] font-bold uppercase tracking-wide text-warn">Not placed</span>
           ) : (
             <StatusBadge status={doc.status} />
           )}
@@ -113,7 +113,6 @@ export default function DocPreviewDrawer({ client, doc, position, total, onClose
       )}
       <div className="flex-1 overflow-y-auto bg-[#EDF0F5] px-6 py-8">
         <FilePane fileName={[doc.fileName ?? 'file.pdf', ...(doc.moreFiles ?? [])][fi] ?? 'file.pdf'} docName={doc.name} client={client} />
-        <p className="mt-5 text-center text-xs text-muted">Sample preview. The client's real file shows here.</p>
       </div>
 
       {attach ? (

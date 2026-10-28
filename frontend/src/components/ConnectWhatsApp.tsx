@@ -71,7 +71,7 @@ function Choice({ title, desc, selected, onClick, badge, children }: { title: st
     >
       <div className="flex items-center gap-2">
         <span className="text-[15px] font-semibold">{title}</span>
-        {badge && <span className="rounded-md bg-brand-soft px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-brand-dark">{badge}</span>}
+        {badge && <span className="rounded-md bg-brand-soft px-1.5 py-0.5 text-[12px] font-bold uppercase tracking-wide text-brand-dark">{badge}</span>}
         {selected && <Check size={18} className="ml-auto text-brand" />}
       </div>
       <p className="mt-0.5 text-[13px] leading-snug text-muted">{desc}</p>
@@ -450,7 +450,7 @@ export default function ConnectWhatsApp({ onClose, onConnected }: { onClose: () 
                 <div className="mt-1.5 rounded-2xl bg-[#EFEAE2] p-3.5">
                   <div className="ml-auto w-fit max-w-[92%] rounded-[10px] rounded-tr-none bg-[#D9FDD3] px-3 py-2 text-[14px] leading-snug shadow-[0_1px_1px_rgba(17,27,33,0.13)]">
                     {templateText}
-                    <div className="pt-0.5 text-right text-[11px] text-slate-500">
+                    <div className="pt-0.5 text-right text-[12px] text-slate-500">
                       {sent === 'delivered' ? (
                         <span className="inline-flex items-center gap-1 text-[#53BDEB]">
                           {sentAt} <Check size={12} strokeWidth={3} />

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { backdropProps, panelProps } from '../lib/motion'
 import FileTypeIcon from './FileTypeIcon'
 import type { AttachRequest } from './AttachPanel'
+import { fmtDate } from '../data/requests'
 
 // A numbered heading for each side, so it reads as two steps: first the request, then the document.
 function Step({ n, text, done, off }: { n: number; text: string; done?: boolean; off?: boolean }) {
@@ -51,9 +52,9 @@ export default function RequestPickerDialog({ fileName, requests, suggestedKey, 
       >
         <span className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-[1.5px] ${on ? 'border-brand bg-brand text-white' : 'border-slate-300 bg-white'}`}>{on && <Check size={11} strokeWidth={3.4} />}</span>
         <span className="min-w-0 flex-1 truncate">{d.name}</span>
-        {d.status === 'rejected' && <span className="shrink-0 text-[11px] font-semibold text-danger">Rejected</span>}
-        {d.status === 'pending' && <span className="shrink-0 text-[11px] font-semibold text-muted">Pending</span>}
-        {d.status === 'to_review' && <span className="shrink-0 text-[11px] font-semibold text-warn">To review</span>}
+        {d.status === 'rejected' && <span className="shrink-0 text-[12px] font-semibold text-danger">Rejected</span>}
+        {d.status === 'pending' && <span className="shrink-0 text-[12px] font-semibold text-muted">Pending</span>}
+        {d.status === 'to_review' && <span className="shrink-0 text-[12px] font-semibold text-warn">To review</span>}
       </button>
     )
   }
@@ -99,7 +100,7 @@ export default function RequestPickerDialog({ fileName, requests, suggestedKey, 
                         {r.place ? ` · ${r.place}` : ''}
                       </span>
                       <span className="block text-[12px] text-muted">
-                        {r.ref} · Due {r.due}
+                        {r.ref} · Due {fmtDate(r.due)}
                       </span>
                     </span>
                     <span className="shrink-0 text-[12px] font-semibold text-warn">{r.docs.filter((d) => !d.extra).length} pending</span>

@@ -29,13 +29,16 @@ export default function Templates() {
             <h1 className="text-[24px] font-bold tracking-tight">Message templates</h1>
             <p className="mt-0.5 text-sm text-muted">{messageTemplates.length} ready messages, already approved by WhatsApp.</p>
           </div>
+          <div className="flex shrink-0 items-center gap-3 max-md:flex-col max-md:items-stretch">
+            <span className="text-[13px] font-semibold text-muted max-md:hidden">Show messages sent from</span>
           <div className="flex shrink-0 rounded-xl bg-[#E9EEF5] p-1 text-[13px] font-semibold text-slate-600 max-md:w-full" role="group" aria-label="Which number the messages are sent from">
-            <button type="button" onClick={() => setVoice('own')} className={`rounded-[9px] px-4 py-1.5 max-md:flex-1 ${voice === 'own' ? 'bg-white text-ink shadow-sm' : ''}`}>
-              From your WhatsApp
+            <button type="button" onClick={() => setVoice('own')} className={`rounded-[9px] px-4 py-2 max-md:flex-1 ${voice === 'own' ? 'bg-white text-ink shadow-sm' : ''}`}>
+              Your WhatsApp
             </button>
-            <button type="button" onClick={() => setVoice('kdk')} className={`rounded-[9px] px-4 py-1.5 max-md:flex-1 ${voice === 'kdk' ? 'bg-white text-ink shadow-sm' : ''}`}>
-              From {SHARED_NUMBER_NAME} number
+            <button type="button" onClick={() => setVoice('kdk')} className={`rounded-[9px] px-4 py-2 max-md:flex-1 ${voice === 'kdk' ? 'bg-white text-ink shadow-sm' : ''}`}>
+              {SHARED_NUMBER_NAME} number
             </button>
+          </div>
           </div>
         </div>
       }
@@ -44,7 +47,7 @@ export default function Templates() {
         <div className={`flex min-h-0 flex-col gap-2 overflow-y-auto pr-1 md:col-span-3 ${detail ? 'max-md:hidden' : ''}`}>
           {[...new Set(messageTemplates.map((m) => m.group))].map((g) => (
             <div key={g} className="flex flex-col gap-1.5">
-              <div className="px-1 pt-1 text-[11px] font-bold uppercase tracking-widest text-faint">{g}</div>
+              <div className="px-1 pt-1 text-[12px] font-bold uppercase tracking-widest text-faint">{g}</div>
               {messageTemplates
                 .filter((m) => m.group === g)
                 .map((m) => (
@@ -76,16 +79,16 @@ export default function Templates() {
           <section className="rounded-[18px] border border-line bg-white p-5">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold tracking-tight">{selected.name}</h2>
-              <span className="flex items-center gap-1.5 rounded-md bg-ok-soft px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-ok">
+              <span className="flex items-center gap-1.5 rounded-md bg-ok-soft px-2 py-1 text-[12px] font-semibold uppercase tracking-wide text-ok">
                 <BadgeCheck size={13} /> Approved
               </span>
             </div>
             <p className="mt-1 text-sm text-muted">{selected.hint}.</p>
 
             <div className="mt-4 rounded-2xl bg-[#EFEAE2] bg-[radial-gradient(rgba(17,27,33,0.045)_1.2px,transparent_1.2px)] p-4 [background-size:22px_22px]">
-              <div className="ml-auto w-fit max-w-[94%] rounded-[10px] rounded-tr-none bg-[#D9FDD3] px-3 py-2 text-[14.5px] leading-snug shadow-[0_1px_1px_rgba(17,27,33,0.13)]">
+              <div className="ml-auto w-fit max-w-[94%] rounded-[10px] rounded-tr-none bg-[#D9FDD3] px-3 py-2 text-[15px] leading-snug shadow-[0_1px_1px_rgba(17,27,33,0.13)]">
                 <WaText text={fillTemplate(body)} />
-                <div className="pt-0.5 text-right text-[11px] text-slate-500">09:10</div>
+                <div className="pt-0.5 text-right text-[12px] text-slate-500">09:10</div>
               </div>
             </div>
             <p className="mt-3 text-xs text-muted">Sample details are shown here. The real name, dates and link fill in when you send.</p>

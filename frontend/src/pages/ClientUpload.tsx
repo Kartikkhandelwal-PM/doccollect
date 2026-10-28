@@ -154,18 +154,20 @@ export default function ClientUpload() {
     )
   }
 
+  document.title = `Documents for ${request.title} · ${firm.name}`
+
   return (
-    <div className="min-h-full bg-canvas">
+    <div className="min-h-full overflow-x-clip bg-canvas">
       {banner}
       <div className="mx-auto flex min-h-full max-w-[480px] flex-col bg-canvas">
-        <header className="bg-gradient-to-br from-[#DDF3EC] via-[#E7F4F6] to-[#E6EEFC] px-5 pb-14 pt-5">
+        <header className="relative isolate px-5 pb-14 pt-5 before:absolute before:inset-y-0 before:left-1/2 before:-z-10 before:w-screen before:-translate-x-1/2 before:bg-gradient-to-br before:from-[#DDF3EC] before:via-[#E7F4F6] before:to-[#E6EEFC]">
           <div className="flex items-center gap-3">
             <FirmLogo name={firm.name} logo={firm.logo} size={40} />
             <div className="min-w-0 flex-1 truncate text-[15px] font-bold">{firm.name}</div>
-            <span className="shrink-0 rounded-md bg-white/80 px-2 py-1 text-[11px] font-semibold text-slate-600">Ref {request.ref}</span>
+            <span className="shrink-0 rounded-md bg-white/80 px-2 py-1 text-[12px] font-semibold text-slate-600">Ref {request.ref}</span>
           </div>
           <p className="mt-6 text-sm font-medium text-slate-600">Hi {first}</p>
-          {regLine && <p className="mt-0.5 font-mono text-[12.5px] text-slate-500">{regLine}</p>}
+          {regLine && <p className="mt-0.5 font-mono text-[13px] text-slate-500">{regLine}</p>}
           <h1 className="mt-0.5 text-[26px] font-bold leading-tight tracking-tight">Documents for {request.title}</h1>
           <p className="mt-2 text-[15px] leading-snug text-slate-700">
             {firm.name} needs {total} {total === 1 ? 'document' : 'documents'} from you.

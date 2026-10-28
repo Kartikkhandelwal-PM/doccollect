@@ -23,13 +23,19 @@ const kindOf = (name: string) => {
 export default function FilePane({ fileName, docName, client }: { fileName: string; docName: Pick<RequestDoc, 'name'>['name']; client: Pick<Client, 'name' | 'pan'> }) {
   const [started, setStarted] = useState(false)
   useEffect(() => setStarted(false), [fileName])
-  if (canPreview(fileName)) return <PaperPreview doc={{ name: docName }} client={client} />
+  if (canPreview(fileName))
+    return (
+      <div>
+        <PaperPreview doc={{ name: docName }} client={client} />
+        <p className="mt-4 text-center text-xs text-muted">Sample page. The client&apos;s real file shows here.</p>
+      </div>
+    )
   return (
     <div className="mx-auto flex w-[360px] flex-col items-center rounded-2xl bg-white px-8 py-10 text-center shadow-[0_2px_18px_rgba(14,27,44,0.16)]">
       <FileTypeIcon file={fileName} size={72} />
       <div className="mt-4 max-w-full truncate text-[15px] font-bold">{fileName}</div>
       <div className="mt-0.5 text-[13px] text-muted">{kindOf(fileName)}</div>
-      <p className="mt-4 text-[13.5px] leading-relaxed text-slate-600">This kind of file cannot be shown here. Download it to look at it, then come back to approve or reject.</p>
+      <p className="mt-4 text-[14px] leading-relaxed text-slate-600">This kind of file cannot be shown here. Download it to look at it, then come back to approve or reject.</p>
       <button type="button" onClick={() => setStarted(true)} className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand text-sm font-semibold text-white hover:bg-brand-dark">
         <Download size={17} /> Download
       </button>

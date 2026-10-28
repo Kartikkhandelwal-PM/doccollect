@@ -33,6 +33,7 @@ import type { RequestDoc } from '../data/requests'
 import { useSetup } from '../data/setup'
 import { fillTemplate, sample } from '../lib/template'
 import { dayLabel, todayISO } from '../lib/dates'
+import { demoOn } from '../lib/demo'
 import { SHARED_NUMBER_NAME } from '../lib/brand'
 
 type Filter = 'all' | 'unread' | 'unassigned'
@@ -70,7 +71,7 @@ const readLine = (r: DocRead) => [r.kind, r.name, r.idNo, r.note].filter(Boolean
 
 function Ticks({ tick }: { tick?: 'sent' | 'read' }) {
   if (!tick) return null
-  return tick === 'read' ? <CheckCheck size={15} className="text-[#53BDEB]" /> : <CheckCheck size={15} className="text-slate-400" />
+  return tick === 'read' ? <CheckCheck size={15} className="text-[#53BDEB]" /> : <CheckCheck size={15} className="text-slate-500" />
 }
 
 function Bubble({ m, status, onOpen, onPlace, onNot }: { m: Msg; status?: string; onOpen: (m: Msg) => void; onPlace?: () => void; onNot?: () => void }) {
@@ -90,7 +91,7 @@ function Bubble({ m, status, onOpen, onPlace, onNot }: { m: Msg; status?: string
       className={`flex max-w-[78%] flex-col gap-1 ${mine ? 'items-end self-end' : 'items-start self-start'}`}
     >
       <div
-        className={`w-fit max-w-full rounded-[10px] px-2.5 pb-1.5 pt-2 text-[14.5px] leading-snug shadow-[0_1px_1px_rgba(17,27,33,0.13)] ${
+        className={`w-fit max-w-full rounded-[10px] px-2.5 pb-1.5 pt-2 text-[15px] leading-snug shadow-[0_1px_1px_rgba(17,27,33,0.13)] ${
           mine ? 'rounded-tr-none bg-[#D9FDD3]' : 'rounded-tl-none bg-white'
         }`}
       >
@@ -146,9 +147,9 @@ function Bubble({ m, status, onOpen, onPlace, onNot }: { m: Msg; status?: string
             </div>
           </div>
         ) : (
-          m.matched && <div className="mt-1 inline-block rounded-md bg-brand-soft px-2 py-0.5 text-xs font-semibold text-brand-dark">{liveMatched(m.matched, status)}</div>
+          m.matched && <div className={`mt-1 inline-block rounded-md px-2 py-0.5 text-xs font-semibold ${m.matched === 'Not placed yet' ? 'bg-warn-soft text-warn' : 'bg-brand-soft text-brand-dark'}`}>{liveMatched(m.matched, status)}</div>
         )}
-        <div className="flex items-center justify-end gap-1 pt-0.5 text-[11px] text-slate-500">
+        <div className="flex items-center justify-end gap-1 pt-0.5 text-[12px] text-slate-500">
           {m.time}
           {mine && <Ticks tick={m.tick} />}
         </div>
@@ -288,11 +289,11 @@ function FileViewer({ msg, who, pan, doc, req, checklist, hide, filedText, onFil
                           disabled={locked || (here && !moveTo)}
                           onClick={() => setMoveTo(here || picked ? null : c.id)}
                           title={locked ? 'Already approved' : here ? (moveTo ? 'Keep it here' : 'This file is on this item') : picked ? 'Picked: click to undo' : 'Move this file here'}
-                          className={`flex items-center gap-2.5 rounded-lg border px-2.5 py-2 text-left text-[13.5px] ${marked ? 'border-brand bg-brand-soft' : 'border-transparent hover:bg-canvas'} ${locked ? 'opacity-60' : ''} disabled:cursor-default`}
+                          className={`flex items-center gap-2.5 rounded-lg border px-2.5 py-2 text-left text-[14px] ${marked ? 'border-brand bg-brand-soft' : 'border-transparent hover:bg-canvas'} ${locked ? 'opacity-60' : ''} disabled:cursor-default`}
                         >
-                          <span className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${dot(c.status)}`}>{c.status === 'approved' || c.status === 'to_review' ? <Check size={11} strokeWidth={3.4} /> : c.status === 'rejected' ? '!' : ''}</span>
+                          <span className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full text-[12px] font-bold ${dot(c.status)}`}>{c.status === 'approved' || c.status === 'to_review' ? <Check size={11} strokeWidth={3.4} /> : c.status === 'rejected' ? '!' : ''}</span>
                           <span className={`min-w-0 flex-1 leading-snug ${marked ? 'font-semibold text-brand-dark' : c.status === 'pending' ? 'text-muted' : 'font-medium'}`}>{c.name}</span>
-                          <span className={`shrink-0 text-[11px] ${marked ? 'font-bold uppercase tracking-wide text-brand-dark' : here ? 'font-semibold text-muted' : 'text-muted'}`}>{label}</span>
+                          <span className={`shrink-0 text-[12px] ${marked ? 'font-bold uppercase tracking-wide text-brand-dark' : here ? 'font-semibold text-muted' : 'text-muted'}`}>{label}</span>
                         </button>
                       )
                     })}
@@ -342,7 +343,7 @@ function FileViewer({ msg, who, pan, doc, req, checklist, hide, filedText, onFil
               )}
               {/* Where an approved document is kept in Document Master, and a way to save it there (or change it). */}
               {doc.status === 'approved' && !rejecting && !moveTo && onFile && (
-                <div className="mt-3 flex items-center gap-2 text-[12.5px]">
+                <div className="mt-3 flex items-center gap-2 text-[13px]">
                   <FolderOpen size={14} className="shrink-0 text-muted" />
                   <span className={`min-w-0 flex-1 truncate ${filedText ? 'text-muted' : 'font-medium text-warn'}`} title={filedText ?? undefined}>
                     {filedText ?? 'Not saved in a folder yet'}
@@ -409,7 +410,7 @@ function SaveContact({ phone, guessId, onSave, onClose }: { phone: string; guess
                   PAN {b.pan} · {b.registrations.map((r) => r.type).filter((t, i, a) => a.indexOf(t) === i).join(', ')}
                 </span>
               </span>
-              {b.id === guessId && <span className="shrink-0 rounded-md bg-white px-1.5 py-0.5 text-[11px] font-bold text-brand-dark">Suggested</span>}
+              {b.id === guessId && <span className="shrink-0 rounded-md bg-white px-1.5 py-0.5 text-[12px] font-bold text-brand-dark">Suggested</span>}
               {to === b.id && <Check size={16} className="shrink-0 text-brand-dark" />}
             </button>
           ))}
@@ -459,7 +460,7 @@ function RightPanel({ conv, onReview, onPreview }: { conv: Conversation; onRevie
                 <FileTypeIcon file={m.file!.name} size={34} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[14px] font-semibold">{m.file!.name}</span>
-                  <span className="block truncate text-[12.5px] text-muted">
+                  <span className="block truncate text-[13px] text-muted">
                     {dup ? 'Already sent before' : m.read ? [m.read.kind, who].filter(Boolean).join(' · ') : 'Could not read clearly'}
                   </span>
                 </span>
@@ -546,7 +547,7 @@ function RightPanel({ conv, onReview, onPreview }: { conv: Conversation; onRevie
                         className={`flex w-full items-center gap-2.5 rounded-lg px-1.5 py-1 text-left text-[13px] ${state === 'pending' ? 'cursor-default' : 'hover:bg-canvas'}`}
                       >
                         <span
-                          className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+                          className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full text-[12px] font-bold ${
                             state === 'approved' ? 'bg-ok text-white' : state === 'review' ? 'bg-warn text-white' : state === 'rejected' ? 'bg-danger text-white' : 'border-[1.5px] border-slate-300 bg-white'
                           }`}
                           aria-hidden="true"
@@ -554,11 +555,11 @@ function RightPanel({ conv, onReview, onPreview }: { conv: Conversation; onRevie
                           {state === 'approved' || state === 'review' ? <Check size={11} strokeWidth={3.4} /> : state === 'rejected' ? '!' : ''}
                         </span>
                         <span className="min-w-0 flex-1">
-                          <span className={`block truncate ${state === 'pending' ? 'text-muted' : 'font-medium'}`}>{d.name}</span>
-                          {state !== 'pending' && d.source && <span className="block text-[11px] text-muted">via {d.source === 'Link' ? 'upload link' : 'this chat'}</span>}
+                          <span className={`block leading-snug ${state === 'pending' ? 'text-muted' : 'font-medium'}`}>{d.name}</span>
+                          {state !== 'pending' && d.source && <span className="block text-[12px] text-muted">via {d.source === 'Link' ? 'upload link' : 'this chat'}</span>}
                         </span>
-                        {state === 'review' && <span className="shrink-0 text-[11px] font-semibold text-warn">To review</span>}
-                        {state === 'rejected' && <span className="shrink-0 text-[11px] font-semibold text-danger">Rejected</span>}
+                        {state === 'review' && <span className="shrink-0 text-[12px] font-semibold text-warn">To review</span>}
+                        {state === 'rejected' && <span className="shrink-0 text-[12px] font-semibold text-danger">Rejected</span>}
                       </button>
                     </li>
                   )
@@ -574,14 +575,14 @@ function RightPanel({ conv, onReview, onPreview }: { conv: Conversation; onRevie
           <div className="text-sm font-bold text-[#7A3B00]">
             {waiting.length} {waiting.length === 1 ? 'file' : 'files'} not placed yet
           </div>
-          <p className="mt-0.5 text-[12.5px] leading-snug text-[#7A3B00]">Open a file to read it, then choose where it goes.</p>
+          <p className="mt-0.5 text-[13px] leading-snug text-[#7A3B00]">Open a file to read it, then choose where it goes.</p>
           <div className="mt-2.5 flex flex-col gap-1.5">
             {waiting.map((u) => (
               <button key={u.id} type="button" onClick={() => onReview(u.id)} className="flex items-center gap-2.5 rounded-lg border border-[#F5DFA8] bg-white px-3 py-2 text-left hover:border-brand">
                 <FileTypeIcon file={u.fileName} size={26} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[13px] font-semibold">{u.fileName}</span>
-                  <span className="block truncate text-[11.5px] text-muted">{u.receivedAt}</span>
+                  <span className="block truncate text-[12px] text-muted">{u.receivedAt}</span>
                 </span>
                 <ChevronRight size={15} className="shrink-0 text-muted" />
               </button>
@@ -816,7 +817,7 @@ export default function Inbox() {
               aria-label="What does the Inbox keep?"
               aria-expanded={showInfo}
               onClick={() => setShowInfo((v) => !v)}
-              className="flex h-7 w-7 items-center justify-center rounded-full text-[#54656F] hover:bg-[#F0F2F5]"
+              className="flex h-8 w-8 items-center justify-center rounded-full text-[#54656F] hover:bg-[#F0F2F5]"
             >
               <Info size={17} />
             </button>
@@ -852,7 +853,7 @@ export default function Inbox() {
               <>
                 <button type="button" aria-label="Close menu" className="fixed inset-0 z-10 cursor-default" onClick={() => setShowAccounts(false)} />
                 <div role="menu" className="absolute left-0 right-0 z-20 mt-1.5 overflow-hidden rounded-xl border border-line bg-white py-1 shadow-xl">
-                  <div className="px-3.5 pb-1 pt-2 text-[11px] font-bold uppercase tracking-widest text-faint">Switch account</div>
+                  <div className="px-3.5 pb-1 pt-2 text-[12px] font-bold uppercase tracking-widest text-faint">Switch account</div>
                   {(['own', 'kdk'] as const).map((k) => {
                     const chats = allConversations.filter((c) => c.via === k && !c.unassigned)
                     const fresh = k === 'own' && connected && readReplies ? chats.reduce((n, c) => n + (c.unread > 0 ? 1 : 0), 0) : 0
@@ -894,7 +895,7 @@ export default function Inbox() {
             <Search size={16} />
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search chats" className="w-full bg-transparent outline-none placeholder:text-[#54656F]" />
           </label>
-          {reading && (
+          {reading && demoOn() && (
             <button type="button" onClick={arrival} className="mt-3 flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-dashed border-[#CFE6DE] text-[13px] font-semibold text-brand-dark hover:bg-brand-soft">
               <Sparkles size={14} /> Demo: a file arrives
             </button>
@@ -1061,9 +1062,9 @@ export default function Inbox() {
                   className="block w-full px-4 py-2.5 text-left hover:bg-canvas"
                 >
                   <div className="text-sm font-semibold">
-                    {t.name} <span className="ml-1 text-[11px] font-medium text-faint">{t.group}</span>
+                    {t.name} <span className="ml-1 text-[12px] font-medium text-faint">{t.group}</span>
                   </div>
-                  <div className="line-clamp-2 whitespace-pre-line text-xs text-muted">{fillTemplate(t.text)}</div>
+                  <div className="line-clamp-2 text-xs text-muted">{fillTemplate(t.text).replace(/\*/g, '').replace(/\s+/g, ' ').replace(/^Hello [^,]+, /, '')}</div>
                 </button>
               ))}
             </div>
@@ -1077,6 +1078,7 @@ export default function Inbox() {
             Templates
           </button>
           <textarea
+            aria-label="Type a message"
             ref={taRef}
             rows={1}
             value={text}

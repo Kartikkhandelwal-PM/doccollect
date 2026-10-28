@@ -27,7 +27,7 @@ export default function AttachPanel({ requests, suggest, suggestedFolder, client
         <div className="flex items-center gap-2 text-[13px]">
           <span className="shrink-0 text-muted">For</span>
           <span className="min-w-0 truncate font-semibold">{forClient.name}</span>
-          {forClient.guess && <span className="shrink-0 rounded bg-warn-soft px-1.5 py-0.5 text-[10.5px] font-bold uppercase tracking-wide text-warn">Check client</span>}
+          {forClient.guess && <span className="shrink-0 rounded bg-warn-soft px-1.5 py-0.5 text-[12px] font-bold uppercase tracking-wide text-warn">Check client</span>}
         </div>
       )}
       {suggest && (
@@ -44,8 +44,8 @@ export default function AttachPanel({ requests, suggest, suggestedFolder, client
           </button>
         </div>
       )}
-      {requests.length === 0 && forClient === undefined && <p className="-mb-1 text-[12.5px] text-muted">We could not tell whose file this is. Save it in a folder, or save the number as a contact first.</p>}
-      {requests.length === 0 && forClient !== undefined && <p className="-mb-1 text-[12.5px] text-muted">No open request for {forClient.name}. Keep the file in a folder, or start a request with it.</p>}
+      {requests.length === 0 && forClient === undefined && <p className="-mb-1 text-[13px] text-muted">We could not tell whose file this is. Save it in a folder, or save the number as a contact first.</p>}
+      {requests.length === 0 && forClient !== undefined && <p className="-mb-1 text-[13px] text-muted">No open request for {forClient.name}. Keep the file in a folder, or start a request with it.</p>}
       <div className="flex gap-2.5">
         {requests.length === 0 ? (
           <>

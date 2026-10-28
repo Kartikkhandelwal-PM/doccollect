@@ -51,7 +51,7 @@ function ItemMenu({ label, actions, compact }: { label: string; actions: Action[
           e.stopPropagation()
           setOpen((v) => !v)
         }}
-        className={`flex items-center justify-center rounded-lg text-muted hover:bg-canvas hover:text-ink ${compact ? "h-7 w-7" : "h-8 w-8 bg-white/90 shadow-sm"}`}
+        className={`flex items-center justify-center rounded-lg text-muted hover:bg-canvas hover:text-ink ${compact ? "h-8 w-8" : "h-8 w-8 bg-white/90 shadow-sm"}`}
       >
         <MoreHorizontal size={compact ? 16 : 17} />
       </button>
@@ -86,7 +86,7 @@ function ClientLine({ id, compact }: { id?: string; compact?: boolean }) {
   const info = id ? clientFolderInfo(id) : undefined
   if (!info) return null
   return (
-    <span className={`flex items-center gap-1.5 text-muted ${compact ? 'text-[11px] leading-tight' : 'mt-0.5 text-[12.5px]'}`}>
+    <span className={`flex items-center gap-1.5 text-muted ${compact ? 'text-[12px] leading-tight' : 'mt-0.5 text-[13px]'}`}>
       <span className="font-mono tracking-tight">{info.pan}</span>
     </span>
   )
@@ -427,7 +427,7 @@ export default function Master() {
                 type="button"
                 aria-label={isOpen ? `Collapse ${n.name}` : `Expand ${n.name}`}
                 onClick={() => toggle(n.id)}
-                className={`flex h-7 w-6 items-center justify-center text-muted ${kids.length ? '' : 'invisible'}`}
+                className={`flex h-8 w-8 items-center justify-center text-muted ${kids.length ? '' : 'invisible'}`}
               >
                 {isOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
               </button>
@@ -483,9 +483,9 @@ export default function Master() {
               <span className="shrink-0 underline">Show</span>
             </button>
           )}
-          <div className="px-3 pb-1 pt-3 text-[11px] font-bold uppercase tracking-widest text-faint">Firm</div>
+          <div className="px-3 pb-1 pt-3 text-[12px] font-bold uppercase tracking-widest text-faint">Firm</div>
           {renderTree(null, 0, (n) => n.kind === 'firm' || n.kind === 'custom')}
-          <div className="px-3 pb-1 pt-4 text-[11px] font-bold uppercase tracking-widest text-faint">Clients</div>
+          <div className="px-3 pb-1 pt-4 text-[12px] font-bold uppercase tracking-widest text-faint">Clients</div>
           {renderTree(null, 0, (n) => n.kind === 'client', sideLimit)}
           {topMatches((n) => n.kind === 'client').length > sideLimit && (
             <button type="button" onClick={() => setSideLimit((l) => l + SIDE_PAGE)} className="mx-1 mt-1 w-[calc(100%-8px)] rounded-[10px] px-3 py-2 text-left text-[13px] font-semibold text-brand-dark hover:bg-canvas">
@@ -610,7 +610,7 @@ export default function Master() {
                 <button
                   type="button"
                   onClick={() => go(n.id)}
-                  className={`flex w-full items-center gap-3.5 rounded-2xl border bg-white p-4 pr-12 text-left hover:border-brand hover:shadow-sm ${isOver(n.id) ? 'border-brand bg-brand-soft ring-2 ring-brand' : 'border-line'}`}
+                  className={`flex h-full w-full items-center gap-3.5 rounded-2xl border bg-white p-4 pr-12 text-left hover:border-brand hover:shadow-sm ${isOver(n.id) ? 'border-brand bg-brand-soft ring-2 ring-brand' : 'border-line'}`}
                 >
                   {n.kind === 'client' ? (
                     <Avatar name={n.name} size={48} />
@@ -620,7 +620,7 @@ export default function Master() {
                     </span>
                   )}
                   <span className="min-w-0">
-                    <span className="block truncate text-[15px] font-semibold">{n.name}</span>
+                    <span className="line-clamp-2 break-words text-[15px] font-semibold leading-snug">{n.name}</span>
                     {n.kind === 'client' && <ClientLine id={n.clientId} />}
                     <span className="block text-[13px] text-muted">{folderMeta(n)}</span>
                   </span>
@@ -637,14 +637,14 @@ export default function Master() {
             <>
               {firmFolders.length > 0 && (
                 <section>
-                  <h3 className="mb-2.5 text-[11px] font-bold uppercase tracking-widest text-faint">Firm folders</h3>
+                  <h3 className="mb-2.5 text-[12px] font-bold uppercase tracking-widest text-faint">Firm folders</h3>
                   {grid(firmFolders)}
                 </section>
               )}
               {(shownFolders.length > 0 || q) && (
                 <section>
                   <div className="mb-2.5 flex items-center justify-between gap-4">
-                    <h3 className="text-[11px] font-bold uppercase tracking-widest text-faint">{atTop ? `Client folders · ${subFolders.filter((n) => n.kind === 'client').length}` : 'Folders'}</h3>
+                    <h3 className="text-[12px] font-bold uppercase tracking-widest text-faint">{atTop ? `Client folders · ${subFolders.filter((n) => n.kind === 'client').length}` : 'Folders'}</h3>
                     {subFolders.length > PAGE && (
                       <label className="flex h-9 w-60 items-center gap-2 rounded-xl bg-white px-3 text-sm text-muted ring-1 ring-line focus-within:ring-brand">
                         <Search size={14} />

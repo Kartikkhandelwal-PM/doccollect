@@ -61,7 +61,7 @@ export function RichFilterSelect({ value, onChange, label, allLabel, options, wi
                 className={`flex w-full flex-col items-start px-3.5 py-2 text-left hover:bg-canvas ${o.value === value ? 'bg-[#EEF8F5]' : ''}`}
               >
                 <span className={`text-sm ${o.value === value ? 'font-bold text-brand-dark' : 'font-semibold'}`}>{o.label}</span>
-                {o.sub && <span className="font-mono text-[11px] text-muted">{o.sub}</span>}
+                {o.sub && <span className="font-mono text-[12px] text-muted">{o.sub}</span>}
               </button>
             ))}
           </div>

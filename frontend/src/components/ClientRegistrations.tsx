@@ -30,7 +30,7 @@ function Switch({ on, disabled, label, onChange }: { on: boolean; disabled?: boo
 }
 
 type Kind = 'All' | Service
-const kindName: Record<Service, string> = { ITR: 'Income tax', GST: 'GST', TDS: 'TDS' }
+const kindName: Record<Service, string> = { ITR: 'ITR', GST: 'GST', TDS: 'TDS' }
 
 // Each kind keeps one colour everywhere in the tree: its node, its lines and its badge.
 const tone = {
@@ -98,7 +98,7 @@ export default function ClientRegistrations({ client, openBy, onOpen, onDone }: 
         <span className="min-w-0 flex-1">
           <span className="flex items-baseline gap-2.5">
             <span className="truncate text-[15px] font-bold leading-tight">{r.type === 'ITR' ? 'PAN' : (r.label ?? r.type)}</span>
-            <span className="truncate font-mono text-[12.5px] tracking-tight text-slate-500">{r.number}</span>
+            <span className="truncate font-mono text-[13px] tracking-tight text-slate-500">{r.number}</span>
           </span>
           <span className="mt-0.5 flex items-center gap-2 text-[13px]">
             <span className="truncate font-medium text-slate-700">{c.name}</span>
@@ -116,17 +116,17 @@ export default function ClientRegistrations({ client, openBy, onOpen, onDone }: 
     const open = regs.reduce((n, r) => n + (openBy[r.id] ?? 0), 0)
     const head = regs.length ? (
       <div className="flex w-[230px] shrink-0 items-center gap-3 rounded-xl border border-line bg-[#F1F3F6] px-4 py-3.5 shadow-[0_1px_3px_rgba(15,23,42,0.07)]">
-        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[11px] font-bold ring-1 ${tone[t].node}`}>{t}</span>
+        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[12px] font-bold ring-1 ${tone[t].node}`}>{t}</span>
         <span className="min-w-0 flex-1">
           <span className="block whitespace-nowrap text-[15px] font-bold leading-tight">{kindName[t]}</span>
           <span className="mt-0.5 block truncate text-xs text-slate-500">{t === 'ITR' ? 'Filed on the PAN' : `${regs.length} ${regs.length === 1 ? one[t] : many[t]}`}</span>
         </span>
         {/* With one registration, its own card already says it. */}
-        {open > 0 && regs.length > 1 && <span className="shrink-0 rounded-full bg-warn-soft px-2.5 py-0.5 text-[11.5px] font-semibold text-warn">{open} open</span>}
+        {open > 0 && regs.length > 1 && <span className="shrink-0 rounded-full bg-warn-soft px-2.5 py-0.5 text-[12px] font-semibold text-warn">{open} open</span>}
       </div>
     ) : (
       <div className="flex w-[230px] shrink-0 items-center gap-3 rounded-xl border border-dashed border-slate-300 px-4 py-3.5 text-muted">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-[11px] font-bold text-slate-400">{t}</span>
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-[12px] font-bold text-slate-500">{t}</span>
         <span className="min-w-0 flex-1">
           <span className="block text-[15px] font-bold leading-tight">{kindName[t]}</span>
           <span className="mt-0.5 block truncate text-xs">{none[t]}</span>
@@ -157,7 +157,7 @@ export default function ClientRegistrations({ client, openBy, onOpen, onDone }: 
             <div className="relative w-[290px] shrink-0 overflow-hidden rounded-2xl border border-line bg-white shadow-[0_4px_16px_rgba(15,23,42,0.08)]">
               <span className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-violet-400 via-blue-400 to-amber-400" />
               <div className="px-5 pb-4 pt-6">
-                <div className="text-[11px] font-bold uppercase tracking-widest text-faint">Client</div>
+                <div className="text-[12px] font-bold uppercase tracking-widest text-faint">Client</div>
                 <div className="mt-1 text-[19px] font-bold leading-tight">{client.name}</div>
                 <div className="mt-1.5 text-xs text-muted">{client.kind === 'firm' ? 'Business' : 'Individual'}</div>
               </div>
@@ -189,7 +189,7 @@ export default function ClientRegistrations({ client, openBy, onOpen, onDone }: 
                 ].map((x) => (
                   <div key={x.label} className="px-2 py-3 text-center">
                     <div className={`text-[17px] font-bold leading-none ${x.tone}`}>{x.n}</div>
-                    <div className="mt-1 text-[10.5px] text-muted">{x.label}</div>
+                    <div className="mt-1 text-[12px] text-muted">{x.label}</div>
                   </div>
                 ))}
               </div>
@@ -208,7 +208,7 @@ export default function ClientRegistrations({ client, openBy, onOpen, onDone }: 
           return (
             <div key={t}>
               <div className="flex items-center gap-2.5">
-                <span className={`flex h-9 w-9 items-center justify-center rounded-xl text-[11px] font-bold ring-1 ${tone[t].node}`}>{t}</span>
+                <span className={`flex h-9 w-9 items-center justify-center rounded-xl text-[12px] font-bold ring-1 ${tone[t].node}`}>{t}</span>
                 <span className="text-sm font-bold">{kindName[t]}</span>
                 <span className="text-xs text-muted">{t === 'ITR' ? 'On the PAN' : `${regs.length} ${regs.length === 1 ? one[t] : many[t]}`}</span>
               </div>
@@ -248,14 +248,14 @@ function RegistrationPanel({ client, reg, open, onClose, onChange, onOpenRequest
   useContacts()
   const c = contactOf(client, reg)
   const ch = channelsOf(client, reg)
-  const label = 'text-[11px] font-bold uppercase tracking-wider text-faint'
+  const label = 'text-[12px] font-bold uppercase tracking-wider text-faint'
   return (
     <div className="fixed inset-0 z-40 flex justify-end bg-black/30" onClick={onClose}>
       <div role="dialog" aria-label={regTitle(reg)} onClick={(e) => e.stopPropagation()} className="flex h-full w-full flex-col overflow-y-auto bg-white shadow-2xl md:w-[420px]">
         <div className="flex items-start gap-3 border-b border-line p-5">
-          <span className={`mt-0.5 w-10 shrink-0 rounded-md bg-slate-100 py-0.5 text-center text-[11px] font-bold ${serviceColor[reg.type]}`}>{reg.type}</span>
+          <span className={`mt-0.5 w-10 shrink-0 rounded-md bg-slate-100 py-0.5 text-center text-[12px] font-bold ${serviceColor[reg.type]}`}>{reg.type}</span>
           <div className="min-w-0 flex-1">
-            <h2 className="truncate text-base font-bold">{reg.type === 'ITR' ? 'Income tax' : regTitle(reg)}</h2>
+            <h2 className="truncate text-base font-bold">{reg.type === 'ITR' ? 'ITR' : regTitle(reg)}</h2>
             <p className="truncate text-[13px] text-muted">{reg.number}</p>
           </div>
           <button type="button" aria-label="Close" onClick={onClose} className="rounded-lg p-1.5 text-muted hover:bg-slate-100">
@@ -275,7 +275,7 @@ function RegistrationPanel({ client, reg, open, onClose, onChange, onOpenRequest
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 text-sm font-semibold">
                   <span className="truncate">{c.name}</span>
-                  {c.id === mainContact(client).id && <span className="shrink-0 rounded bg-slate-100 px-1.5 py-px text-[10px] font-bold uppercase tracking-wide text-muted">Main</span>}
+                  {c.id === mainContact(client).id && <span className="shrink-0 rounded bg-slate-100 px-1.5 py-px text-[12px] font-bold uppercase tracking-wide text-muted">Main</span>}
                 </div>
                 <div className="truncate text-[13px] text-muted">{c.phone || 'No mobile number'}</div>
                 <div className="truncate text-[13px] text-muted">{c.email || 'No email'}</div>
@@ -436,8 +436,8 @@ export function ChangeContact({ client, reg, onClose, onDone }: { client: BookCl
                 <input type="radio" name="contact" checked={choice === c.id} onChange={() => (setForm(null), setChoice(c.id))} className="mt-1 accent-[#0B7A6B]" />
                 <span className="min-w-0 flex-1 text-sm">
                   <span className="font-semibold">{c.name}</span>
-                  {c.id === mainContact(client).id && <span className="ml-2 text-[11px] font-bold text-slate-500">MAIN</span>}
-                  {c.id === current.id && <span className="ml-2 text-[11px] font-bold text-brand-dark">CURRENT</span>}
+                  {c.id === mainContact(client).id && <span className="ml-2 text-[12px] font-bold text-slate-500">MAIN</span>}
+                  {c.id === current.id && <span className="ml-2 text-[12px] font-bold text-brand-dark">CURRENT</span>}
                   <span className="block text-xs text-muted">
                     {c.phone || 'No mobile'} · {c.email || 'No email'}
                   </span>

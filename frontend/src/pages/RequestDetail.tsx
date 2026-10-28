@@ -20,9 +20,10 @@ import { fmtDate, progress, useRequests } from '../data/requests'
 import type { Status } from '../data/types'
 import { useSetup } from '../data/setup'
 import { isExpired, todayISO } from '../lib/dates'
+import { demoOn } from '../lib/demo'
 import { serviceColor } from '../lib/status'
 import { SHARED_NUMBER_NAME } from '../lib/brand'
-import { rowHover } from '../lib/ui'
+import { rowFocus, rowHover, rowKeys } from '../lib/ui'
 
 const reviewOptions: Status[] = ['to_review', 'approved', 'rejected']
 const tileBtn = 'inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border border-line bg-white px-3 text-[13px] font-semibold text-slate-700 transition-colors hover:border-brand hover:text-brand-dark'
@@ -60,7 +61,7 @@ export default function RequestDetail() {
 const numberLabel = { GST: 'GSTIN', TDS: 'TAN', ITR: 'PAN' } as const
 function regInfo(id: string) {
   const r = getBookClient(id)?.registrations.find((x) => x.id === id)
-  return r ? { number: r.number, label: numberLabel[r.type], place: r.type === 'ITR' ? 'Income tax' : (r.label ?? '') } : null
+  return r ? { number: r.number, label: numberLabel[r.type], place: r.type === 'ITR' ? 'ITR' : (r.label ?? '') } : null
 }
 
 // Who gets the messages for this registration: its contact's name and mobile.
@@ -233,7 +234,7 @@ function RequestView({ request }: { request: DocRequest }) {
         <div>
           <h1 className="flex flex-wrap items-center gap-3 text-[24px] font-bold tracking-tight">
             {request.title}
-            {[...new Set(request.clients.map((rc) => getClient(rc.clientId)?.service).filter((x): x is NonNullable<typeof x> => !!x))].map((k) => (
+            {[...new Set(request.clients.map((rc) => getClient(rc.clientId)?.service).filter((x): x is NonNullable<typeof x> => !!x))].filter((k) => !request.title.includes(k)).map((k) => (
               <span key={k} className={`rounded-md bg-white px-2 py-0.5 text-xs font-bold shadow-sm ring-1 ring-black/5 ${serviceColor[k]}`}>
                 {k}
               </span>
@@ -247,20 +248,20 @@ function RequestView({ request }: { request: DocRequest }) {
                 setDateValue(request.due)
                 setDateOpen(true)
               }}
-              className="ml-2 font-semibold text-brand hover:underline"
+              className="-my-2 ml-1 inline-block px-1 py-2 font-semibold text-brand hover:underline"
             >
               Change date
             </button>
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 md:gap-3">
-          <button
+          {demoOn() && <button
             type="button"
             onClick={() => setToast(simulateReply(request.id) ? 'Demo: a client just sent a document' : 'Nothing is pending')}
             className="h-10 rounded-xl px-3 text-[13px] font-semibold text-muted hover:bg-white hover:text-ink"
           >
             Demo: simulate reply
-          </button>
+          </button>}
           {toNotify.length > 0 && (
             <button type="button" onClick={() => setAsking(true)} className="flex h-11 items-center gap-2 rounded-xl border border-line bg-white px-4 text-sm font-semibold hover:border-brand hover:text-brand-dark">
               <Bell size={16} />
@@ -295,6 +296,7 @@ function RequestView({ request }: { request: DocRequest }) {
 
       <section className="@container overflow-hidden rounded-[18px] border border-line bg-white">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3 md:px-6 md:py-3.5">
+          {rows.length > 1 ? (
           <div className="flex max-w-full overflow-x-auto rounded-xl bg-[#E9EEF5] p-1 text-[13px] font-semibold text-slate-600" role="group" aria-label="Show clients">
             {(
               [
@@ -304,18 +306,21 @@ function RequestView({ request }: { request: DocRequest }) {
                 ['done', 'Complete', counts.done],
               ] as [Filter, string, number][]
             ).map(([key, label, n]) => (
-              <button key={key} type="button" onClick={() => setFilter(key)} aria-pressed={filter === key} className={`shrink-0 whitespace-nowrap rounded-[9px] px-3.5 py-1.5 ${filter === key ? 'bg-white text-ink shadow-sm' : ''}`}>
+              <button key={key} type="button" onClick={() => setFilter(key)} aria-pressed={filter === key} className={`shrink-0 whitespace-nowrap rounded-[9px] px-3.5 py-2 ${filter === key ? 'bg-white text-ink shadow-sm' : ''}`}>
                 {label} <span className="ml-0.5 text-xs text-muted">{n}</span>
               </button>
             ))}
           </div>
+          ) : (
+            <span />
+          )}
           <label className="flex h-10 w-72 items-center gap-2 rounded-xl border border-transparent bg-canvas @max-3xl:w-full px-3.5 text-sm text-muted focus-within:border-brand focus-within:bg-white">
             <Search size={15} />
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search client" aria-label="Search client" className="w-full bg-transparent text-ink outline-none placeholder:text-muted" />
           </label>
         </div>
 
-        <div className={`${CLIENT_ROW} @max-3xl:hidden border-b border-line bg-slate-50/80 py-2 text-[11px] font-bold uppercase tracking-wider text-faint`}>
+        <div className={`${CLIENT_ROW} @max-3xl:hidden border-b border-line bg-slate-50/80 py-2 text-[12px] font-bold uppercase tracking-wider text-faint`}>
           <span>Client</span>
           <span>Contact</span>
           <span>Received</span>
@@ -337,7 +342,7 @@ function RequestView({ request }: { request: DocRequest }) {
                   : { text: 'Complete', cls: 'bg-ok-soft text-ok' }
           return (
             <div key={rc.clientId} className="border-b border-line last:border-b-0">
-              <div onClick={() => toggle(rc.clientId)} className={`${CLIENT_ROW} group h-[68px] cursor-pointer transition-colors @max-3xl:h-auto @max-3xl:py-3.5 ${isOpen ? 'bg-[#EEF8F5]' : 'hover:bg-[#EAF5F0] hover:shadow-[inset_3px_0_0_#0B7A6B]'}`}>
+              <div onClick={() => toggle(rc.clientId)} {...rowKeys(() => toggle(rc.clientId))} aria-expanded={isOpen} aria-label={`${c.name}, ${isOpen ? 'close' : 'open'} documents`} className={`${rowFocus} ${CLIENT_ROW} group h-[68px] cursor-pointer transition-colors @max-3xl:h-auto @max-3xl:py-3.5 ${isOpen ? 'bg-[#EEF8F5]' : 'hover:bg-[#EAF5F0] hover:shadow-[inset_3px_0_0_#0B7A6B]'}`}>
                 <div className="flex min-w-0 items-center gap-3 @max-3xl:order-1 @max-3xl:flex-[1_1_50%]">
                   <Avatar name={c.name} size={36} />
                   <div className="min-w-0">
@@ -372,7 +377,7 @@ function RequestView({ request }: { request: DocRequest }) {
                   </span>
                 </div>
                 <div className="@max-3xl:order-4 @max-3xl:flex-1">
-                  <span className={`inline-block rounded-md px-2 py-1 text-[11px] font-bold uppercase tracking-wide ${chip.cls}`}>{chip.text}</span>
+                  <span className={`inline-block rounded-md px-2 py-1 text-[12px] font-bold uppercase tracking-wide ${chip.cls}`}>{chip.text}</span>
                   {state === 'review' && missing > 0 && <div className="mt-1 text-xs text-muted">{missing} pending</div>}
                 </div>
                 <div onClick={(e) => e.stopPropagation()} className="flex justify-end @max-3xl:order-2 @max-3xl:shrink-0">
@@ -531,7 +536,7 @@ function RequestView({ request }: { request: DocRequest }) {
       {rejecting && (
         <motion.div {...backdropProps} className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="Reject document">
           <motion.div {...panelProps} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-            <h2 className="text-lg font-bold">Send “{rejecting.docName}” back?</h2>
+            <h2 className="text-lg font-bold">Reject “{rejecting.docName}”?</h2>
             <p className="mt-1 text-sm text-muted">Tell the client what is wrong. They get this on WhatsApp with a fresh upload link.</p>
             <div className="mt-4 flex flex-wrap gap-2">
               {reasons.map((r) => (
