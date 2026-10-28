@@ -8,6 +8,7 @@ import Avatar from '../components/Avatar'
 import Pagination, { usePaging } from '../components/Pagination'
 import { mainContact, useContacts } from '../data/contacts'
 import { book } from '../data/mock'
+import EmptyState from '../components/EmptyState'
 import { serviceColor } from '../lib/status'
 import { rowFocus, rowKeys, trHover } from '../lib/ui'
 import FilterSelect from '../components/FilterSelect'
@@ -51,7 +52,7 @@ export default function Clients() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-[24px] font-bold tracking-tight">Clients</h1>
-          <p className="mt-0.5 text-sm text-muted">Last synced from KDK today, 08:30</p>
+          <p className="mt-0.5 text-sm text-muted">{book.length === 0 ? 'Not synced yet' : 'Last synced from KDK today, 08:30'}</p>
         </div>
         <div className="flex gap-3">
           <button type="button" aria-label="Sync from KDK" className="flex h-11 shrink-0 items-center whitespace-nowrap gap-2 rounded-xl border border-line bg-white px-4 text-sm font-semibold max-md:w-11 max-md:justify-center max-md:px-0">
@@ -86,15 +87,19 @@ export default function Clients() {
       }
     >
       <div className="overflow-clip rounded-[18px] border border-line bg-white">
-        {list.length === 0 && (
-          <div className="flex flex-col items-start gap-3 p-8">
-            <p className="text-sm text-muted">No clients match{query || filter !== 'All' || work !== 'All' ? ' these filters' : ''}.</p>
-            {(query || filter !== 'All' || work !== 'All') && (
-              <button type="button" onClick={() => { setQuery(''); setFilter('All'); setWork('All') }} className="h-10 rounded-xl border border-line px-4 text-sm font-semibold hover:border-brand">
-                Clear filters
-              </button>
-            )}
-          </div>
+        {book.length === 0 && (
+          <EmptyState art="clients" title="No clients yet" text="Your clients come from KDK: one record for each PAN, with their GSTINs and TANs. Sync to bring them in, then send a request." >
+            <button type="button" className="flex h-11 items-center gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white">
+              <RefreshCw size={16} /> Sync from KDK
+            </button>
+          </EmptyState>
+        )}
+        {book.length > 0 && list.length === 0 && (
+          <EmptyState art="search" compact title="No client found" text="Nothing matches what you typed or the filters you chose.">
+            <button type="button" onClick={() => { setQuery(''); setFilter('All'); setWork('All') }} className="h-11 rounded-xl border border-line px-5 text-sm font-semibold hover:border-brand">
+              Clear filters
+            </button>
+          </EmptyState>
         )}
         {list.length > 0 && (
           <table className="w-full text-left max-md:hidden">

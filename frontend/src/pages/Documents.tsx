@@ -2,6 +2,7 @@ import { ArrowLeft, FileText, MoreHorizontal, Pencil, Plus, Search, Trash2, X } 
 import Page from '../components/Page'
 import { useState } from 'react'
 import FilterSelect from '../components/FilterSelect'
+import EmptyState from '../components/EmptyState'
 import { useSetup } from '../data/setup'
 
 const ALL = '__all'
@@ -213,17 +214,13 @@ export default function Documents() {
               </div>
             )}
             {list.length === 0 && (
-              <div className="flex flex-col items-center gap-2 px-6 py-16 text-center">
-                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-canvas text-muted">
-                  <FileText size={22} />
-                </span>
-                <p className="text-[15px] font-semibold">{searching ? 'No document matches your search' : 'No documents here yet'}</p>
+              <EmptyState art={searching ? 'search' : 'files'} title={searching ? 'No document matches' : 'No documents here yet'} text={searching ? 'Try another word, or look in All documents.' : 'A document is one thing you ask a client for, like a PAN card or a bank statement.'}>
                 {!searching && (
-                  <button type="button" onClick={startNew} className="mt-1 flex h-10 items-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-white">
-                    <Plus size={15} /> New document
+                  <button type="button" onClick={startNew} className="flex h-11 items-center gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white">
+                    <Plus size={16} /> New document
                   </button>
                 )}
-              </div>
+              </EmptyState>
             )}
 
             {list.map((d) => {

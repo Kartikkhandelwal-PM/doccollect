@@ -5,6 +5,7 @@ import { ArrowLeft, Check, Sparkles, CheckCheck, ChevronDown, ChevronRight, Fold
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
+import EmptyState from '../components/EmptyState'
 import DocPreviewDrawer from '../components/DocPreviewDrawer'
 import AttachPanel from '../components/AttachPanel'
 import FilePane, { canPreview } from '../components/FilePane'
@@ -478,7 +479,13 @@ function RightPanel({ conv, onReview, onPreview }: { conv: Conversation; onRevie
 
   return (
     <div className="flex min-h-full flex-col gap-4 bg-canvas p-5">
-      {mine.length === 0 && <p className="text-sm text-muted">No open requests for this client.</p>}
+      {mine.length === 0 && (
+        <EmptyState art="requests" align="left" compact title="No open requests" text={`${conv.title} has nothing asked for right now. Send a request to ask for documents.`}>
+          <Link to={conv.clientIds[0] ? `/requests/new?client=${conv.clientIds[0]}` : '/requests/new'} className="flex h-11 items-center rounded-xl bg-brand px-5 text-sm font-semibold text-white">
+            New request
+          </Link>
+        </EmptyState>
+      )}
       {/* One card for each client in each request. When a number belongs to several clients, the card says whose it is. */}
       {mine
         .flatMap((r) => r.clients.filter((c) => conv.clientIds.includes(c.clientId)).map((c) => ({ r, c })))
@@ -594,7 +601,7 @@ function RightPanel({ conv, onReview, onPreview }: { conv: Conversation; onRevie
   )
 }
 
-export default function Inbox() {
+function InboxMain() {
   const navigate = useNavigate()
   const { conversations: allConversations, markRead, send, markPlaced, linkChat, arrive, patchMsg } = useInbox()
   const { messageTemplates, firm, readReplies, ownNumber, whatsapp } = useSetup()
@@ -915,7 +922,15 @@ export default function Inbox() {
           </div>
         </div>
         <div className="flex-1 overflow-y-auto">
-          {list.length === 0 && <p className="p-5 text-sm text-muted">No chats here.</p>}
+          {list.length === 0 && (
+            <EmptyState art={filter === 'unread' ? 'done' : 'search'} compact title={filter === 'unread' ? 'All caught up' : query ? 'No chat found' : 'No chats here'} text={filter === 'unread' ? 'You have read every chat.' : query ? 'Try a name or a number.' : 'Chats of this kind show here.'}>
+              {(filter !== 'all' || query) && (
+                <button type="button" onClick={() => { setFilter('all'); setQuery('') }} className="h-10 rounded-xl border border-line px-4 text-sm font-semibold hover:border-brand">
+                  Show all chats
+                </button>
+              )}
+            </EmptyState>
+          )}
           {list.map((c, listIndex) => {
             const last = c.msgs[c.msgs.length - 1]
             return (
@@ -1322,6 +1337,27 @@ export default function Inbox() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// With no chats at all there is nothing to pick from, so the Inbox says what it is for and how a chat starts.
+export default function Inbox() {
+  const { conversations } = useInbox()
+  const { whatsapp } = useSetup()
+  if (conversations.length > 0) return <InboxMain />
+  return (
+    <div className="flex h-full items-center justify-center">
+      <EmptyState art="inbox" title="No chats yet" text={whatsapp ? 'When you send a request, or a client writes to you, the chat shows here. Files a client sends are read and placed for you.' : 'Chats from your clients show here. Connect your WhatsApp to read their replies, or send a request first.'}>
+        <Link to="/requests/new" className="flex h-11 items-center rounded-xl bg-brand px-5 text-sm font-semibold text-white">
+          New request
+        </Link>
+        {!whatsapp && (
+          <Link to="/settings?tab=whatsapp" className="flex h-11 items-center rounded-xl border border-line bg-white px-5 text-sm font-semibold hover:border-brand">
+            Connect WhatsApp
+          </Link>
+        )}
+      </EmptyState>
     </div>
   )
 }

@@ -13,6 +13,7 @@ import { SHARED_NUMBER_NAME } from '../lib/brand'
 import { ease, rowIn } from '../lib/motion'
 import { rowFocus, rowHover, rowKeys } from '../lib/ui'
 import FilterSelect from '../components/FilterSelect'
+import EmptyState from '../components/EmptyState'
 
 type Tab = 'all' | RequestState
 
@@ -150,15 +151,19 @@ export default function Requests() {
         </div>
         </div>
 
-        {list.length === 0 && (
-          <div className="flex flex-col items-start gap-3 p-8">
-            <p className="text-sm text-muted">No requests match{query || due !== 'all' || from !== 'all' || tab !== 'all' ? ' these filters' : ''}.</p>
-            {(query || due !== 'all' || from !== 'all' || tab !== 'all') && (
-              <button type="button" onClick={() => { setQuery(''); setDue('all'); setFrom('all'); setTab('all') }} className="h-10 rounded-xl border border-line px-4 text-sm font-semibold hover:border-brand">
-                Clear filters
-              </button>
-            )}
-          </div>
+        {requests.length === 0 && (
+          <EmptyState art="requests" title="No requests yet" text="A request asks your clients for a checklist of documents on WhatsApp. Make the first one, then follow its progress here.">
+            <Link to="/requests/new" className="flex h-11 items-center gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white">
+              <Plus size={16} /> New request
+            </Link>
+          </EmptyState>
+        )}
+        {requests.length > 0 && list.length === 0 && (
+          <EmptyState art="search" compact title="No request found" text="Nothing matches what you typed or the filters you chose.">
+            <button type="button" onClick={() => { setQuery(''); setDue('all'); setFrom('all'); setTab('all') }} className="h-11 rounded-xl border border-line px-5 text-sm font-semibold hover:border-brand">
+              Clear filters
+            </button>
+          </EmptyState>
         )}
         {listPaging.rows.map((r, index) => {
           const p = progress(r)

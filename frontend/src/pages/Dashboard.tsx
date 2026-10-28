@@ -4,6 +4,7 @@ import { Bell, ChevronLeft, ChevronRight, MessageCircle, Plus } from 'lucide-rea
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Avatar from '../components/Avatar'
+import EmptyState from '../components/EmptyState'
 import { useMessenger } from '../data/messenger'
 import { useAttention } from '../data/attention'
 import { useSetup } from '../data/setup'
@@ -194,7 +195,11 @@ export default function Dashboard() {
           <div className="text-[13px] font-semibold text-brand-dark">{dateText}</div>
           <h1 className="mt-1 text-[24px] font-bold tracking-tight md:text-[28px]">{greeting()}, {firstName}</h1>
           <p className="mt-1.5 text-[15px] text-slate-600">
-            {counts.received} {counts.received === 1 ? 'client has' : 'clients have'} sent documents to review, and {stats.overdue} {stats.overdue === 1 ? 'is' : 'are'} overdue.
+            {requests.length === 0
+              ? 'Nothing here yet. Send your first request and this page will show what needs you.'
+              : counts.received + stats.overdue === 0
+                ? 'Nothing needs you right now.'
+                : `${counts.received} ${counts.received === 1 ? 'client has' : 'clients have'} sent documents to review, and ${stats.overdue} ${stats.overdue === 1 ? 'is' : 'are'} overdue.`}
           </p>
         </div>
         <div className="grid grid-cols-2 gap-3 md:flex">
@@ -239,7 +244,16 @@ export default function Dashboard() {
         </div>
 
         <div className="flex-1">
-          {visible.length === 0 && <p className="p-8 text-sm text-muted">Nothing here right now.</p>}
+          {visible.length === 0 &&
+            (requests.length === 0 ? (
+              <EmptyState art="requests" title="No requests yet" text="Pick a checklist, choose who should send documents, and the work queue fills up as clients reply." compact>
+                <Link to="/requests/new" className="flex h-11 items-center gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white">
+                  <Plus size={16} /> New request
+                </Link>
+              </EmptyState>
+            ) : (
+              <EmptyState art="done" compact title="All caught up" text={tab === 'received' ? 'Nothing is waiting for your review.' : tab === 'no_response' ? 'You are not waiting on any client.' : 'Nothing needs you right now.'} />
+            ))}
           {shown.map((i, index) => {
             const pct = i.total ? (i.got / i.total) * 100 : 0
             const chip =
@@ -337,7 +351,7 @@ export default function Dashboard() {
                 All requests
               </Link>
             </div>
-            {dueSoon.length === 0 && <p className="py-4 text-sm text-muted">Nothing is due in the next 7 days.</p>}
+            {dueSoon.length === 0 && <p className="py-4 text-sm text-muted">{requests.length === 0 ? 'Requests you send show here with their last date.' : 'Nothing is due in the next 7 days.'}</p>}
             <div className="mt-2">
               {dueSoon.map(({ r, days }, n) => {
                 const p = progress(r)

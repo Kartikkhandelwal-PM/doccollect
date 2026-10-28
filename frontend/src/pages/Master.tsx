@@ -5,6 +5,7 @@ import { Building2, ChevronDown, Folders, ChevronRight, Download, Folder, Folder
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import Avatar from '../components/Avatar'
+import EmptyState from '../components/EmptyState'
 import FileTypeIcon from '../components/FileTypeIcon'
 import OpenInTab from '../components/OpenInTab'
 import PaperPreview from '../components/PaperPreview'
@@ -485,7 +486,7 @@ export default function Master() {
           )}
           <div className="px-3 pb-1 pt-3 text-[12px] font-bold uppercase tracking-widest text-faint">Firm</div>
           {renderTree(null, 0, (n) => n.kind === 'firm' || n.kind === 'custom')}
-          <div className="px-3 pb-1 pt-4 text-[12px] font-bold uppercase tracking-widest text-faint">Clients</div>
+          {nodes.some((n) => n.kind === 'client') && <div className="px-3 pb-1 pt-4 text-[12px] font-bold uppercase tracking-widest text-faint">Clients</div>}
           {renderTree(null, 0, (n) => n.kind === 'client', sideLimit)}
           {topMatches((n) => n.kind === 'client').length > sideLimit && (
             <button type="button" onClick={() => setSideLimit((l) => l + SIDE_PAGE)} className="mx-1 mt-1 w-[calc(100%-8px)] rounded-[10px] px-3 py-2 text-left text-[13px] font-semibold text-brand-dark hover:bg-canvas">
@@ -721,9 +722,15 @@ export default function Master() {
         )}
 
         {subFolders.length === 0 && direct.length === 0 && (
-          <div className="rounded-[18px] border border-dashed border-slate-300 bg-white px-6 py-14 text-center">
-            <p className="text-[15px] font-semibold">This folder is empty</p>
-            <p className="mt-1 text-sm text-muted">Create a folder, upload a file, or drag files here.</p>
+          <div className="rounded-[18px] border border-dashed border-slate-300 bg-white">
+            <EmptyState art="folder" title="This folder is empty" text="Make a folder inside it, or add files. You can also drag files from your computer onto this page.">
+              <button type="button" onClick={() => openNewFolder(current)} className="flex h-11 items-center gap-2 rounded-xl border border-line bg-white px-5 text-sm font-semibold hover:border-brand">
+                <FolderPlus size={16} /> New folder
+              </button>
+              <button type="button" onClick={() => pickFiles(current)} className="flex h-11 items-center gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white">
+                <Upload size={16} /> Upload file
+              </button>
+            </EmptyState>
           </div>
         )}
         </motion.div>

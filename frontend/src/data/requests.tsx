@@ -1,4 +1,5 @@
 import { demoDay } from '../lib/dates'
+import { emptyOn } from '../lib/demo'
 import { createContext, useCallback, useContext, useMemo } from 'react'
 import { useSessionState } from '../lib/session'
 import type { ReactNode } from 'react'
@@ -87,7 +88,7 @@ const doc = (id: string, name: string, status: Status, source?: 'WhatsApp' | 'Li
   fileName: status === 'pending' ? undefined : `${name.replace(/[^\w ]/g, '').trim()}.pdf`,
 })
 
-const seed: DocRequest[] = [
+const seedAll: DocRequest[] = [
   {
     id: 'r1',
     ref: 'R-1042',
@@ -200,7 +201,7 @@ const Ctx = createContext<Store | null>(null)
 
 export function RequestsProvider({ children }: { children: ReactNode }) {
   const [requests, setRequests] = useSessionState<DocRequest[]>('requests', seed)
-  const [unsorted, setUnsorted] = useSessionState<UnsortedFile[]>('unsorted', seedUnsorted)
+  const [unsorted, setUnsorted] = useSessionState<UnsortedFile[]>('unsorted', emptyOn() ? [] : seedUnsorted)
 
   const getRequest = useCallback((id: string) => requests.find((r) => r.id === id), [requests])
 
@@ -433,4 +434,5 @@ export function useRequests() {
   if (!v) throw new Error('useRequests must be used inside RequestsProvider')
   return v
 }
+const seed: DocRequest[] = emptyOn() ? [] : seedAll
 export { seed as initialRequests }

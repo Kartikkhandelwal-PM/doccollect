@@ -1,4 +1,5 @@
 import { useSessionState } from '../lib/session'
+import { emptyOn } from '../lib/demo'
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Service } from './types'
@@ -104,7 +105,7 @@ export function SetupProvider({ children }: { children: ReactNode }) {
     gstin: '07AAAFS1234K1Z9',
   })
   const [team, setTeam] = useState(seedTeam)
-  const [whatsapp, connectWhatsApp] = useSessionState<WhatsAppLink | null>('whatsapp', {
+  const [whatsapp, connectWhatsApp] = useSessionState<WhatsAppLink | null>('whatsapp', emptyOn() ? null : {
     number: '+91 98765 43210',
     displayName: 'Kartik Khandelwal & Associates',
     provider: 'Ramwin',

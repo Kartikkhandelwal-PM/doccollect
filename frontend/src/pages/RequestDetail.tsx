@@ -5,6 +5,7 @@ import { Bell, ChevronRight, MessageCircle, RefreshCw, Search, X } from 'lucide-
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
+import EmptyState from '../components/EmptyState'
 import DocPreviewDrawer from '../components/DocPreviewDrawer'
 import ApproveSaveDialog from '../components/ApproveSaveDialog'
 import Pagination, { usePaging } from '../components/Pagination'
@@ -46,12 +47,11 @@ export default function RequestDetail() {
   const request = id ? getRequest(id) : undefined
   if (!request) {
     return (
-      <div className="p-8">
-        <p className="text-muted">Request not found.</p>
-        <Link to="/requests" className="mt-2 inline-block font-semibold text-brand">
+      <EmptyState art="search" title="Request not found" text="This request may have been removed, or the link is not right.">
+        <Link to="/requests" className="flex h-11 items-center rounded-xl bg-brand px-5 text-sm font-semibold text-white">
           Back to requests
         </Link>
-      </div>
+      </EmptyState>
     )
   }
   return <RequestView request={request} />

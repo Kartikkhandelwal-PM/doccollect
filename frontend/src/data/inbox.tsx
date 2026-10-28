@@ -5,6 +5,7 @@ import { seedMessages } from './messageTemplates'
 import { getClient } from './mock'
 import { useSetup } from './setup'
 import { useSessionState } from '../lib/session'
+import { emptyOn } from '../lib/demo'
 import { addDays, todayISO } from '../lib/dates'
 import { LINK_DOMAIN } from '../lib/brand'
 import type { DocRead, Placement } from './docRead'
@@ -331,7 +332,7 @@ const rawSeed: Seed[] = [
 // Seeds are written with either a clock time (that is today) or just a day. Every message ends up with both:
 // the day, and a clock time. A day with no time gets believable ones, in order through the day.
 const CLOCK = ['09:12', '10:26', '11:48', '13:05', '14:32', '15:50', '16:41', '17:20']
-const seed: Conversation[] = rawSeed.map((c) => {
+const seed: Conversation[] = (emptyOn() ? [] : rawSeed).map((c) => {
   let last = ''
   let n = 0
   const msgs = c.msgs.map((m): Msg => {
