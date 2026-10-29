@@ -46,18 +46,18 @@ export default function FolderPickerDialog({ fileName, suggested, clientIds, ste
     return () => window.removeEventListener('keydown', onKey, true)
   }, [onClose])
 
-  // Folders made by approvals (client > year > compliance) plus the ones the CA made, like the Document Master tree.
+  // Folders made by approvals (client > registration > year) plus the ones the CA made, like the Document Master tree.
   const nodes = useMemo<Node[]>(() => {
     const map = new Map<string, Node>()
     const addAuto = (folderId: string) => {
       const m = folderId.match(/^c:([^/]+)\/([^/]+)\/(.+)$/)
       if (!m) return
-      const [, clientId, fy, comp] = m
+      const [, clientId, comp, fy] = m
       const c = `c:${clientId}`
-      const y = `${c}/${fy}`
+      const y = `${c}/${comp}`
       map.set(c, { id: c, name: getBookClient(clientId)?.name ?? clientId, parentId: null })
-      map.set(y, { id: y, name: folderNames[y] ?? fy, parentId: c })
-      map.set(folderId, { id: folderId, name: folderNames[folderId] ?? comp, parentId: y })
+      map.set(y, { id: y, name: folderNames[y] ?? comp, parentId: c })
+      map.set(folderId, { id: folderId, name: folderNames[folderId] ?? fy, parentId: y })
     }
     ;[...buildMaster(requests), ...uploads].forEach((f) => f.folderId && addAuto(f.folderId))
     if (suggested) addAuto(suggested)

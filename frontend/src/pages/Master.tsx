@@ -1,7 +1,7 @@
 import { backdropProps, panelProps } from '../lib/motion'
 import { motion } from 'framer-motion'
 import Toast from '../components/Toast'
-import { Building2, ChevronDown, Folders, ChevronRight, Download, Folder, FolderInput, FolderPlus, FolderUp, LayoutGrid, List, MoreHorizontal, Pencil, Search, Trash2, Upload, X } from 'lucide-react'
+import { Building2, ChevronDown, ShieldCheck, Folders, ChevronRight, Download, Folder, FolderInput, FolderPlus, FolderUp, LayoutGrid, List, MoreHorizontal, Pencil, Search, Trash2, Upload, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import Avatar from '../components/Avatar'
@@ -24,6 +24,7 @@ interface Node {
   kind: 'client' | 'fy' | 'compliance' | 'custom' | 'firm'
   clientId?: string
   locked?: boolean
+  number?: string // a registration's GSTIN, TAN or PAN
 }
 
 const START = FIRM_FOLDER
@@ -41,6 +42,7 @@ interface Action {
 // The "..." menu on folders and files the CA owns.
 function ItemMenu({ label, actions, compact }: { label: string; actions: Action[]; compact?: boolean }) {
   const [open, setOpen] = useState(false)
+  if (actions.length === 0) return null
   return (
     <div className="relative">
       <button
@@ -143,6 +145,9 @@ export default function Master() {
   const [gridLimit, setGridLimit] = useState(PAGE)
   const [sideLimit, setSideLimit] = useState(SIDE_PAGE)
   const [clientQuery, setClientQuery] = useState('')
+  const [treeLimit, setTreeLimit] = useState<Record<string, number>>({}) // how many registrations a client shows in the tree
+  const [regQuery, setRegQuery] = useState('') // search among a client's registrations
+  const [regLimit, setRegLimit] = useState<Record<string, number>>({}) // how many of each type are shown
 
   useEffect(() => {
     if (!toast) return
@@ -150,18 +155,21 @@ export default function Master() {
     return () => clearTimeout(t)
   }, [toast])
 
-  // The whole tree: folders made by approvals (client > year > compliance) plus the ones the CA created anywhere.
+  // The whole tree: folders made by approvals (client > registration > year) plus the ones the CA created anywhere.
   const nodes = useMemo<Node[]>(() => {
     const map = new Map<string, Node>()
     for (const f of files) {
       const m = f.folderId?.match(/^c:([^/]+)\/([^/]+)\/(.+)$/)
       if (!m) continue
-      const [, clientId, fy, comp] = m
+      const [, clientId, comp, fy] = m
       const c = `c:${clientId}`
-      const y = `${c}/${fy}`
+      const y = `${c}/${comp}`
       map.set(c, { id: c, name: getBookClient(clientId)?.name ?? clientId, parentId: null, kind: 'client', clientId })
-      map.set(y, { id: y, name: folderNames[y] ?? fy, parentId: c, kind: 'fy', clientId })
-      map.set(f.folderId!, { id: f.folderId!, name: folderNames[f.folderId!] ?? comp, parentId: y, kind: 'compliance', clientId })
+      // The registration is not a folder the CA made: it is the client's ITR, GSTIN or TAN, so it shows its number and cannot be renamed, moved or deleted.
+      const [type, place] = comp.split(' · ')
+      const reg = getBookClient(clientId)?.registrations.find((r) => r.type === type && (!place || r.label === place))
+      map.set(y, { id: y, name: folderNames[y] ?? comp, parentId: c, kind: 'compliance', clientId, number: reg?.number })
+      map.set(f.folderId!, { id: f.folderId!, name: folderNames[f.folderId!] ?? fy, parentId: y, kind: 'fy', clientId })
     }
     return [...map.values(), ...custom.map((c): Node => ({ id: c.id, name: c.name, parentId: c.parentId, kind: c.id === FIRM_FOLDER ? 'firm' : 'custom', locked: c.locked }))]
   }, [files, custom, folderNames])
@@ -194,7 +202,12 @@ export default function Master() {
   const here = trail(current)
   const node = current ? byId.get(current) : undefined
   const subFolders = childrenOf(current)
-  const direct = files.filter((f) => f.folderId === current)
+  // A client shows its registrations as a list; a registration shows its years as chips and all its files; the year folders work as before.
+  const onClient = node?.kind === 'client'
+  const onReg = node?.kind === 'compliance'
+  const regNode = onReg ? node : node?.kind === 'fy' ? byId.get(node.parentId ?? '') : undefined
+  const years = regNode ? childrenOf(regNode.id).filter((n) => n.kind === 'fy').sort((a, b) => b.name.localeCompare(a.name)) : []
+  const direct = onReg ? filesUnder(current) : files.filter((f) => f.folderId === current)
   const filePaging = usePaging(direct, `${current}|${view}`, [12, 24, 48])
   const total = filesUnder(current).length
 
@@ -203,6 +216,8 @@ export default function Master() {
     setTreeOpen(false)
     setGridLimit(PAGE)
     setClientQuery('')
+    setRegQuery('')
+    setRegLimit({})
     if (id) setExpanded((s) => new Set([...s, ...trail(id).map((n) => n.id)]))
   }
   const toggle = (id: string) =>
@@ -315,7 +330,7 @@ export default function Master() {
   }
 
   const movable = (n: Node) => (n.kind === 'custom') && !n.locked
-  const folderActions = (n: Node): Action[] => [
+  const folderActions = (n: Node): Action[] => n.kind === 'compliance' ? [] : [
     { label: 'New folder', icon: <FolderPlus size={15} />, run: () => openNewFolder(n.id) },
     { label: 'Upload file', icon: <Upload size={15} />, run: () => pickFiles(n.id) },
     ...(n.kind === 'client' ? [] : [{ label: 'Rename', icon: <Pencil size={15} />, run: () => openDialog('rename', { kind: 'folder', id: n.id, name: n.name }) }]),
@@ -337,8 +352,10 @@ export default function Master() {
   const [drag, setDrag] = useState<Drag>(null)
   const [over, setOver] = useState<string | null>(null)
   const [outside, setOutside] = useState(false) // files from the computer are being dragged over the page
+  // Files and folders go into the year folders, not onto the registration itself.
+  const isReg = (id: string | null) => !!id && byId.get(id)?.kind === 'compliance'
   const canDrop = (target: string | null) => {
-    if (!drag) return false
+    if (!drag || isReg(target)) return false
     if (drag.kind === 'file') return files.find((f) => f.id === drag.id)?.folderId !== target
     if (target === drag.id) return false
     return !subtree(drag.id).has(target) && (byId.get(drag.id)?.parentId ?? null) !== target
@@ -346,6 +363,7 @@ export default function Master() {
   const hasFiles = (e: React.DragEvent) => Array.from(e.dataTransfer.types).includes('Files')
   const dropProps = (target: string | null) => ({
     onDragOver: (e: React.DragEvent) => {
+      if (isReg(target)) return e.stopPropagation()
       if (hasFiles(e) || canDrop(target)) {
         e.preventDefault()
         e.stopPropagation()
@@ -360,6 +378,7 @@ export default function Master() {
       stopOpening()
       setOver(null)
       setOutside(false)
+      if (isReg(target)) return
       if (hasFiles(e)) return uploadTo(target, e.dataTransfer.files)
       if (!drag || !canDrop(target)) return
       const label = target ? byId.get(target)?.name : 'the top level'
@@ -395,13 +414,17 @@ export default function Master() {
 
   // ---- left tree
   const topMatches = (pick: (n: Node) => boolean) => childrenOf(null).filter((n) => pick(n) && n.name.toLowerCase().includes(query.toLowerCase()))
+  // The tree goes down to the client's registrations (a dropdown under the client). Years are chips on the registration's page, not tree rows.
+  const inTree = (n: Node) => n.kind !== 'fy'
   const renderTree = (parent: string | null, depth: number, pick: (n: Node) => boolean = () => true, limit = Infinity): ReactNode =>
-    (depth > 0 ? childrenOf(parent) : topMatches(pick))
+    (depth > 0 ? childrenOf(parent).filter(inTree) : topMatches(pick))
       .slice(0, limit)
       .map((n) => {
-        const kids = childrenOf(n.id)
+        const kids = childrenOf(n.id).filter(inTree)
         const isOpen = expanded.has(n.id)
-        const active = current === n.id
+        // A client with many GSTINs shows a few under it, and "Show more" for the rest.
+        const shown = n.kind === 'client' ? (treeLimit[n.id] ?? 8) : Infinity
+        const active = current === n.id || (n.kind === 'compliance' && byId.get(current ?? '')?.parentId === n.id)
         return (
           <div key={n.id}>
             <div
@@ -433,7 +456,7 @@ export default function Master() {
                 {isOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
               </button>
               <button type="button" onClick={() => go(n.id)} className="flex min-w-0 flex-1 items-center gap-2 py-1.5 text-left">
-                {n.kind === 'client' ? <Avatar name={n.name} size={26} /> : n.kind === 'firm' ? <Building2 size={15} className="shrink-0" /> : <Folder size={15} className="shrink-0" />}
+                {n.kind === 'client' ? <Avatar name={n.name} size={26} /> : n.kind === 'firm' ? <Building2 size={15} className="shrink-0" /> : n.kind === 'compliance' ? <ShieldCheck size={15} className="shrink-0 text-brand-dark" /> : <Folder size={15} className="shrink-0" />}
                 {n.kind === 'client' ? (
                   <span className="min-w-0">
                     <span className="block truncate leading-tight">{n.name}</span>
@@ -447,7 +470,12 @@ export default function Master() {
                 <ItemMenu compact label={n.name} actions={folderActions(n)} />
               </div>
             </div>
-            {isOpen && renderTree(n.id, depth + 1)}
+            {isOpen && renderTree(n.id, depth + 1, undefined, shown)}
+            {isOpen && kids.length > shown && (
+              <button type="button" onClick={() => setTreeLimit((l) => ({ ...l, [n.id]: shown + 10 }))} className="my-0.5 rounded-[10px] py-1.5 pr-3 text-left text-[13px] font-semibold text-brand-dark hover:bg-canvas" style={{ marginLeft: 4 + (depth + 1) * 14 + 32 }}>
+                Show {Math.min(10, kids.length - shown)} more · {kids.length - shown} left
+              </button>
+            )}
           </div>
         )
       })
@@ -565,20 +593,27 @@ export default function Master() {
                 {node && <ItemMenu compact label={node.name} actions={folderActions(node)} />}
               </div>
               <p className="mt-0.5 text-sm text-muted">
-                {subFolders.length} {subFolders.length === 1 ? 'folder' : 'folders'} · {total} {total === 1 ? 'file' : 'files'} inside{node?.kind === 'client' && ' · Named after the client'}
+                {onReg && `Registration${node?.number ? ` · ${node.number}` : ''} · `}
+                {onClient
+                  ? `${subFolders.filter((n) => n.kind === 'compliance').length} registrations`
+                  : onReg
+                    ? `${years.length} ${years.length === 1 ? 'year' : 'years'}`
+                    : `${subFolders.length} ${subFolders.length === 1 ? 'folder' : 'folders'}`}{' '}
+                · {total} {total === 1 ? 'file' : 'files'} inside{onClient && ' · Named after the client'}
               </p>
             </div>
             <div className="flex w-full shrink-0 items-center gap-2 md:w-auto md:gap-2.5">
               <button
                 type="button"
                 onClick={() => openNewFolder(current)}
-                className="flex h-11 shrink-0 items-center justify-center whitespace-nowrap gap-2 rounded-xl border border-line bg-white px-4 text-sm font-semibold hover:bg-canvas max-md:flex-1 max-md:px-2"
+                disabled={node?.kind === 'compliance'}
+                className="flex h-11 shrink-0 disabled:opacity-40 items-center justify-center whitespace-nowrap gap-2 rounded-xl border border-line bg-white px-4 text-sm font-semibold hover:bg-canvas max-md:flex-1 max-md:px-2"
               >
                 <FolderPlus size={16} />
                 New folder
               </button>
               <input ref={fileInput} type="file" multiple className="hidden" onChange={(e) => onUpload(e.target.files)} />
-              <button type="button" onClick={() => pickFiles(current)} className="flex h-11 shrink-0 items-center justify-center whitespace-nowrap gap-2 rounded-xl border border-line bg-white px-4 text-sm font-semibold hover:bg-canvas max-md:flex-1 max-md:px-2">
+              <button type="button" disabled={node?.kind === 'compliance'} onClick={() => pickFiles(current)} className="flex h-11 shrink-0 disabled:opacity-40 items-center justify-center whitespace-nowrap gap-2 rounded-xl border border-line bg-white px-4 text-sm font-semibold hover:bg-canvas max-md:flex-1 max-md:px-2">
                 <Upload size={16} />
                 <span className="max-md:hidden">Upload file</span>
                 <span className="md:hidden">Upload</span>
@@ -601,9 +636,87 @@ export default function Master() {
         {(() => {
           // At the top, the firm's own folders stay in their own short block above the (possibly huge) list of clients.
           const atTop = current === null
+          // On a registration (or one of its years) the years are chips, not folders.
+          const yearChips = regNode && years.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[13px] font-semibold text-muted">Year</span>
+              {[{ id: regNode.id, name: 'All years' }, ...years].map((y) => (
+                <button
+                  key={y.id}
+                  type="button"
+                  onClick={() => go(y.id)}
+                  className={`h-9 rounded-full border px-4 text-[13px] font-semibold ${current === y.id ? 'border-brand bg-brand-soft text-brand-dark' : 'border-line bg-white text-slate-600 hover:border-brand'}`}
+                >
+                  {y.name}
+                  <span className="ml-1.5 font-medium text-muted">{filesUnder(y.id).length}</span>
+                </button>
+              ))}
+            </div>
+          )
           const firmFolders = atTop ? subFolders.filter((n) => n.kind !== 'client') : []
           const q = clientQuery.trim().toLowerCase()
-          const shownFolders = (atTop ? subFolders.filter((n) => n.kind === 'client') : subFolders).filter((n) => !q || n.name.toLowerCase().includes(q))
+          const baseFolders = atTop ? subFolders.filter((n) => n.kind === 'client') : onReg ? [] : subFolders.filter((n) => n.kind !== 'compliance')
+          const shownFolders = baseFolders.filter((n) => !q || n.name.toLowerCase().includes(q))
+          // The client's registrations, by type. ITR first, then GST, then TDS.
+          const typeOf = (n: Node) => n.name.split(' · ')[0]
+          const placeOf = (n: Node) => n.name.split(' · ')[1] ?? n.name
+          const rq = regQuery.trim().toLowerCase()
+          const regs = onClient ? subFolders.filter((n) => n.kind === 'compliance') : []
+          const regTypes = ['ITR', 'GST', 'TDS'].filter((t) => regs.some((r) => typeOf(r) === t))
+          // On a laptop the registrations are in the dropdown under the client on the left; this list is for the phone, where that tree is a panel.
+          const regSection = regs.length > 0 && (
+            <section className="md:hidden">
+              <div className="mb-2.5 flex items-center justify-between gap-4">
+                <h3 className="text-[12px] font-bold uppercase tracking-widest text-faint">Registrations · {regs.length}</h3>
+                {regs.length > 6 && (
+                  <label className="flex h-9 w-72 items-center gap-2 rounded-xl bg-white px-3 text-sm text-muted ring-1 ring-line focus-within:ring-brand">
+                    <Search size={14} />
+                    <input value={regQuery} onChange={(e) => { setRegQuery(e.target.value); setRegLimit({}) }} placeholder="Search by state or number" className="w-full bg-transparent text-ink outline-none placeholder:text-muted" />
+                  </label>
+                )}
+              </div>
+              <div className="flex flex-col gap-4">
+                {regTypes.map((t) => {
+                  const all = regs.filter((r) => typeOf(r) === t)
+                  const list = all.filter((r) => !rq || r.name.toLowerCase().includes(rq) || (r.number ?? '').toLowerCase().includes(rq))
+                  if (list.length === 0) return null
+                  const limit = regLimit[t] ?? 6
+                  return (
+                    <div key={t}>
+                      <div className="mb-1.5 text-[13px] font-semibold text-muted">
+                        {t} · {all.length}
+                      </div>
+                      <div className="overflow-hidden rounded-2xl border border-line bg-white">
+                        {list.slice(0, limit).map((r) => (
+                          <button key={r.id} type="button" onClick={() => go(r.id)} className="flex w-full items-center gap-3.5 border-b border-line px-4 py-3 text-left last:border-b-0 hover:bg-canvas">
+                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand-dark">
+                              <ShieldCheck size={20} />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-[15px] font-semibold">{all.length === 1 && t !== 'GST' ? t : placeOf(r)}</span>
+                              {r.number && <span className="block font-mono text-[12px] tracking-tight text-muted">{r.number}</span>}
+                            </span>
+                            <span className="shrink-0 text-[13px] text-muted">
+                              {filesUnder(r.id).length} {filesUnder(r.id).length === 1 ? 'file' : 'files'}
+                            </span>
+                            <ChevronRight size={16} className="shrink-0 text-faint" />
+                          </button>
+                        ))}
+                      </div>
+                      {list.length > limit && (
+                        <button type="button" onClick={() => setRegLimit((l) => ({ ...l, [t]: limit + 10 }))} className="mx-auto mt-2 flex h-9 items-center rounded-xl border border-line bg-white px-4 text-[13px] font-semibold hover:border-brand hover:text-brand-dark">
+                          Show {Math.min(10, list.length - limit)} more · {list.length - limit} left
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
+                {rq && regTypes.every((t) => !regs.some((r) => typeOf(r) === t && (r.name.toLowerCase().includes(rq) || (r.number ?? '').toLowerCase().includes(rq)))) && (
+                  <p className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-6 text-center text-sm text-muted">No registration found.</p>
+                )}
+              </div>
+            </section>
+          )
           const grid = (list: Node[]) => (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 md:gap-4">
             {list.map((n) => (
@@ -617,12 +730,13 @@ export default function Master() {
                     <Avatar name={n.name} size={48} />
                   ) : (
                     <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand-dark">
-                      {n.kind === 'firm' ? <Building2 size={24} /> : <Folder size={24} />}
+                      {n.kind === 'firm' ? <Building2 size={24} /> : n.kind === 'compliance' ? <ShieldCheck size={24} /> : <Folder size={24} />}
                     </span>
                   )}
                   <span className="min-w-0">
                     <span className="line-clamp-2 break-words text-[15px] font-semibold leading-snug">{n.name}</span>
                     {n.kind === 'client' && <ClientLine id={n.clientId} />}
+                    {n.kind === 'compliance' && n.number && <span className="block font-mono text-[12px] tracking-tight text-muted">{n.number}</span>}
                     <span className="block text-[13px] text-muted">{folderMeta(n)}</span>
                   </span>
                 </button>
@@ -636,6 +750,11 @@ export default function Master() {
           const more = shownFolders.length - gridLimit
           return (
             <>
+              {yearChips}
+              {regSection}
+              {onClient && regs.length > 0 && shownFolders.length === 0 && direct.length === 0 && (
+                <p className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-10 text-center text-sm text-muted max-md:hidden">Pick a registration from the list on the left to see its years and files.</p>
+              )}
               {firmFolders.length > 0 && (
                 <section>
                   <h3 className="mb-2.5 text-[12px] font-bold uppercase tracking-widest text-faint">Firm folders</h3>
@@ -646,7 +765,7 @@ export default function Master() {
                 <section>
                   <div className="mb-2.5 flex items-center justify-between gap-4">
                     <h3 className="text-[12px] font-bold uppercase tracking-widest text-faint">{atTop ? `Client folders · ${subFolders.filter((n) => n.kind === 'client').length}` : 'Folders'}</h3>
-                    {subFolders.length > PAGE && (
+                    {baseFolders.length > PAGE && (
                       <label className="flex h-9 w-60 items-center gap-2 rounded-xl bg-white px-3 text-sm text-muted ring-1 ring-line focus-within:ring-brand">
                         <Search size={14} />
                         <input value={clientQuery} onChange={(e) => { setClientQuery(e.target.value); setGridLimit(PAGE) }} placeholder={atTop ? 'Search client folders' : 'Search folders'} className="w-full bg-transparent text-ink outline-none placeholder:text-muted" />
@@ -668,7 +787,7 @@ export default function Master() {
         {direct.length > 0 && (
           <div className="rounded-[18px] border border-line bg-white p-5">
             <div className="mb-4 flex items-center justify-between">
-              <span className="text-sm font-semibold text-muted">{current === null ? 'Not in a folder yet' : 'Files in this folder'}</span>
+              <span className="text-sm font-semibold text-muted">{current === null ? 'Not in a folder yet' : onReg ? 'Files in all years' : 'Files in this folder'}</span>
               <div className="flex rounded-lg bg-canvas p-1">
                 <button type="button" aria-label="Grid view" onClick={() => setView('grid')} className={`flex h-8 w-9 items-center justify-center rounded-md ${view === 'grid' ? 'bg-white shadow-sm' : 'text-muted'}`}>
                   <LayoutGrid size={16} />

@@ -395,7 +395,7 @@ export default function Settings() {
                 </span>
               </button>
               <div className="border-t border-line bg-slate-50/70 px-4 py-3.5 text-[13px] leading-relaxed text-slate-600">
-                <b className="text-ink">Use a number only for work, never your personal number.</b> We check each file and keep only the ones that look like documents, for clients who have an open request. Chats and personal photos are skipped and never saved.
+                <b className="text-ink">Use a number only for work, never your personal number.</b> Every chat on it comes into the Inbox, with messages, photos and files, so your team can see it. Files that look like documents are read and added to the client's request.
               </div>
             </div>
           </section>
