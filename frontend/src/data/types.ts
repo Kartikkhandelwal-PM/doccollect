@@ -44,6 +44,7 @@ export interface AttentionItem {
   got: number
   total: number
   toReview: number
+  approved: number // documents the CA has approved, out of `got`
   activity: string
   activitySub: string
   activityTone?: 'danger'

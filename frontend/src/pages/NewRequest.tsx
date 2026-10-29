@@ -84,7 +84,7 @@ export default function NewRequest() {
   const { create, receiveFile } = useRequests()
   const { markPlaced } = useInbox()
   const { sendRequest } = useMessenger()
-  const { groups, compliances, messageTemplates, firm, ownNumber, whatsapp, addCompliance } = useSetup()
+  const { groups, compliances, messageTemplates, firm, ownNumber, whatsapp, sendFrom, approvedTemplates, viaFor, addCompliance } = useSetup()
   const [params] = useSearchParams()
   const preselected = params.get('client')
   // Opened from a file a client sent with no request: when the request is sent, that file goes on its document.
@@ -107,8 +107,9 @@ export default function NewRequest() {
   const [query, setQuery] = useState('')
 
   // Starts on whatever is connected in Settings. Your own number is only there once it is connected.
-  const [picked, setVia] = useState<'own' | 'kdk'>(ownNumber ? 'own' : 'kdk')
-  const via = picked === 'own' && !ownNumber ? 'kdk' : picked
+  // The firm picks the number once in Settings; here it only shows.
+  const via: 'own' | 'kdk' = ownNumber && sendFrom === 'own' ? 'own' : 'kdk'
+  const shownVia = viaFor(via, 'request')
   const [due, setDue] = useState(() => defaultDue(compliances.find((c) => c.kind === kind)?.id ?? ''))
   const [dueTouched, setDueTouched] = useState(false)
   const [created, setCreated] = useState<DocRequest | null>(null)
@@ -566,24 +567,22 @@ export default function NewRequest() {
           {/* ---------- 3. Send ---------- */}
           {step === 3 && (
           <Section>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {ownNumber ? (
-                <button type="button" onClick={() => setVia('own')} className={`rounded-2xl p-3.5 text-left ${via === 'own' ? 'border-2 border-brand bg-[#EEF8F5]' : 'border border-line'}`}>
-                  <div className={`text-sm font-semibold ${via === 'own' ? 'text-brand-dark' : ''}`}>{whatsapp?.displayName ?? 'Your WhatsApp'}</div>
-                  <div className="text-[13px] text-slate-600">{ownNumber} · replies are read here</div>
-                </button>
-              ) : (
-                <Link to="/settings?tab=whatsapp" className="rounded-2xl border border-dashed border-slate-300 p-3.5 text-left hover:border-brand">
-                  <div className="text-sm font-semibold text-muted">Your WhatsApp</div>
-                  <div className="text-[13px] text-muted">
-                    Not connected · <span className="font-semibold text-brand">Connect it in Settings</span>
-                  </div>
-                </Link>
-              )}
-              <button type="button" onClick={() => setVia('kdk')} className={`rounded-2xl p-3.5 text-left ${via === 'kdk' ? 'border-2 border-brand bg-[#EEF8F5]' : 'border border-line'}`}>
-                <div className={`text-sm font-semibold ${via === 'kdk' ? 'text-brand-dark' : ''}`}>{SHARED_NUMBER_NAME}</div>
-                <div className="text-[13px] text-muted">Shared number · link only · replies are not read</div>
-              </button>
+            {/* Read-only: the firm picks the number once in Settings. */}
+            <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-line px-4 py-3">
+              <div className="min-w-0 flex-1">
+                <div className="text-[13px] font-semibold text-muted">Sent from</div>
+                <div className="text-sm font-semibold">{shownVia === 'own' ? `${whatsapp?.displayName ?? 'Your WhatsApp'} · ${ownNumber}` : SHARED_NUMBER_NAME}</div>
+                <div className="text-[13px] text-muted">
+                  {via === 'own'
+                    ? approvedTemplates.includes('request')
+                      ? 'Replies are read here.'
+                      : 'WhatsApp has not approved this message yet, so it goes from the shared number.'
+                    : 'Clients upload through the link. Replies are not read.'}
+                </div>
+              </div>
+              <Link to="/settings?tab=whatsapp" className="text-[13px] font-semibold text-brand hover:underline">
+                Change in Settings
+              </Link>
             </div>
             <div className="mt-4">
               <div className="text-[13px] font-semibold text-muted">Last date</div>

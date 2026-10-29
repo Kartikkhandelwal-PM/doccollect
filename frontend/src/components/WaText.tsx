@@ -12,7 +12,8 @@ export default function WaText({ text }: { text: string }) {
         const l = p.match(link)
         if (l)
           return (
-            <a key={i} href={appPath(l[1])} target="_blank" rel="noopener noreferrer" className="text-[#027EB5] underline">
+            // rel="opener" on purpose (browsers now default to noopener): the new tab then starts with a copy of this tab's demo data, so a link made in this session opens.
+            <a key={i} href={appPath(l[1])} target="_blank" rel="opener" className="text-[#027EB5] underline">
               {p}
             </a>
           )

@@ -17,6 +17,7 @@ import RequestDetail from './pages/RequestDetail'
 import Requests from './pages/Requests'
 import Settings from './pages/Settings'
 import SignedOut from './pages/SignedOut'
+import RamwinDemo from './pages/RamwinDemo'
 import Templates from './pages/Templates'
 
 // The splash plays once when the app opens. Not on a client's upload page, and not after signing out.
@@ -40,6 +41,8 @@ export default function App() {
       <Route path="u/:requestId/:clientId" element={<ClientUpload />} />
       <Route path="u/:token" element={<ClientUpload />} />
       <Route path="signed-out" element={<SignedOut />} />
+      {/* A stand-in for the page where Ramwin links a WhatsApp number (the real flow goes to Ramwin's own page). */}
+      <Route path="ramwin" element={<RamwinDemo />} />
       {/* The mode is read from the address before the app starts (lib/demo.ts); these only take you to the start page. */}
       <Route path="empty" element={<Navigate replace to="/" />} />
       <Route path="sample" element={<Navigate replace to="/" />} />

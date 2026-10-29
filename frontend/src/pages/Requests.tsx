@@ -5,7 +5,7 @@ import { Fragment, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
 import Pagination, { usePaging } from '../components/Pagination'
-import { getClient, parentIdOf, partyName } from '../data/mock'
+import { getBookClient, getClient, parentIdOf, partyName } from '../data/mock'
 import { fmtDate, isReceived, lineRef, progress, requestState, useRequests } from '../data/requests'
 import type { DocRequest, RequestState } from '../data/requests'
 import { daysUntil } from '../lib/dates'
@@ -67,7 +67,10 @@ export default function Requests() {
     }
     if (q) {
       const names = r.clients.map((c) => partyName(c.clientId)).join(' ')
-      if (!`${r.title} ${r.ref} ${r.clients.map((c) => lineRef(r, c.clientId)).join(' ')} ${names}`.toLowerCase().includes(q)) return false
+      // also each client's PAN, GSTIN or TAN, and mobile, so a number typed from a document finds the request
+      const numbers = r.clients.map((c) => `${getBookClient(c.clientId)?.pan ?? ''} ${getBookClient(c.clientId)?.registrations.find((x) => x.id === c.clientId)?.number ?? ''} ${getClient(c.clientId)?.phone ?? ''}`).join(' ')
+      const hay = `${r.title} ${r.ref} ${r.clients.map((c) => lineRef(r, c.clientId)).join(' ')} ${names} ${numbers}`.toLowerCase()
+      if (!q.split(/\s+/).filter(Boolean).every((w) => hay.includes(w))) return false
     }
     return true
   })
@@ -126,7 +129,7 @@ export default function Requests() {
         <div className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-3 md:px-6 md:py-4">
           <label className="flex h-10 min-w-[240px] flex-1 items-center gap-2 rounded-xl bg-canvas px-3.5 text-sm text-muted @max-4xl:min-w-full">
             <Search size={15} />
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search client or request number" className="w-full bg-transparent text-ink outline-none placeholder:text-muted" />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search client, request number, PAN, GSTIN or mobile" className="w-full bg-transparent text-ink outline-none placeholder:text-muted" />
           </label>
           <FilterSelect value={due} onChange={(v) => setDue(v as typeof due)} label="Last date" width="w-[170px]">
             <option value="all">Any last date</option>
