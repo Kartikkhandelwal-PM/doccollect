@@ -1,15 +1,24 @@
 # WhatsApp integration
 
-How a firm connects its WhatsApp to DocCollect, what we found out while planning it, and what the backend has to do. The screens are built (Settings > WhatsApp > Connect your WhatsApp). They run on sample data. The real calls come with the backend.
+How a firm connects its WhatsApp to DocCollect, how a message chooses its number, and what the backend has to do. The screens are built (Settings > WhatsApp) and run on sample data. The real calls come with the backend.
 
-## The two ways messages go out
+Ramwin is the only way to connect. There is no other provider, and the firm never types an API key.
 
-| | CA Connect number | Your own WhatsApp |
+## The two numbers
+
+| | CA Connect | Your own number |
 |---|---|---|
-| Sent from | KDK's shared number, on behalf of the firm | The firm's own number |
-| Setup | None | Connect once (below) |
-| Client replies | Not read. Clients use the upload link | Read. Files are sorted for the CA to check |
+| Sent from | KDK's shared number, in the firm's name | The firm's own number |
+| Setup | None. Always connected, managed by KDK | Connect once through Ramwin |
+| Client replies | Read, for the firm's own clients only. See `document-matching.md` | Read. Files are sorted for the CA to check |
 | Messages | Approved templates only | Approved templates, plus free text inside 24 hours |
+
+## Choosing the number
+
+- The firm chooses **once, in Settings > WhatsApp** (the tiles, then **Use my number** / **Use CA Connect instead**, which asks to confirm). The choice is kept until the firm changes it.
+- The New request step only **shows** which number it goes from, with a link to Settings. Reminders and later messages use the same choice.
+- Switching back to CA Connect keeps the own number connected. Only **Disconnect** removes it.
+- **Template approval:** WhatsApp approves each message template before it can be sent from the firm's own number. Until a template is approved, that message goes from CA Connect (as a link). Connecting a new number starts with no template approved. Settings shows "Waiting for approval", then "n of 19 approved", then "All approved".
 
 ## What we found out (so we do not promise the wrong thing)
 
@@ -20,39 +29,30 @@ How a firm connects its WhatsApp to DocCollect, what we found out while planning
 5. **The business name clients see (display name) must match the business** and is reviewed by WhatsApp. Sending can start while it is in review.
 6. **Free text is only allowed within 24 hours of the client's last message.** Outside that, only approved templates.
 7. Ramwin is not documented anywhere we could find publicly. Its exact steps and API need to be confirmed with Ramwin before the backend is written.
+8. Points 1 to 3 and 5 are about linking the number, which now happens on Ramwin's own page, not in our screens.
 
-## Flow A: through Ramwin (we set it up)
+## The connect flow (through Ramwin)
 
-1. **Which WhatsApp is on the number?** WhatsApp Business app, normal WhatsApp, none yet, or "I already have an API account".
-2. *Normal WhatsApp only:* explain the one change needed (new number, or switch to the Business app first).
-3. **Number and name.** Number, display name, "work number only", terms.
-4. **Verify.** A 6-digit code by SMS or call (or shown in the Business app).
-5. **Channel.** Facebook login, create or pick the Meta business portfolio, create the WhatsApp Business account, add the number, submit the display name, create the channel. Result: a **Channel ID**.
-6. **Test message.** Sent to the firm's own phone with an approved test template. The firm confirms it arrived.
-7. **Connected.** Number, name and review status, Channel ID, test result, daily limit.
+1. In Settings > WhatsApp, the firm opens **Your own number** and presses **Connect your own WhatsApp**.
+2. The browser goes to Ramwin's page. The firm links its number there (verification, Meta business, display name, channel). The firm does not copy anything.
+3. Ramwin sends **Channel ID** and **API key** to our backend (the firm never sees them), and the firm returns to Settings. We show the number and the name clients see.
+4. Our backend submits the message templates to WhatsApp for approval and keeps checking their status.
+5. A message goes from the own number only when its template is approved and the firm has chosen its own number.
 
-## Flow B: the firm already has another provider (BSP)
+**Disconnect** asks first. After it, reminders of requests that were sent from the own number go from CA Connect, as a link. Old chats stay readable.
 
-We ask for exactly what an integration needs:
-
-| Ask | Why |
-|---|---|
-| Provider (Gupshup, Interakt, WATI, AiSensy, Twilio, 360dialog, Meta Cloud API, other) | Which API shape to use |
-| WhatsApp number | The sender |
-| Channel / sender ID (often the Phone Number ID) | Which number to send from |
-| API key or access token (permanent, not the 24-hour test token) | To send. Stored encrypted. Never shown again |
-| One approved template name and language | For the test message |
-| **Webhook URL and verify token** (we give these to the firm) | The provider sends client messages and delivery status to us |
-
-Webhook handshake (Meta style): the provider sends a GET with `hub.mode=subscribe`, `hub.verify_token` and `hub.challenge`. If the token matches, we answer 200 with the challenge. The URL must be public HTTPS and answer within a few seconds. The firm turns on "messages" and "message status" events. The screen has a **Check connection** button.
+In the demo, the Ramwin page is a stand-in screen at `/ramwin` (the real address is set with `VITE_RAMWIN_CONNECT_URL`), the Channel ID is made up, and **Check status** moves the template approval one step.
 
 ## What the backend must store per firm
 
-`number`, `display_name`, `display_name_status` (review | approved), `provider`, `route` (ramwin | provider), `channel_id`, encrypted `api_key`, `webhook_secret`, `tested_at`, `daily_limit`, `business_verified`.
+`number`, `display_name`, `provider` (Ramwin), `channel_id`, encrypted `api_key`, `connected_at`, `send_from` (own | kdk), the approval status of each template, `business_verified`, `daily_limit`. The Channel ID and API key are kept for the backend and are not shown on screen.
+
+The backend also has to: receive client messages and delivery status from Ramwin, tell the firm's own number from CA Connect, and (for CA Connect) match files to the right firm and client as in `document-matching.md`.
 
 ## Open questions
 
-- Ramwin's real onboarding steps and API.
+- Ramwin's real onboarding steps and API, and how it sends the Channel ID and API key back.
+- How Ramwin reports template approval (all at once, or one by one).
 - Is coexistence available in India for our users?
 - Who does Meta Business Verification for the firm, and what documents does it need?
 

@@ -3,12 +3,13 @@ import { motion } from 'framer-motion'
 import Toast from '../components/Toast'
 import { ArrowLeft, Check, Sparkles, CheckCheck, ChevronDown, ChevronRight, FolderOpen, Trash2, Image as ImageIcon, Info, Lock, PanelRightOpen, Search, Send, X } from 'lucide-react'
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
 import EmptyState from '../components/EmptyState'
 import DocPreviewDrawer from '../components/DocPreviewDrawer'
 import AttachPanel from '../components/AttachPanel'
 import FilePane, { canPreview } from '../components/FilePane'
+import FitBox from '../components/FitBox'
 import type { AttachData, AttachRequest, AttachSuggest, FolderChoice } from '../components/AttachPanel'
 import OpenInTab from '../components/OpenInTab'
 import { fileLink } from '../lib/fileLink'
@@ -212,14 +213,16 @@ function FileViewer({ msg, who, pan, doc, req, checklist, hide, filedText, onFil
           ))}
         </div>
       )}
-      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-        <div className="mx-auto w-[360px]" style={{ zoom: canPreview(current) ? 1.15 : 1 }}>
-          <FilePane fileName={current} docName={docName} client={{ name: who, pan }} />
-        </div>
+      <div className="min-h-0 flex-1 p-6">
+        <FitBox className="h-full w-full" max={canPreview(current) ? 1.15 : 1}>
+          <div className="w-[360px]">
+            <FilePane fileName={current} docName={docName} client={{ name: who, pan }} />
+          </div>
+        </FitBox>
       </div>
     </div>
   )
-  const shell = 'flex h-[min(640px,calc(100vh-48px))] max-h-full w-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl'
+  const shell = 'flex h-[min(760px,calc(100vh-48px))] max-h-full w-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl'
 
   // A file that is on no document: the file, and under it the bar to add it somewhere.
   if (!doc) {
@@ -602,7 +605,6 @@ function RightPanel({ conv, onReview, onPreview }: { conv: Conversation; onRevie
 }
 
 function InboxMain() {
-  const navigate = useNavigate()
   const { conversations: allConversations, markRead, send, markPlaced, linkChat, arrive, patchMsg } = useInbox()
   const { messageTemplates, firm, readReplies, ownNumber, whatsapp } = useSetup()
   // Each WhatsApp number is shown by its name, with the number under it.
@@ -612,7 +614,7 @@ function InboxMain() {
   } as const
   const accountSub = {
     own: whatsapp?.number ?? 'Not connected',
-    kdk: 'Shared number · link only',
+    kdk: 'Shared number',
   } as const
   const { sendRejected } = useMessenger()
   const { requests, setDocStatus, setDocFiled, unsorted, useUnsorted, dropUnsorted, addUnsorted, receiveFile, moveFile } = useRequests()
@@ -684,12 +686,17 @@ function InboxMain() {
         .filter((c) => c.via === mode)
         .filter((c) => reading || !c.unassigned)
         .map((c) => {
-          const msgs = c.msgs.filter((m) => isWork(m) && (reading || m.from === 'ca'))
-          return reading ? { ...c, msgs } : { ...c, msgs, unread: 0 }
+          // The shared CA Connect number is read too, but only for the firm's own clients (chats it cannot place are never shown here).
+          const readsHere = reading || mode === 'kdk'
+          const msgs = c.msgs.filter((m) => isWork(m) && (readsHere || m.from === 'ca'))
+          return readsHere ? { ...c, msgs } : { ...c, msgs, unread: 0 }
         })
         .filter((c) => c.msgs.length > 0)
         // newest message first, like WhatsApp
         .sort((a, b) => {
+          // A message made in this session (it has a real time) is newer than any sample message; among those, the later one is first.
+          const real = (c: Conversation) => c.msgs[c.msgs.length - 1].sentAt ?? 0
+          if (real(a) !== real(b)) return real(b) - real(a)
           const key = (c: Conversation) => `${c.msgs[c.msgs.length - 1].day} ${c.msgs[c.msgs.length - 1].time}`
           return key(b).localeCompare(key(a))
         }),
@@ -711,6 +718,7 @@ function InboxMain() {
       from: 'client',
       day: todayISO(),
       time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false }),
+      sentAt: Date.now(),
       file: { name: sc.file, size: sc.size },
       read: sc.read,
     }
@@ -796,9 +804,6 @@ function InboxMain() {
   const kindService = (k = '') => (/gst/i.test(k) ? 'GST' : /tds|16a|tan/i.test(k) ? 'TDS' : 'ITR')
   const ownFolders = folderChoices.filter((f) => f.regId)
   const suggestedFolder = (placed ? ownFolders.find((f) => f.regId === placed.regId) : (ownFolders.find((f) => getClient(f.regId as string)?.service === kindService(looseFile?.read?.kind)) ?? ownFolders[0]))?.id
-  // Start a request from this file: the new-request page opens for this client, and when it is sent the file goes on its document.
-  const startId = looseFile ? (attachIds.find((id) => getClient(id)?.service === kindService(looseFile.read?.kind)) ?? attachIds[0]) : undefined
-  const startRequest = startId && looseFile ? () => navigate(`/requests/new?client=${startId}&kind=${getClient(startId)?.service ?? ''}&file=${encodeURIComponent(looseFile.file!.name)}&doc=${encodeURIComponent(looseFile.read?.kind ?? '')}&conv=${active.id}`) : undefined
   // In a known chat, the file may be read as another client's (a PAN that is not this chat's). Say so before it is added to the wrong place.
   const readSug = looseFile && !active.unassigned ? suggestClient(looseFile.read) : undefined
   const otherClient = readSug && !active.clientIds.some((id) => parentIdOf(id) === parentIdOf(readSug.clientId)) ? getBookClient(readSug.clientId)?.name : undefined
@@ -1037,8 +1042,7 @@ function InboxMain() {
 
         {mode === 'kdk' ? (
           <div className="shrink-0 border-t border-[#E9EDEF] bg-[#FFF8E1] px-5 py-3 text-[13px] leading-relaxed text-[#7A3B00]">
-            <b>These messages go from the {SHARED_NUMBER_NAME} number.</b> Clients upload through the link, so their replies are not read here. If a client writes to this number anyway, they get an
-            automatic reply asking them to use the link.
+            <b>These messages go from the {SHARED_NUMBER_NAME} number.</b> Files your clients send here are read and added to their request. Only your own clients' chats show here.
           </div>
         ) : !connected ? (
           <div className="shrink-0 border-t border-[#E9EDEF] bg-[#FFF8E1] px-5 py-3 text-[13px] leading-relaxed text-[#7A3B00]">
@@ -1105,7 +1109,7 @@ function InboxMain() {
                 submit()
               }
             }}
-            placeholder={own ? 'Type a message' : mode === 'kdk' ? `Replies are not read on the ${SHARED_NUMBER_NAME} number` : 'Your WhatsApp is not connected'}
+            placeholder={own ? 'Type a message' : mode === 'kdk' ? `You cannot type here. Messages go from the ${SHARED_NUMBER_NAME} number` : 'Your WhatsApp is not connected'}
             className="max-h-[168px] min-h-11 flex-1 resize-none rounded-[10px] bg-white px-4 py-[11px] text-[15px] leading-[22px] outline-none placeholder:text-[#667781] disabled:bg-slate-100"
           />
           <button
@@ -1200,7 +1204,7 @@ function InboxMain() {
                   ?.docs.find((d) => d.id === viewing.link!.docId)
               : undefined
           }
-          attach={{ requests: attachRequests, suggest: attachSuggest, folders: folderChoices, suggestedFolder, forClient: forClient ?? (active.clientIds.length ? { name: active.title, guess: false, known: true } : undefined), onStartRequest: startRequest, warn, clientIds: [...new Set(attachIds.map(parentIdOf))], fileName: viewing.file.name }}
+          attach={{ requests: attachRequests, suggest: attachSuggest, folders: folderChoices, suggestedFolder, forClient: forClient ?? (active.clientIds.length ? { name: active.title, guess: false, known: true } : undefined), warn, clientIds: [...new Set(attachIds.map(parentIdOf))], fileName: viewing.file.name }}
           onSaveFolder={(folderId) => {
             const m = viewing!
             addUploads([{ id: `un-${Date.now()}-${m.id}`, folderId, name: [m.read?.kind ?? m.file!.name.replace(/\.[^.]+$/, ''), m.read?.idNo].filter(Boolean).join(' · '), fileName: m.file!.name, size: m.file!.size.split(' · ').pop() ?? m.file!.size, date: 'Just now', from: 'WhatsApp' }])

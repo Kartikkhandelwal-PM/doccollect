@@ -25,12 +25,20 @@ const SENT_BACK: Record<string, 'blurry' | 'wrongdoc' | 'pages' | 'wrongyear'> =
 }
 
 export function useMessenger() {
-  const { firm, ownNumber } = useSetup()
+  const { firm, viaFor } = useSetup()
   const { getRequest, remind, newLink } = useRequests()
   const { conversations, postToClient } = useInbox()
 
-  // A request keeps the number it was sent from. If the firm's own WhatsApp has been disconnected since, everything goes from the shared number.
-  const viaOf = useCallback((r: DocRequest): 'own' | 'kdk' => (r.via === 'own' && !ownNumber ? 'kdk' : r.via), [ownNumber])
+  // A request keeps the number it was sent from. Each message still goes from the firm's own number only if that number is connected and WhatsApp has approved that
+  // message's template; otherwise it goes from the shared number. (Which template a message uses is worked out in tidOf.)
+  const viaOf = useCallback((r: DocRequest, templateId: string): 'own' | 'kdk' => viaFor(r.via, templateId), [viaFor])
+  const tidOf = (rc: RequestClient, id: string) => {
+    if (id !== 'update') return id
+    const counted = rc.docs.filter((d) => d.status !== 'na')
+    const missing = counted.filter((d) => d.status === 'pending' || d.status === 'rejected').length
+    const approved = counted.filter((d) => d.status === 'approved').length
+    return missing === 0 ? 'thanks' : approved > 0 ? 'update' : 'pendinglist'
+  }
 
   // Sends to the client on a number. If this client has only heard from the firm on the other number so far, a short introduction goes first.
   const post = useCallback(
@@ -60,7 +68,7 @@ export function useMessenger() {
       const approved = counted.filter((d) => d.status === 'approved').length
       const tid = id !== 'update' ? id : missing.length === 0 ? 'thanks' : approved > 0 ? 'update' : 'pendinglist'
       const tpl = seedMessages.find((m) => m.id === tid)!
-      return fillTemplate(viaOf(r) === 'kdk' ? tpl.onBehalf : tpl.text, {
+      return fillTemplate(viaOf(r, tid) === 'kdk' ? tpl.onBehalf : tpl.text, {
         name: client.name,
         firm: firm.name,
         // a client with several GSTINs or TANs: say which one this is, like "GST monthly (Karnataka)"
@@ -82,7 +90,7 @@ export function useMessenger() {
     (r: DocRequest) =>
       r.clients.forEach((rc) => {
         const client = getClient(rc.clientId)
-        if (client) post(client, build(r, rc, 'request'), viaOf(r))
+        if (client) post(client, build(r, rc, 'request'), viaOf(r, 'request'))
       }),
     [build, post, viaOf],
   )
@@ -93,7 +101,7 @@ export function useMessenger() {
       const rc = r?.clients.find((c) => c.clientId === clientId)
       const client = getClient(clientId)
       if (!r || !rc || !client) return
-      post(client, build(r, rc, 'update'), viaOf(r))
+      post(client, build(r, rc, 'update'), viaOf(r, tidOf(rc, 'update')))
       remind(requestId, clientId)
     },
     [getRequest, build, post, viaOf, remind],
@@ -106,7 +114,7 @@ export function useMessenger() {
       const rc = r?.clients.find((c) => c.clientId === clientId)
       const client = getClient(clientId)
       if (!r || !rc || !client) return
-      post(client, build(r, { ...rc, linkVersion: (rc.linkVersion ?? 1) + 1 }, 'newlink'), viaOf(r))
+      post(client, build(r, { ...rc, linkVersion: (rc.linkVersion ?? 1) + 1 }, 'newlink'), viaOf(r, 'newlink'))
       newLink(requestId, clientId)
     },
     [getRequest, build, post, viaOf, newLink],
@@ -122,7 +130,8 @@ export function useMessenger() {
       // A ready-made reason with no note of your own uses its own message; anything else goes out as "we could not accept ...: <your words>".
       const ready = remark ? undefined : SENT_BACK[reason]
       const words = [reason, remark].filter(Boolean).join(' · ') || 'please send it again'
-      post(client, build(r, rc, ready ?? 'rejected', { document: docName, reason: words.charAt(0).toLowerCase() + words.slice(1) }), viaOf(r))
+      const rid = ready ?? 'rejected'
+      post(client, build(r, rc, rid, { document: docName, reason: words.charAt(0).toLowerCase() + words.slice(1) }), viaOf(r, rid))
     },
     [getRequest, build, post, viaOf],
   )

@@ -136,10 +136,39 @@ function RequestView({ request }: { request: DocRequest }) {
     [request, today],
   )
   const counts = { all: rows.length, review: rows.filter((r) => r.state === 'review').length, waiting: rows.filter((r) => r.missing > 0).length, done: rows.filter((r) => r.state === 'done').length }
+  // What a search on this page looks in, for one client: the name, the place, every number (the request's number for them, PAN, GSTIN or TAN, mobile, email),
+  // the contact who gets the messages, and the names of the documents.
+  const matches = (r: (typeof rows)[number], text: string) => {
+    const info = regInfo(r.c.id)
+    const b = getBookClient(r.c.id)
+    const contact = contactFor(r.c.id)
+    const hay = [
+      r.c.name,
+      info?.place,
+      lineRef(request, r.rc.clientId),
+      request.ref,
+      info?.number,
+      b?.pan,
+      r.c.phone,
+      r.c.email,
+      contact?.name,
+      contact?.phone,
+      ...r.rc.docs.map((d) => d.name),
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+    // every word typed has to be somewhere ("priya 03", "ABCPK", "karnataka bank")
+    return text
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(Boolean)
+      .every((w) => hay.includes(w))
+  }
   const shown = rows.filter(
     (r) =>
       (filter === 'all' || (filter === 'waiting' ? r.missing > 0 : r.state === filter)) &&
-      (!query.trim() || `${r.c.name} ${r.c.phone}`.toLowerCase().includes(query.trim().toLowerCase())),
+      (!query.trim() || matches(r, query)),
   )
   const paging = usePaging(shown, `${filter}|${query}`)
   const toRemind = rows.filter((r) => r.missing > 0)
@@ -316,7 +345,7 @@ function RequestView({ request }: { request: DocRequest }) {
           )}
           <label className="flex h-10 w-72 items-center gap-2 rounded-xl border border-transparent bg-canvas @max-3xl:w-full px-3.5 text-sm text-muted focus-within:border-brand focus-within:bg-white">
             <Search size={15} />
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search client" aria-label="Search client" className="w-full bg-transparent text-ink outline-none placeholder:text-muted" />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name, number, PAN, GSTIN, mobile or document" aria-label="Search clients in this request" className="w-full bg-transparent text-ink outline-none placeholder:text-muted" />
           </label>
         </div>
 

@@ -58,13 +58,14 @@ Messages come from fixed, WhatsApp-approved templates. The CA does not edit the 
 
 Two numbers can work at the same time.
 
-- **Your own WhatsApp:** connected in Settings. Client replies and files are read and land in the Inbox.
-- **CA Connect number:** KDK's shared number, always available. Messages go in the firm's name. Client replies are **not** read. A client who writes there anyway should get an automatic reply asking them to use the link (written in the Inbox as a note; the real auto-reply comes with the backend).
+- **Your own WhatsApp:** connected in Settings through Ramwin (the only way): **Connect your own WhatsApp** opens Ramwin's page, the firm links the number there, and the channel ID and API key come back to us on their own (nothing is pasted). Client replies and files are read and land in the Inbox.
+- **CA Connect number:** KDK's shared number, always available. Messages go in the firm's name. Files clients send there are read and added to the right request, and the firm sees only its own clients' chats (the rules are in `document-matching.md`; the real matching comes with the backend, the demo shows sample chats). No typing from the Inbox on this number.
 
 **Rules**
 
-- The number is chosen per request ("Send from"). Reminders for that request go from the same number.
-- The default is the number connected in Settings. If your own is not connected, CA Connect is used and "Your WhatsApp" is shown as not connected.
+- The firm chooses the sending number **once, in Settings > WhatsApp** (CA Connect or your own number). Choosing a tile only shows its details; the bar under the tiles switches (**Use my number** / **Use CA Connect instead**) and asks to confirm. Switching back keeps your own number connected; only Disconnect removes it. The New request step only shows which number it goes from, with a link to Settings.
+- Your own number is used for a message only after WhatsApp has approved that message's template. Until then that message goes from CA Connect, as a link. Connecting a new number starts with no template approved.
+- If your own is not connected, CA Connect is used.
 - **Disconnecting** your own number asks for consent. After that, reminders of requests that were sent from it go from CA Connect, as a link. Old chats stay readable but nothing can be sent from them.
 - The Inbox keeps a separate list of chats for each number. The same client can have a chat on both.
 - The name shown for your number is the WhatsApp display name, with the number under it.
@@ -120,7 +121,7 @@ This was tried ("On file": PAN, Aadhaar and similar are kept and not asked again
 
 - Dates of the sample requests move with today, so the demo always has late, today and upcoming ones.
 - Data survives a refresh in the same browser tab. The logo (sidebar, or "More" on a phone) reloads and starts again from the sample data.
-- Delivered / read marks and the usage numbers are sample until the backend exists.
+- Delivered / read marks are sample until the backend exists. The Settings > Usage tab is hidden for now (parked until the backend).
 - **Parked, not in the app:** the day / night sky on the Dashboard greeting (branch `parked/dashboard-sky`).
 
 ## 11. Look and feel

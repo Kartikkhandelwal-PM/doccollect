@@ -13,6 +13,7 @@ import type { DocRead, Placement } from './docRead'
 export interface Msg {
   id: string
   from: 'ca' | 'client' | 'system'
+  sentAt?: number // when it really happened (a message made in this session). The sample messages have only a clock time, so this is what puts a new one first.
   day: string // the date, like 2026-10-05. The chat shows it as Today, Yesterday, a weekday or a date.
   time: string // always the clock time, like 09:12
   text?: string
@@ -239,7 +240,12 @@ const rawSeed: Seed[] = [
     clientIds: ['sundaram-auto-parts'],
     via: 'kdk',
     unread: 0,
-    msgs: [{ id: 'su1', from: 'ca', time: 'Tue', tick: 'read', text: say('request', { name: 'Sundaram Auto Parts', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '8 Oct', link: `${LINK_DOMAIN}/u/r-1035-sundaram-auto-parts-v1` }, 'kdk') }],
+    msgs: [
+      { id: 'su1', from: 'ca', time: 'Tue', tick: 'read', text: say('request', { name: 'Sundaram Auto Parts', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '8 Oct', link: `${LINK_DOMAIN}/u/r-1035-sundaram-auto-parts-v1` }, 'kdk') },
+      // A client wrote back on the shared number. We read the file and it is theirs, so it sits in their request.
+      { id: 'su2', from: 'client', time: 'Yesterday', text: 'Sir sales register bhej raha hoon, baaki kal tak.' },
+      { id: 'su3', from: 'client', time: 'Yesterday', file: { name: 'Sales_Sep_2026.xlsx', size: '186 KB' }, matched: 'Filed as Sales register · To review', link: { requestId: 'r11', clientId: 'sundaram-auto-parts', docId: 'sales' } },
+    ],
   },
   {
     id: 'c-zenith',
@@ -248,7 +254,46 @@ const rawSeed: Seed[] = [
     clientIds: ['zenith-packaging'],
     via: 'kdk',
     unread: 0,
-    msgs: [{ id: 'ze1', from: 'ca', time: 'Tue', tick: 'read', text: say('request', { name: 'Zenith Packaging', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '8 Oct', link: `${LINK_DOMAIN}/u/r-1035-zenith-packaging-v1` }, 'kdk') }],
+    msgs: [
+      { id: 'ze1', from: 'ca', time: 'Tue', tick: 'read', text: say('request', { name: 'Zenith Packaging', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '8 Oct', link: `${LINK_DOMAIN}/u/r-1035-zenith-packaging-v1` }, 'kdk') },
+      { id: 'ze2', from: 'client', time: 'Wed', text: 'Link phone me nahi khul raha, yahin bhej doon?' },
+    ],
+  },
+  // Clients who wrote to the shared number on their own. No request was sent from it. We read each file, and it is theirs, so it sits in their request.
+  {
+    id: 'c-nisha-kdk',
+    title: 'Nisha Agarwal',
+    phone: getClient('nisha-agarwal')?.phone ?? '',
+    clientIds: ['nisha-agarwal'],
+    via: 'kdk',
+    unread: 0,
+    msgs: [{ id: 'ni1', from: 'client', time: '08:52', file: { name: 'PAN_Nisha.jpg', size: '1 page · 220 KB' }, matched: 'Filed as PAN card · To review', link: { requestId: 'r12', clientId: 'nisha-agarwal', docId: 'pan' } }],
+  },
+  {
+    id: 'c-manoj-kdk',
+    title: 'Manoj Tiwari',
+    phone: getClient('manoj-tiwari')?.phone ?? '',
+    clientIds: ['manoj-tiwari'],
+    via: 'kdk',
+    unread: 0,
+    msgs: [
+      { id: 'mt1', from: 'client', time: 'Yesterday', file: { name: 'pan_card.pdf', size: '1 page · 180 KB' }, matched: 'Filed as PAN card · To review', link: { requestId: 'r12', clientId: 'manoj-tiwari', docId: 'pan' } },
+      { id: 'mt2', from: 'client', time: 'Yesterday', file: { name: '26AS_FY2526.pdf', size: '4 pages · 640 KB' }, matched: 'Filed as Form 26AS / AIS · To review', link: { requestId: 'r12', clientId: 'manoj-tiwari', docId: '26as' } },
+    ],
+  },
+  {
+    id: 'c-shweta-kdk',
+    title: 'Shweta Kapoor',
+    phone: getClient('shweta-kapoor')?.phone ?? '',
+    clientIds: ['shweta-kapoor'],
+    via: 'kdk',
+    unread: 0,
+    msgs: [
+      { id: 'sk1', from: 'client', time: 'Sat', file: { name: 'IMG_2208.jpg', size: '1 page · 340 KB' }, matched: 'Filed as PAN card · To review', link: { requestId: 'r12', clientId: 'shweta-kapoor', docId: 'pan' } },
+      // Both sides of a card, for a document that allows several files: they sit together under one document.
+      { id: 'sk2', from: 'client', time: 'Sat', file: { name: 'Aadhaar card front.jpg', size: '1 page · 410 KB' }, matched: 'Filed as Aadhaar card · To review', link: { requestId: 'r12', clientId: 'shweta-kapoor', docId: 'aadhaar' } },
+      { id: 'sk3', from: 'client', time: 'Sat', file: { name: 'Aadhaar card back.jpg', size: '1 page · 395 KB' }, matched: 'Filed as Aadhaar card · To review', link: { requestId: 'r12', clientId: 'shweta-kapoor', docId: 'aadhaar' } },
+    ],
   },
   {
     id: 'c-agarwal',
@@ -374,7 +419,7 @@ export function InboxProvider({ children }: { children: ReactNode }) {
 
   const send = useCallback(
     (id: string, text: string) =>
-      patch(id, (c) => ({ ...c, msgs: [...c.msgs, { id: `s${Date.now()}`, from: 'ca', day: todayISO(), time: nowTime(), tick: 'sent', text }] })),
+      patch(id, (c) => ({ ...c, msgs: [...c.msgs, { id: `s${Date.now()}`, from: 'ca', day: todayISO(), time: nowTime(), sentAt: Date.now(), tick: 'sent', text }] })),
     [patch],
   )
 
@@ -388,7 +433,7 @@ export function InboxProvider({ children }: { children: ReactNode }) {
   // A message the app sends for a client (a request, a reminder, a thank-you). It lands in that client's chat,
   // which is found by phone number so clients on a shared number stay in one chat. No chat yet? One is started.
   const postToClient = useCallback((client: { id: string; name: string; phone: string }, text: string, via: 'own' | 'kdk') => {
-    const msg: Msg = { id: `s${Date.now()}${Math.random().toString(36).slice(2, 6)}`, from: 'ca', day: todayISO(), time: nowTime(), tick: 'sent', text, clientId: client.id }
+    const msg: Msg = { id: `s${Date.now()}${Math.random().toString(36).slice(2, 6)}`, from: 'ca', day: todayISO(), time: nowTime(), sentAt: Date.now(), tick: 'sent', text, clientId: client.id }
     setConversations((prev) => {
       const at = prev.findIndex((c) => !c.unassigned && c.via === via && (c.phone === client.phone || c.clientIds.includes(client.id)))
       if (at < 0) return [{ id: `c-${client.id}-${via}`, title: client.name, phone: client.phone, clientIds: [client.id], via, unread: 0, msgs: [msg] }, ...prev]
@@ -442,7 +487,7 @@ export function InboxProvider({ children }: { children: ReactNode }) {
     (convId: string, docName: string, reason: string) =>
       patch(convId, (c) => ({
         ...c,
-        msgs: [...c.msgs, { id: `s${Date.now()}`, from: 'ca', day: todayISO(), time: nowTime(), tick: 'sent', text: say('rejected', { name: c.title, document: docName, reason }) }],
+        msgs: [...c.msgs, { id: `s${Date.now()}`, from: 'ca', day: todayISO(), time: nowTime(), sentAt: Date.now(), tick: 'sent', text: say('rejected', { name: c.title, document: docName, reason }) }],
       })),
     [patch],
   )

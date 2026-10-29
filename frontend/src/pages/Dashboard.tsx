@@ -15,7 +15,7 @@ import { daysUntil, iso, parseISO, todayISO } from '../lib/dates'
 import { rowIn } from '../lib/motion'
 import { rowFocus, rowHover, rowKeys } from '../lib/ui'
 
-type Tab = 'all' | 'received' | 'no_response'
+type Tab = 'received' | 'no_response'
 
 const MotionLink = motion.create(Link)
 
@@ -26,7 +26,7 @@ const greeting = () => {
 
 // One row height for every kind of item, so the table reads as a clean grid.
 // On a phone each row becomes a small card: who and the button on top, then how far along and what is needed.
-const ROW = 'grid grid-cols-[minmax(0,1fr)_112px_148px_92px] items-center gap-4 px-6 @max-2xl:flex @max-2xl:flex-wrap @max-2xl:gap-x-3 @max-2xl:gap-y-2.5 @max-2xl:px-4'
+const ROW = 'grid grid-cols-[minmax(0,1fr)_104px_164px_92px] items-center gap-4 px-6 @max-2xl:flex @max-2xl:flex-wrap @max-2xl:gap-x-3 @max-2xl:gap-y-2.5 @max-2xl:px-4'
 
 // A month calendar. Every day is a box. Days with requests due show a coloured bar, and a click opens that day below.
 function MiniCalendar({ requests }: { requests: Request[] }) {
@@ -133,7 +133,7 @@ export default function Dashboard() {
   const firstName = team[0].name.split(' ')[0]
   const { items, stats } = useAttention()
   const { sendUpdate } = useMessenger()
-  const [tab, setTab] = useState<Tab>('all')
+  const [tab, setTab] = useState<Tab>('received')
   const { requests } = useRequests()
   const [toast, setToast] = useState<string | null>(null)
 
@@ -145,15 +145,16 @@ export default function Dashboard() {
 
   const counts = useMemo(
     () => ({
-      all: items.length,
       received: items.filter((i) => i.kind === 'received').length,
+      // a file from a number we do not know also waits for the CA's look, so it is under To review
+      review: items.filter((i) => i.kind === 'received' || i.kind === 'unassigned').length,
       no_response: items.filter((i) => i.kind === 'no_response').length,
     }),
     [items],
   )
 
   const visible = items
-    .filter((i) => tab === 'all' || i.kind === tab)
+    .filter((i) => (tab === 'received' ? i.kind === 'received' || i.kind === 'unassigned' : i.kind === 'no_response'))
 
   // Requests that are due in the next 7 days, plus the one or two that are most late. Late ones never crowd out what is coming.
   const open = requests
@@ -173,7 +174,7 @@ export default function Dashboard() {
   // Only the first few. The full list, with search and paging, lives on its own page.
   const SHOW = 9
   const shown = visible.slice(0, SHOW)
-  const viewAll = tab === 'received' ? '/requests?tab=review' : tab === 'no_response' ? '/requests?tab=waiting' : '/requests'
+  const viewAll = tab === 'received' ? '/requests?tab=review' : '/requests?tab=waiting'
 
   const remindOne = (i: (typeof items)[number]) => {
     sendUpdate(i.requestId!, i.clientId!)
@@ -181,7 +182,6 @@ export default function Dashboard() {
   }
 
   const tabs: { key: Tab; label: string; danger?: boolean }[] = [
-    { key: 'all', label: 'All' },
     { key: 'received', label: 'To review' },
     { key: 'no_response', label: 'Waiting' },
   ]
@@ -228,7 +228,7 @@ export default function Dashboard() {
             >
               {t.label}
               <span className={`ml-1.5 rounded-md px-1.5 py-px text-xs ${t.danger ? 'bg-danger-soft text-danger' : 'bg-canvas'}`}>
-                {counts[t.key]}
+                {t.key === 'received' ? counts.review : counts.no_response}
               </span>
             </button>
           ))}
@@ -237,7 +237,7 @@ export default function Dashboard() {
         <div className={`${ROW} @max-2xl:hidden border-b border-t border-line bg-slate-50/80 py-2 text-[12px] font-bold uppercase tracking-wider text-faint`}>
           <span>Client</span>
           <span>Received</span>
-          <span>Status</span>
+          <span>Activity</span>
           <span />
         </div>
 
@@ -252,18 +252,11 @@ export default function Dashboard() {
                 </Link>
               </EmptyState>
             ) : (
-              <EmptyState art="done" compact title="All caught up" text={tab === 'received' ? 'Nothing is waiting for your review.' : tab === 'no_response' ? 'You are not waiting on any client.' : 'Nothing needs you right now.'} />
+              <EmptyState art="done" compact title="All caught up" text={tab === 'received' ? 'Nothing is waiting for your review.' : 'You are not waiting on any client.'} />
             ))}
           {shown.map((i, index) => {
-            const pct = i.total ? (i.got / i.total) * 100 : 0
-            const chip =
-              i.kind === 'received'
-                ? { text: `${i.toReview} to review`, cls: 'bg-warn-soft text-warn' }
-                : i.kind === 'unassigned'
-                  ? { text: 'Unassigned', cls: 'bg-canvas text-slate-600' }
-                  : i.status === 'overdue'
-                    ? { text: 'Overdue', cls: 'bg-danger-soft text-danger' }
-                    : { text: 'Waiting', cls: 'bg-info-soft text-info' }
+                        // The button already says what to do (and how many to review), and the line under says when. A tag is kept only where nothing else says it (an unknown number). Overdue is already in red in the line under.
+            const chip = i.kind === 'unassigned' ? { text: 'Unassigned', cls: 'bg-canvas text-slate-600' } : null
             return (
               <motion.div
                 key={i.id}
@@ -295,8 +288,11 @@ export default function Dashboard() {
                       <div className="text-[13px] font-semibold tabular-nums">
                         {i.got} <span className="font-medium text-muted">of {i.total}</span>
                       </div>
-                      <span className="mt-1.5 block h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
-                        <motion.span className={`block h-full rounded-full ${i.status === 'overdue' ? 'bg-danger' : 'bg-brand'}`} initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: 0.2 }} />
+                      {/* Green is approved, amber is still to review, so a full bar does not look like a finished one. */}
+                      <span className="mt-1.5 flex h-1.5 w-full overflow-hidden rounded-full bg-slate-100" title={`${i.approved} approved${i.toReview ? `, ${i.toReview} to review` : ''}`}>
+                        <motion.span className="block h-full bg-brand" initial={{ width: 0 }} animate={{ width: `${(i.approved / i.total) * 100}%` }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} />
+                        <motion.span className="block h-full bg-[#E0A63A]" initial={{ width: 0 }} animate={{ width: `${(i.toReview / i.total) * 100}%` }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} />
+                        <motion.span className={`block h-full ${i.status === 'overdue' ? 'bg-danger' : 'bg-slate-300'}`} initial={{ width: 0 }} animate={{ width: `${Math.max(0, (i.got - i.approved - i.toReview) / i.total) * 100}%` }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} />
                       </span>
                     </>
                   ) : (
@@ -305,8 +301,8 @@ export default function Dashboard() {
                 </div>
 
                 <div className="min-w-0 @max-2xl:order-4 @max-2xl:flex-1 @max-2xl:basis-[45%]">
-                  <span className={`inline-block rounded-md px-2 py-1 text-[12px] font-bold uppercase tracking-wide ${chip.cls}`}>{chip.text}</span>
-                  <div className={`mt-1 truncate text-xs ${i.activityTone === 'danger' ? 'font-semibold text-danger' : 'text-muted'}`}>{i.activity}</div>
+                  {chip && <span className={`mb-1 inline-block rounded-md px-2 py-1 text-[12px] font-bold uppercase tracking-wide ${chip.cls}`}>{chip.text}</span>}
+                  <div className={`truncate text-[13px] ${i.activityTone === 'danger' ? 'font-semibold text-danger' : 'text-muted'}`}>{i.activity}</div>
                 </div>
 
                 <div onClick={(e) => e.stopPropagation()} className="flex justify-end @max-2xl:order-2 @max-2xl:shrink-0">
@@ -315,7 +311,7 @@ export default function Dashboard() {
                       type="button"
                       onClick={() => remindOne(i)}
                       title="Send a reminder on WhatsApp"
-                      className="flex h-9 items-center gap-1.5 rounded-lg border border-line bg-white px-3 text-[13px] font-semibold hover:border-brand hover:text-brand-dark"
+                      className="flex h-9 w-[92px] items-center justify-center gap-1.5 rounded-lg border border-line bg-white text-[13px] font-semibold hover:border-brand hover:text-brand-dark"
                     >
                       <Bell size={14} />
                       Remind
@@ -324,9 +320,9 @@ export default function Dashboard() {
                     <button
                       type="button"
                       onClick={() => navigate(i.href)}
-                      className="flex h-9 items-center rounded-lg bg-brand px-3.5 text-[13px] font-semibold text-white hover:bg-brand-dark"
+                      className="flex h-9 w-[92px] items-center justify-center rounded-lg bg-brand text-[13px] font-semibold text-white hover:bg-brand-dark"
                     >
-                      Review
+                      Review{i.kind === 'received' && i.toReview > 0 ? ` ${i.toReview}` : ''}
                     </button>
                   )}
                 </div>
@@ -336,7 +332,7 @@ export default function Dashboard() {
         </div>
 
         <Link to={viewAll} className="flex h-12 shrink-0 items-center justify-center gap-1.5 rounded-b-[18px] border-t border-line bg-slate-50/80 text-[13px] font-semibold text-brand hover:bg-canvas">
-          {visible.length > SHOW ? `View all ${visible.length} ${tab === 'all' ? 'items' : 'clients'}` : 'Open Requests'}
+          {visible.length > SHOW ? `View all ${visible.length} clients` : 'Open Requests'}
           <ChevronRight size={15} />
         </Link>
       </section>

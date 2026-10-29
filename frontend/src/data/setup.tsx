@@ -12,9 +12,10 @@ import type { MsgTemplate } from './messageTemplates'
 export interface WhatsAppLink {
   number: string
   displayName: string // the business name clients see on WhatsApp
-  provider: string // Ramwin, or the provider the firm already uses
-  route: 'ramwin' | 'provider'
-  channelId: string // the channel (sender / phone number) ID
+  provider: string // Ramwin
+  route: 'ramwin'
+  channelId: string // the channel ID Ramwin gave back. The API key stays on the server, it is never shown.
+  connectedAt?: string // when it was connected, like "12 Oct 2026"
 }
 
 export interface DocItem {
@@ -83,6 +84,12 @@ interface Store {
   whatsapp: WhatsAppLink | null // the firm's own WhatsApp, once connected
   connectWhatsApp: (link: WhatsAppLink | null) => void
   ownNumber: string | null // the connected number, for the places that only need that
+  sendFrom: 'own' | 'kdk' // the number the firm chose to send from, once, in Settings
+  setSendFrom: (v: 'own' | 'kdk') => void
+  approvedTemplates: string[] // message templates WhatsApp has approved for the firm's own number
+  approveTemplates: () => void
+  // The number a message really goes from: the firm's own only when it is connected, chosen, and WhatsApp has approved that message's template. Otherwise CA Connect.
+  viaFor: (via: 'own' | 'kdk', templateId: string) => 'own' | 'kdk'
   graceDays: number // how many days after the last date an upload link keeps working
   setGraceDays: (n: number) => void
   readReplies: boolean // read client replies sent to the firm's own WhatsApp number
@@ -105,13 +112,28 @@ export function SetupProvider({ children }: { children: ReactNode }) {
     gstin: '07AAAFS1234K1Z9',
   })
   const [team, setTeam] = useState(seedTeam)
-  const [whatsapp, connectWhatsApp] = useSessionState<WhatsAppLink | null>('whatsapp', emptyOn() ? null : {
+  const [whatsapp, setWhatsapp] = useSessionState<WhatsAppLink | null>('whatsapp', emptyOn() ? null : {
     number: '+91 98765 43210',
     displayName: 'Kartik Khandelwal & Associates',
     provider: 'Ramwin',
     route: 'ramwin',
     channelId: 'ch_7q2m9xk4',
+    connectedAt: '12 Oct 2026',
   })
+  const [sendFrom, setSendFrom] = useSessionState<'own' | 'kdk'>('sendFrom', emptyOn() ? 'kdk' : 'own')
+  // The sample firm connected a while ago, so all its templates are approved. A number connected now starts with none, until WhatsApp approves them.
+  const [approvedTemplates, setApprovedTemplates] = useSessionState<string[]>('waApproved', emptyOn() ? [] : seedMessages.map((m) => m.id))
+  const connectWhatsApp = useCallback(
+    (link: WhatsAppLink | null) => {
+      setWhatsapp(link)
+      setApprovedTemplates([])
+      setSendFrom(link ? 'own' : 'kdk')
+    },
+    [setWhatsapp, setApprovedTemplates, setSendFrom],
+  )
+  // Demo of WhatsApp's review: the first check finds some approved, the next one all of them.
+  const approveTemplates = useCallback(() => setApprovedTemplates((a) => (a.length === 0 ? seedMessages.slice(0, 7).map((m) => m.id) : seedMessages.map((m) => m.id))), [setApprovedTemplates])
+  const viaFor = useCallback((via: 'own' | 'kdk', templateId: string): 'own' | 'kdk' => (via === 'own' && whatsapp && approvedTemplates.includes(templateId) ? 'own' : 'kdk'), [whatsapp, approvedTemplates])
   const [graceDays, setGraceDays] = useSessionState('graceDays', 7)
   const [readReplies, setReadReplies] = useSessionState('readReplies', true)
 
@@ -169,9 +191,9 @@ export function SetupProvider({ children }: { children: ReactNode }) {
       compliances, templates, addCompliance, updateCompliance, removeCompliance,
       messageTemplates,
       firm, saveFirm: setFirm, team, invite, setRole, removeMember,
-      whatsapp, connectWhatsApp, ownNumber: whatsapp?.number ?? null, graceDays, setGraceDays, readReplies, setReadReplies,
+      whatsapp, connectWhatsApp, ownNumber: whatsapp?.number ?? null, sendFrom, setSendFrom, approvedTemplates, approveTemplates, viaFor, graceDays, setGraceDays, readReplies, setReadReplies,
     }),
-    [documents, groups, categories, addDocument, setDocumentMultiple, renameDocument, moveDocument, removeDocument, addCategory, renameCategory, removeCategory, compliances, templates, addCompliance, updateCompliance, removeCompliance, messageTemplates, firm, team, invite, setRole, removeMember, whatsapp, graceDays, readReplies],
+    [documents, groups, categories, addDocument, setDocumentMultiple, renameDocument, moveDocument, removeDocument, addCategory, renameCategory, removeCategory, compliances, templates, addCompliance, updateCompliance, removeCompliance, messageTemplates, firm, team, invite, setRole, removeMember, whatsapp, connectWhatsApp, sendFrom, setSendFrom, approvedTemplates, approveTemplates, viaFor, graceDays, readReplies],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

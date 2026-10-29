@@ -29,7 +29,7 @@ export function useAttention() {
         const late = missing > 0 && r.due < today
         if (late) stats.overdue++
 
-        const base = { clientId: rc.clientId, service: client.service, requestId: r.id, request: r.title, got, total: counted.length, toReview: toReview.length, title: partyName(rc.clientId) }
+        const base = { clientId: rc.clientId, service: client.service, requestId: r.id, request: r.title, got, total: counted.length, toReview: toReview.length, approved: counted.filter((d) => d.status === 'approved').length, title: partyName(rc.clientId) }
 
         if (toReview.length > 0) {
           const first = toReview[0]
@@ -37,8 +37,9 @@ export function useAttention() {
             ...base,
             id: `s:${r.id}:${rc.clientId}`,
             kind: 'received',
-            sub: (toReview.length === 1 ? toReview[0].name : `${toReview[0].name} and ${toReview.length - 1} more`) + '',
-            activity: first.receivedAt ?? '',
+            sub: toReview.length === 1 ? toReview[0].name : `${toReview[0].name} +${toReview.length - 1}`,
+            // when the first of these documents came (the line under says which)
+            activity: first.receivedAt ? `Received ${first.receivedAt}` : '',
             activitySub: first.source === 'Link' ? 'via upload link' : 'via WhatsApp reply',
             status: 'to_review',
             href: `/requests/${r.id}?client=${rc.clientId}`,
@@ -77,6 +78,7 @@ export function useAttention() {
               got: 0,
               total: 0,
               toReview: 0,
+              approved: 0,
               activity: c.msgs[c.msgs.length - 1].time,
               activitySub: 'via WhatsApp',
               status: 'unassigned' as const,

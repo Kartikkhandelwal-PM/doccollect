@@ -70,6 +70,11 @@ function rc(clientId: string, defs: Def[], codes: string, n = 0, lastReminder?: 
   return { clientId, docs, lastReminder }
 }
 
+// A document that allows several files, with the first file and the others (the front and back of a card).
+function withMore(c: RequestClient, docId: string, fileName: string, more: string[]): RequestClient {
+  return { ...c, docs: c.docs.map((d) => (d.id === docId ? { ...d, source: 'WhatsApp' as const, fileName, moreFiles: more } : d)) }
+}
+
 export const moreRequests: DocRequest[] = [
   {
     id: 'r4',
@@ -161,7 +166,7 @@ export const moreRequests: DocRequest[] = [
     createdAt: demoDay('2026-09-29'),
     due: demoDay('2026-10-08'),
     via: 'kdk',
-    clients: [rc('lotus-interiors', GST, 'AARP', 1), rc('sundaram-auto-parts', GST, 'PPPP', 0), rc('zenith-packaging', GST, 'AAPP', 2)],
+    clients: [rc('lotus-interiors', GST, 'AARP', 1), rc('sundaram-auto-parts', GST, 'RPPP', 0), rc('zenith-packaging', GST, 'AAPP', 2)],
   },
   {
     id: 'r12',
@@ -170,7 +175,7 @@ export const moreRequests: DocRequest[] = [
     createdAt: demoDay('2026-10-01'),
     due: demoDay('2026-10-20'),
     via: 'own',
-    clients: [rc('nisha-agarwal', ITR, 'PPPPPPP'), rc('manoj-tiwari', ITR, 'PPPPPPP'), rc('shweta-kapoor', ITR, 'PPPPPPP'), rc('lata-pillai', ITR, 'PPPPPPP')],
+    clients: [rc('nisha-agarwal', ITR, 'RPPPPPP'), rc('manoj-tiwari', ITR, 'RPPRPPP'), withMore(rc('shweta-kapoor', ITR, 'RRPPPPP'), 'aadhaar', 'Aadhaar card front.jpg', ['Aadhaar card back.jpg']), rc('lata-pillai', ITR, 'PPPPPPP')],
   },
   {
     id: 'r16',
