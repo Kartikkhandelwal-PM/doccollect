@@ -35,7 +35,7 @@ export default function ClientRepository({ clientId }: { clientId: string }) {
     for (const f of all) {
       const m = f.folderId?.match(/^c:([^/]+)\/([^/]+)\/(.+)$/)
       if (!m || m[1] !== clientId) continue
-      const y = `${rootId}/${m[2]}`
+      const y = `${rootId}/${m[2]}` // the registration, then the year below it
       map.set(rootId, { id: rootId, name: client?.name ?? clientId, parentId: null })
       map.set(y, { id: y, name: m[2], parentId: rootId })
       map.set(f.folderId!, { id: f.folderId!, name: m[3], parentId: y })
@@ -75,7 +75,7 @@ export default function ClientRepository({ clientId }: { clientId: string }) {
     return (
       <div className="rounded-[18px] border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
         <p className="text-[15px] font-semibold">Nothing in the repository yet</p>
-        <p className="mt-1 text-sm text-muted">Documents you approve are filed here, by year and registration.</p>
+        <p className="mt-1 text-sm text-muted">Documents you approve are filed here, by registration and year.</p>
       </div>
     )
   }

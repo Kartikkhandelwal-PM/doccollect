@@ -450,9 +450,11 @@ function RightPanel({ conv, onReview, onPreview }: { conv: Conversation; onRevie
       <div className="flex flex-col gap-3 p-5">
         <div>
           <div className="text-[15px] font-bold">
-            {files.length} {files.length === 1 ? 'file' : 'files'} to save
+            {files.length === 0 ? 'No files yet' : `${files.length} ${files.length === 1 ? 'file' : 'files'} to save`}
           </div>
-          <p className="mt-0.5 text-[13px] leading-snug text-muted">Open a file to read it, then choose where it goes.</p>
+          <p className="mt-0.5 text-[13px] leading-snug text-muted">
+            {files.length === 0 ? 'Save this number as a contact when it belongs to a client.' : 'Open a file to read it, then choose where it goes.'}
+          </p>
         </div>
         {files.map((m) => {
           const sug = suggestClient(m.read)
@@ -637,6 +639,13 @@ function InboxMain() {
   const [query, setQuery] = useState('')
   const [text, setText] = useState('')
   const [showTemplates, setShowTemplates] = useState(false)
+  // The templates list closes on Escape, and when another chat is opened.
+  useEffect(() => {
+    if (!showTemplates) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setShowTemplates(false)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [showTemplates])
   const [showAccounts, setShowAccounts] = useState(false)
   const [viewing, setViewing] = useState<Msg | null>(null)
   const [approving, setApproving] = useState<Approving | null>(null) // Approve asks where to keep the document
@@ -677,9 +686,9 @@ function InboxMain() {
   const own = mode === 'own' && connected
   // Are client replies being read at all? Not on the shared number, and not when the switch in Settings is off.
   const reading = own && readReplies
-  // Only work shows up here: what the firm sent, and the files a client sends back that look like documents.
-  // Text messages, and photos that do not look like documents, are skipped on arrival and never kept.
-  const isWork = (m: Msg) => m.from !== 'client' || !!m.file
+  // On the firm's own number the whole chat comes in (it is a work number): texts, photos and files. On the shared CA Connect number
+  // only what the firm sent and the files a client sends back are kept.
+  const isWork = (m: Msg) => reading || m.from !== 'client' || !!m.file
   const conversations = useMemo(
     () =>
       allConversations
@@ -742,6 +751,7 @@ function InboxMain() {
 
   useEffect(() => {
     markRead(active.id)
+    setShowTemplates(false)
   }, [active.id, markRead])
 
   useEffect(() => {
@@ -789,11 +799,11 @@ function InboxMain() {
           }
         if (docs.some((d) => !d.extra)) attachRequests.push({ key: `${r.id}:${c.clientId}`, requestId: r.id, title: differentPeople(attachIds) ? `${r.title} · ${getBookClient(c.clientId)?.name}` : r.title, ref: r.ref, due: r.due, place: regSuffix(c.clientId).replace(' · ', ''), docs })
       }
-  // Folders: the client's own year and compliance folders, then the ones the CA made.
+  // Folders: the client's own registration and year folders, then the ones the CA made.
   const folderChoices: (FolderChoice & { regId?: string })[] = [
     ...attachIds.flatMap((id) => {
       const c = getClient(id)
-      return c ? [{ id: folderIdOf(parentIdOf(id), 'FY 2025-26', `${c.service}${c.service === 'ITR' ? '' : regSuffix(id)}`), label: `${getBookClient(id)?.name ?? c.name} / FY 2025-26 / ${c.service}${c.service === 'ITR' ? '' : regSuffix(id)}`, regId: id }] : []
+      return c ? [{ id: folderIdOf(parentIdOf(id), 'FY 2025-26', `${c.service}${c.service === 'ITR' ? '' : regSuffix(id)}`), label: `${getBookClient(id)?.name ?? c.name} / ${c.service}${c.service === 'ITR' ? '' : regSuffix(id)} / FY 2025-26`, regId: id }] : []
     }),
     ...masterFolders.map((f) => ({ id: f.id, label: f.parentId ? `${masterFolders.find((x) => x.id === f.parentId)?.name} / ${f.name}` : f.name })),
   ]
@@ -841,7 +851,9 @@ function InboxMain() {
                     <Lock size={13} />
                     What is kept here
                   </div>
-                  Only files that look like documents are kept, for clients with an open request. Chats and personal photos are skipped and never saved.
+                  {reading
+                    ? 'Every chat on your number comes here, with its messages, photos and files. Files that look like documents are read and added to the client\'s request.'
+                    : 'Only the files a client sends back are kept here. Their other messages are not read.'}
                 </div>
               </>
             )}
@@ -1057,6 +1069,7 @@ function InboxMain() {
           </div>
         ) : null}
         <div className="relative flex shrink-0 items-end gap-3 bg-[#F0F2F5] px-4 py-3">
+          {showTemplates && own && <button type="button" aria-label="Close templates" className="fixed inset-0 z-[9] cursor-default" onClick={() => setShowTemplates(false)} />}
           {showTemplates && own && (
             <div className="absolute bottom-[68px] left-4 z-10 max-h-[360px] w-80 overflow-y-auto rounded-xl border border-line bg-white py-1 shadow-xl">
               {templates.map((t) => (

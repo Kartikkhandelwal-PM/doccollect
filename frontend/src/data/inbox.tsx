@@ -89,6 +89,7 @@ const rawSeed: Seed[] = [
           link: `${LINK_DOMAIN}/u/r-1032-ramesh-gst-v1`,
         }),
       },
+      { id: 'm1c', from: 'client', time: '10:40', text: 'Sir ITR aur GST dono ke documents bhej raha hoon, thoda time lagega.' },
       { id: 'm2', from: 'client', time: '10:42', file: { name: 'Form16_PartAB.pdf', size: '2 pages · 412 KB' }, matched: 'Filed as Form 16 · To review', link: { requestId: 'r1', clientId: 'ramesh-itr', docId: 'form16' } },
       { id: 'm3', from: 'client', time: '10:44', file: { name: 'Bank_statement_Apr-Mar.pdf', size: '3 pages · 1.1 MB' }, matched: 'Filed as Bank statement · To review', link: { requestId: 'r1', clientId: 'ramesh-itr', docId: 'bank' } },
       // Sent in one go, and we could not tell which request they are for. They wait inside the request until the CA places them.
@@ -96,7 +97,8 @@ const rawSeed: Seed[] = [
       { id: 'm4b', from: 'client', time: '10:47', file: { name: 'scan_0417.pdf', size: '1 page · 310 KB' }, matched: 'Not placed yet' },
       { id: 'm4c', from: 'client', time: '10:47', file: { name: 'HDFC_HL_Statement.pdf', size: '2 pages · 530 KB' }, matched: 'Not placed yet' },
       { id: 'm4d', from: 'client', time: '10:47', file: { name: 'Form16_page2.pdf', size: '1 page · 190 KB' }, matched: 'Not placed yet' },
-      { id: 'm3s', from: 'system', time: '10:47', text: '2 photos were skipped because they did not look like documents. They were not saved.' },
+      { id: 'm5', from: 'client', time: '10:49', text: 'Sir scan wali file Aadhaar ki hai, baaki do home loan ke papers hain.' },
+      { id: 'm6', from: 'ca', time: '10:52', tick: 'read', text: 'Theek hai Ramesh ji, hum dekh kar sahi jagah laga dete hain.' },
     ],
   },
   {
@@ -119,10 +121,13 @@ const rawSeed: Seed[] = [
     unread: 3,
     msgs: [
       { id: 'p0', from: 'ca', time: 'Sep 28', tick: 'read', text: say('request', { name: 'Priya Textiles', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '3 Oct', link: `${LINK_DOMAIN}/u/r-1043-priya-v1` }) },
+      { id: 'p0c', from: 'client', time: 'Sep 28', text: 'Sir GSTR-2B kal tak bhej dungi.' },
       { id: 'p0a', from: 'client', time: 'Sep 29', file: { name: 'GSTR2B_092026.pdf', size: '4 pages · 510 KB' }, matched: 'Filed as GSTR-2B · Approved', link: { requestId: 'r2', clientId: 'priya', docId: 'gstr2b' } },
       { id: 'p0b', from: 'ca', time: 'Sep 29', tick: 'read', text: say('approved', { name: 'Priya Textiles', document: 'GSTR-2B', pending_count: '2' }) },
       { id: 'p1', from: 'ca', time: 'Fri', tick: 'read', text: say('reminder', { name: 'Priya Textiles', link: `${LINK_DOMAIN}/u/r-1043-priya-v1` }) },
+      { id: 'p1a', from: 'client', time: 'Fri', text: 'Purchase register abhi ready nahi hai, accountant se mangwa rahi hoon.' },
       { id: 'p2', from: 'client', time: '09:58', file: { name: 'Purchase register.xlsx', size: '240 KB' }, matched: 'Filed as Purchase register · To review', link: { requestId: 'r2', clientId: 'priya', docId: 'purchase' } },
+      { id: 'p3', from: 'client', time: '10:02', text: 'Sir bhej diya, ek baar check kar lijiye.' },
     ],
   },
   {
@@ -136,6 +141,8 @@ const rawSeed: Seed[] = [
       { id: 'a0a', from: 'client', time: 'Sep 22', file: { name: 'TDS_challans_Q2.pdf', size: '3 pages · 640 KB' }, matched: 'Filed as TDS challans · Approved', link: { requestId: 'r3', clientId: 'anand', docId: 'challans' } },
       { id: 'a0b', from: 'client', time: 'Sep 22', file: { name: 'Deductee_list.xlsx', size: '96 KB' }, matched: 'Filed as Deductee list · Approved', link: { requestId: 'r3', clientId: 'anand', docId: 'deductees' } },
       { id: 'a1', from: 'ca', time: 'Yesterday', tick: 'read', text: say('pendinglist', { name: 'Anand Traders', request: 'TDS quarterly', pending_count: '2', pending_documents: formatList(['Form 16A', 'Bank statement Apr–Mar']), due_date: '28 Sep' }) },
+      { id: 'a2', from: 'client', time: 'Yesterday', text: 'Form 16A ke liye bank se certificate aana baki hai, 2 din lagenge.' },
+      { id: 'a3', from: 'client', time: '09:30', text: 'Sir bank statement kal tak pakka bhej dunga.' },
     ],
   },
   {
@@ -143,18 +150,24 @@ const rawSeed: Seed[] = [
     title: 'Meera Iyer',
     phone: '+91 96444 55577',
     clientIds: ['meera'],
-    unread: 0,
-    msgs: [{ id: 'e1', from: 'ca', time: 'Yesterday', tick: 'read', text: say('thanks', { name: 'Meera Iyer' }) }],
+    unread: 1,
+    msgs: [
+      { id: 'e1', from: 'ca', time: 'Yesterday', tick: 'read', text: say('thanks', { name: 'Meera Iyer' }) },
+      { id: 'e2', from: 'client', time: 'Yesterday', text: 'Thank you sir! Mera refund kab tak aayega?' },
+    ],
   },
   {
     id: 'c-kapoor',
     title: 'Kapoor Logistics',
     phone: '+91 90555 66663',
     clientIds: ['kapoor'],
-    unread: 0,
+    unread: 1,
     msgs: [
       { id: 'k1', from: 'ca', time: 'Sep 28', tick: 'read', text: say('request', { name: 'Kapoor Logistics', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '3 Oct', link: `${LINK_DOMAIN}/u/r-1043-kapoor-v1` }) },
       { id: 'k2', from: 'ca', time: 'Sep 29', tick: 'read', text: say('pendinglist', { name: 'Kapoor Logistics', request: 'GST monthly', pending_count: '4', pending_documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '3 Oct', link: `${LINK_DOMAIN}/u/r-1043-kapoor-v1` }) },
+      { id: 'k3', from: 'client', time: 'Sep 30', text: 'Sir is baar kaam late ho gaya, kya thoda extension mil sakta hai?' },
+      { id: 'k4', from: 'ca', time: 'Sep 30', tick: 'read', text: 'Due date 3 Oct hai, tab tak bhej dijiye. Zarurat ho to hum bata denge.' },
+      { id: 'k5', from: 'client', time: 'Yesterday', text: 'Theek hai sir, kal tak bhejte hain.' },
     ],
   },
   {
@@ -305,6 +318,8 @@ const rawSeed: Seed[] = [
       { id: 'ag1', clientId: 'agarwal-traders', from: 'ca', time: 'Fri', tick: 'read', text: say('request', { name: 'Agarwal Traders', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '9 Oct', link: `${LINK_DOMAIN}/u/r-1046-agarwal-traders-v1` }) },
       { id: 'ag2', clientId: 'agarwal-exports', from: 'ca', time: 'Fri', tick: 'read', text: say('request', { name: 'Agarwal Exports Pvt Ltd', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '9 Oct', link: `${LINK_DOMAIN}/u/r-1046-agarwal-exports-v1` }) },
       { id: 'ag3', clientId: 'agarwal-realty', from: 'ca', time: 'Fri', tick: 'read', text: say('request', { name: 'Agarwal Realty LLP', request: 'TDS quarterly', documents: formatList(['TDS challans', 'Deductee list', 'Form 16A', 'Bank statement Apr–Mar']), due_date: '12 Oct', link: `${LINK_DOMAIN}/u/r-1047-agarwal-realty-v1` }) },
+      { id: 'ag3a', from: 'client', time: 'Fri', text: 'Sir teeno ke documents alag alag bhejun ya ek hi chat me?' },
+      { id: 'ag3b', from: 'ca', time: 'Fri', tick: 'read', text: 'Ek hi chat me bhej dijiye, hum file padh ke sahi jagah laga denge.' },
       { id: 'ag4', from: 'client', time: 'Sat', file: { name: 'Agarwal_Traders_Sales_Sep.xlsx', size: '310 KB' }, matched: 'Filed as Sales register · Approved', link: { requestId: 'r17', clientId: 'agarwal-traders', docId: 'sales' } },
       { id: 'ag5', from: 'client', time: 'Yesterday', file: { name: 'Realty_TDS_challans.pdf', size: '3 pages · 480 KB' }, matched: 'Filed as TDS challans · Approved', link: { requestId: 'r18', clientId: 'agarwal-realty', docId: 'challans' } },
       { id: 'ag6', from: 'client', time: '10:05', file: { name: 'bank_stmt_sep.pdf', size: '4 pages · 760 KB' }, matched: 'Not placed yet' },
@@ -320,6 +335,7 @@ const rawSeed: Seed[] = [
       { id: 'sh1', clientId: 'ram-sharma', from: 'ca', time: 'Sep 30', tick: 'read', text: say('request', { name: 'Ram Sharma', request: 'ITR salaried', documents: formatList(['PAN card', 'Aadhaar card', 'Form 16 (Part A & B)', 'Form 26AS / AIS', 'Bank statement Apr–Mar', 'Home loan interest certificate', 'LIC premium receipts']), due_date: '12 Oct', link: `${LINK_DOMAIN}/u/r-1045-ram-sharma-v1` }) },
       { id: 'sh2', clientId: 'reeta-sharma', from: 'ca', time: 'Sep 30', tick: 'read', text: say('request', { name: 'Reeta Sharma', request: 'ITR salaried', documents: formatList(['PAN card', 'Aadhaar card', 'Form 16 (Part A & B)', 'Form 26AS / AIS', 'Bank statement Apr–Mar', 'Home loan interest certificate', 'LIC premium receipts']), due_date: '12 Oct', link: `${LINK_DOMAIN}/u/r-1045-reeta-sharma-v1` }) },
       { id: 'sh3', clientId: 'seeta-sharma', from: 'ca', time: 'Sep 30', tick: 'read', text: say('request', { name: 'Seeta Sharma', request: 'ITR salaried', documents: formatList(['PAN card', 'Aadhaar card', 'Form 16 (Part A & B)', 'Form 26AS / AIS', 'Bank statement Apr–Mar', 'Home loan interest certificate', 'LIC premium receipts']), due_date: '12 Oct', link: `${LINK_DOMAIN}/u/r-1045-seeta-sharma-v1` }) },
+      { id: 'sh3a', from: 'client', time: 'Yesterday', text: 'Sir ghar ke teeno logon ke papers bhejne hain, kaise bhejun?' },
       { id: 'sh4', from: 'client', time: 'Yesterday', file: { name: 'Ram_PAN_Aadhaar.pdf', size: '2 pages · 340 KB' }, matched: 'Filed as PAN card · Approved', link: { requestId: 'r16', clientId: 'ram-sharma', docId: 'pan' } },
       { id: 'sh5', from: 'client', time: '10:58', file: { name: 'Reeta_Form16.pdf', size: '2 pages · 395 KB' }, matched: 'Filed as Form 16 · To review', link: { requestId: 'r16', clientId: 'reeta-sharma', docId: 'form16' } },
       { id: 'sh6', from: 'client', time: '11:20', file: { name: 'scan_0522.pdf', size: '1 page · 260 KB' }, matched: 'Not placed yet' },
@@ -335,6 +351,8 @@ const rawSeed: Seed[] = [
       { id: 'ne1', from: 'ca', time: 'Sep 26', tick: 'read', text: say('request', { name: 'Neha Kulkarni', request: 'ITR salaried', documents: formatList(['PAN card', 'Aadhaar card', 'Form 16 (Part A & B)']), due_date: '10 Oct' }) },
       { id: 'ne2', from: 'client', time: 'Sep 27', file: { name: 'Form16.pdf', size: '2 pages · 402 KB' }, matched: 'Filed as Form 16 · Approved' },
       { id: 'ne3', from: 'ca', time: 'Sep 29', tick: 'read', text: say('approved', { name: 'Neha Kulkarni', request: 'ITR salaried' }) },
+      { id: 'ne4', from: 'client', time: 'Yesterday', text: 'Thank you sir! ITR file ho gaya kya?' },
+      { id: 'ne5', from: 'ca', time: 'Yesterday', tick: 'read', text: 'Ho gaya Neha ji, acknowledgement mail kar diya hai.' },
     ],
   },
   {
@@ -342,10 +360,11 @@ const rawSeed: Seed[] = [
     title: 'Singhania Steels',
     phone: '+91 98990 24680',
     clientIds: ['singhania-steels'],
-    unread: 1,
+    unread: 2,
     msgs: [
       { id: 'si1', from: 'ca', time: 'Mon', tick: 'read', text: say('request', { name: 'Singhania Steels', request: 'GST monthly', documents: formatList(['Sales register', 'Purchase register', 'GSTR-2B', 'Bank statement Apr–Mar']), due_date: '5 Oct' }) },
       { id: 'si2', from: 'client', time: '10:12', file: { name: 'Bank_statement_FY26.pdf', size: '8 pages · 1.4 MB' }, matched: 'Filed as Bank statement · To review', link: { requestId: 'r4', clientId: 'singhania-steels', docId: 'bank' } },
+      { id: 'si3', from: 'client', time: '10:20', text: 'Sir baaki files shaam tak bhej deta hoon.' },
     ],
   },
   {
@@ -371,6 +390,31 @@ const rawSeed: Seed[] = [
     unassigned: true,
     unread: 1,
     msgs: [{ id: 'u3', from: 'client', time: 'Yesterday', file: { name: 'IMG_4431.pdf', size: '1 page · 280 KB' } }],
+  },
+  // Chats where the client wrote first on the firm's own number. It is a work number, so the whole chat shows: texts and photos too.
+  {
+    id: 'c-manoj-own',
+    title: 'Manoj Tiwari',
+    phone: getClient('manoj-tiwari')?.phone ?? '',
+    clientIds: ['manoj-tiwari'],
+    unread: 2,
+    msgs: [
+      { id: 'mo1', from: 'client', time: '09:40', text: 'Sir namaste, ITR ka kaam is saal bhi aap hi karenge na?' },
+      { id: 'mo2', from: 'client', time: '09:41', text: 'Kitne din me ho jayega aur kaun kaun se papers lagenge?' },
+    ],
+  },
+  {
+    id: 'c-unassigned4',
+    title: '+91 93210 45678',
+    phone: '+91 93210 45678',
+    clientIds: [],
+    unassigned: true,
+    unread: 3,
+    msgs: [
+      { id: 'u9', from: 'client', time: 'Yesterday', text: 'Hello, mujhe apni company ka GST registration karwana hai. Charges kya honge?' },
+      { id: 'u10', from: 'client', time: 'Yesterday', file: { name: 'IMG_2210.jpg', size: '1 page · 640 KB' }, photo: true },
+      { id: 'u11', from: 'client', time: 'Yesterday', text: 'Ye shop ki photo hai, address proof baad me bhejta hoon.' },
+    ],
   },
 ]
 

@@ -178,7 +178,7 @@ On the CA Connect number, client replies are not read. The client gets an automa
 
 **Who:** CA, staff. **Starts:** a client sends something on the firm's own number.
 
-**Step 1: keep or drop.** Chats and personal photos are dropped, never saved. Only files that look like documents are kept.
+**Step 1: keep everything.** The firm's own number is a work number, so every chat comes in: messages, photos and files. Files that look like documents are read and added to the client's request.
 
 **Step 2: whose is it?** In this order:
 

@@ -4,7 +4,8 @@ import { clients, getBookClient, getClient, parentIdOf, regSuffix } from './mock
 import type { Client } from './types'
 import type { Service } from './types'
 
-export const folderIdOf = (clientId: string, fy: string, compliance: string) => `c:${clientId}/${fy}/${compliance}`
+// The client first, then each registration (ITR, GST · place, TDS · place), then the year.
+export const folderIdOf = (clientId: string, fy: string, compliance: string) => `c:${clientId}/${compliance}/${fy}`
 
 export interface MasterFile {
   id: string
@@ -25,7 +26,7 @@ const sizeOf = (s: string) => {
   return kb > 700 ? `${(kb / 400).toFixed(1)} MB` : `${kb} KB`
 }
 
-// The folder is the client's, and under it the year and the compliance (with the state or place when the client has several GSTINs or TANs).
+// The folder is the client's, and under it the registration (with the state or place when the client has several GSTINs or TANs) and then the year.
 const file = (c: Client, fy: string, name: string, date: string, from = 'Earlier'): MasterFile => ({
   id: `${c.id}-${fy}-${name}`,
   folderId: folderIdOf(parentIdOf(c.id), fy, `${c.service}${regSuffix(c.id)}`),
@@ -64,14 +65,14 @@ const archive: MasterFile[] = clients.flatMap((c, i) =>
 const complianceOf = (title: string, fallback: Service): string =>
   title.startsWith('ITR') ? 'ITR' : title.startsWith('GST') ? 'GST' : title.startsWith('TDS') ? 'TDS' : title || fallback
 
-// The folder we would suggest for a document of this request: the client, the year and the kind of work (with the place when the client has several GSTINs or TANs).
+// The folder we would suggest for a document of this request: the client, the kind of work (with the place when the client has several GSTINs or TANs) and the year.
 export function autoFolderId(requestTitle: string, clientId: string): string {
   const client = getClient(clientId)
   const service = client?.service ?? 'ITR'
   return folderIdOf(parentIdOf(clientId), 'FY 2025-26', `${complianceOf(requestTitle, service)}${service === 'ITR' ? '' : regSuffix(clientId)}`)
 }
 
-// A folder's name in full, for the ones the app makes (client > year > kind). A folder the CA made is named from the store, so the caller does that.
+// A folder's name in full, for the ones the app makes (client > registration > year). A folder the CA made is named from the store, so the caller does that.
 export function autoFolderLabel(folderId: string): string | undefined {
   const m = folderId.match(/^c:([^/]+)\/([^/]+)\/(.+)$/)
   if (!m) return undefined
