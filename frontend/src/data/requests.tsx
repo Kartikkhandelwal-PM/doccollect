@@ -3,7 +3,8 @@ import { emptyOn } from '../lib/demo'
 import { createContext, useCallback, useContext, useMemo } from 'react'
 import { useSessionState } from '../lib/session'
 import type { ReactNode } from 'react'
-import { multipleIds } from './catalog'
+import { multipleIds, optionalIds } from './catalog'
+import { CURRENT_FY } from '../lib/period'
 import { bulkRequest, moreRequests, rameshGst, seedUnsorted } from './seedRequests'
 import type { Status } from './types'
 
@@ -15,6 +16,7 @@ export interface RequestDoc {
   receivedAt?: string
   fileName?: string
   multiple?: boolean // the client may send more than one file for this document (set on the document in the Documents page)
+  optional?: boolean // asked "if you have it": it does not hold the request back, and nobody is reminded for it, unless the client sent one and it was sent back
   moreFiles?: string[] // the other files, for a document that allows several: the front and back of a card, the sheets of a workbook
   reason?: string
   // Where the CA saved this approved document in Document Master (a folder id). Not set: it sits in its client's folder (the sample data).
@@ -36,7 +38,7 @@ export interface RequestClient {
   clientId: string
   linkVersion?: number // goes up each time a new link is sent, which switches the old one off
   docs: RequestDoc[]
-  lastReminder?: string
+  lastReminder?: string // when the last reminder went, the date and the time: "Sep 29, 10:42"
 }
 
 export interface DocRequest {
@@ -45,6 +47,8 @@ export interface DocRequest {
   title: string
   createdAt: string
   due: string
+  // The year this request is for (FY 2025-26). Files that come on it, and the folders they go to, take this year. Not set: the current year.
+  period?: string
   via: 'own' | 'kdk'
   clients: RequestClient[]
 }
@@ -54,24 +58,42 @@ export interface NewRequestInput {
   due: string
   via: 'own' | 'kdk'
   clientIds: string[]
-  docs: { id: string; name: string; multiple?: boolean }[]
+  period?: string
+  docs: { id: string; name: string; multiple?: boolean; optional?: boolean }[]
+  // When clients are asked for different documents (only what each one is missing), their own list. A client not here gets `docs`.
+  docsByClient?: Record<string, { id: string; name: string; multiple?: boolean; optional?: boolean }[]>
 }
 
 export type RequestState = 'completed' | 'review' | 'waiting'
 
 export const isReceived = (d: RequestDoc) => d.status !== 'pending' && d.status !== 'na'
 
+// A document that holds a request: everything asked for, except the ones the client said do not apply and the optional ones that have not come.
+// (An optional one that came, and was sent back, still counts: the client wants to send it.)
+export const isCounted = (d: RequestDoc) => d.status !== 'na' && !(d.optional && d.status === 'pending')
+
 // Documents the client marked "not applicable" do not count towards the total.
 export function progress(r: DocRequest) {
-  const all = r.clients.flatMap((c) => c.docs).filter((d) => d.status !== 'na')
+  const all = r.clients.flatMap((c) => c.docs).filter(isCounted)
   return { total: all.length, received: all.filter(isReceived).length, toReview: all.filter((d) => d.status === 'to_review').length }
 }
 
 export function requestState(r: DocRequest): RequestState {
-  const all = r.clients.flatMap((c) => c.docs).filter((d) => d.status !== 'na')
+  const all = r.clients.flatMap((c) => c.docs).filter(isCounted)
   if (all.length > 0 && all.every((d) => d.status === 'approved')) return 'completed'
   if (all.some((d) => d.status === 'to_review')) return 'review'
   return 'waiting'
+}
+
+// A reminder is stored as "Sep 29, 10:42". These give its two parts, and the moment for ordering.
+export const reminderDate = (s: string) => s.split(', ')[0]
+export const reminderTime = (s: string) => s.split(', ')[1] ?? ''
+export const reminderAt = (s: string) => {
+  const day = reminderDate(s)
+  const base = day === 'Today' ? new Date() : new Date(`${day} ${new Date().getFullYear()}`)
+  const [h, m] = reminderTime(s).split(':').map(Number)
+  base.setHours(h || 0, m || 0, 0, 0)
+  return base.getTime() || 0
 }
 
 export const fmtDate = (iso: string) =>
@@ -81,6 +103,7 @@ const doc = (id: string, name: string, status: Status, source?: 'WhatsApp' | 'Li
   id,
   name,
   multiple: multipleIds.has(id),
+  optional: optionalIds.has(id),
   status,
   source,
   receivedAt,
@@ -145,7 +168,7 @@ const seedAll: DocRequest[] = [
           doc('gstr2b', 'GSTR-2B', 'pending'),
           doc('bank', 'Bank statement Apr–Mar', 'pending'),
         ],
-        lastReminder: 'Sep 29',
+        lastReminder: 'Sep 29, 10:42',
       },
     ],
   },
@@ -165,7 +188,7 @@ const seedAll: DocRequest[] = [
           doc('form16a', 'Form 16A', 'pending'),
           doc('bank', 'Bank statement Apr–Mar', 'pending'),
         ],
-        lastReminder: 'Sep 27',
+        lastReminder: 'Sep 27, 16:05',
       },
     ],
   },
@@ -185,6 +208,8 @@ interface Store {
   receiveFile: (requestId: string, clientId: string, docId: string, fileName: string) => void
   moveFile: (requestId: string, clientId: string, fromDocId: string, toDocId: string | null) => void
   setDocFiled: (requestId: string, clientId: string, docId: string, folderId: string | null) => void
+  // A document was merged into another one: every request that asked for it now asks for the other. A client asked for both keeps the one that is further along.
+  reassignDoc: (fromId: string, to: { id: string; name: string }) => void
   markNotApplicable: (requestId: string, clientId: string, docId: string, on: boolean) => void
   resetClient: (requestId: string, clientId: string) => void
   clientRemove: (requestId: string, clientId: string, docId: string) => void
@@ -214,10 +239,11 @@ export function RequestsProvider({ children }: { children: ReactNode }) {
         title: input.title,
         createdAt: new Date().toISOString().slice(0, 10),
         due: input.due,
+        period: input.period ?? CURRENT_FY,
         via: input.via,
         clients: input.clientIds.map((clientId) => ({
           clientId,
-          docs: input.docs.map((d) => ({ id: d.id, name: d.name, multiple: d.multiple, status: 'pending' as Status })),
+          docs: (input.docsByClient?.[clientId] ?? input.docs).map((d) => ({ id: d.id, name: d.name, multiple: d.multiple, optional: d.optional, status: 'pending' as Status })),
         })),
       }
       setRequests((prev) => [r, ...prev])
@@ -254,7 +280,7 @@ export function RequestsProvider({ children }: { children: ReactNode }) {
       prev.map((r) =>
         r.id !== requestId
           ? r
-          : { ...r, clients: r.clients.map((c) => (c.clientId === clientId ? { ...c, lastReminder: 'Today' } : c)) },
+          : { ...r, clients: r.clients.map((c) => (c.clientId === clientId ? { ...c, lastReminder: `Today, ${new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false })}` } : c)) },
       ),
     )
   }, [])
@@ -422,9 +448,25 @@ export function RequestsProvider({ children }: { children: ReactNode }) {
     )
   }, [])
 
+  const reassignDoc = useCallback((fromId: string, to: { id: string; name: string }) => {
+    const rank: Record<string, number> = { approved: 4, to_review: 3, rejected: 2, pending: 1, awaiting: 1, overdue: 1 }
+    setRequests((prev) =>
+      prev.map((r) => ({
+        ...r,
+        clients: r.clients.map((rc) => {
+          const from = rc.docs.find((d) => d.id === fromId)
+          if (!from) return rc
+          const has = rc.docs.find((d) => d.id === to.id)
+          const dropId = has && (rank[from.status] ?? 0) <= (rank[has.status] ?? 0) ? fromId : has ? to.id : ''
+          return { ...rc, docs: rc.docs.filter((d) => d.id !== dropId).map((d) => (d.id === fromId ? { ...d, id: to.id, name: to.name } : d)) }
+        }),
+      })),
+    )
+  }, [])
+
   const value = useMemo(
-    () => ({ requests, getRequest, create, setDocStatus, remind, simulateReply, clientUpload, receiveFile, moveFile, setDocFiled, markNotApplicable, resetClient, clientRemove, clientAddFile, unsorted, addUnsorted, useUnsorted, dropUnsorted, changeDue, newLink }),
-    [requests, getRequest, create, setDocStatus, remind, simulateReply, clientUpload, receiveFile, moveFile, setDocFiled, markNotApplicable, resetClient, clientRemove, clientAddFile, unsorted, useUnsorted, dropUnsorted, changeDue, newLink],
+    () => ({ requests, getRequest, create, setDocStatus, remind, simulateReply, clientUpload, receiveFile, moveFile, setDocFiled, reassignDoc, markNotApplicable, resetClient, clientRemove, clientAddFile, unsorted, addUnsorted, useUnsorted, dropUnsorted, changeDue, newLink }),
+    [requests, getRequest, create, setDocStatus, remind, simulateReply, clientUpload, receiveFile, moveFile, setDocFiled, reassignDoc, markNotApplicable, resetClient, clientRemove, clientAddFile, unsorted, useUnsorted, dropUnsorted, changeDue, newLink],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

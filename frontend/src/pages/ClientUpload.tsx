@@ -114,7 +114,7 @@ export default function ClientUpload() {
   }
 
   // Everything is approved, so there is nothing left to upload.
-  if (total > 0 && rc.docs.every((d) => d.status === 'approved' || d.status === 'na')) {
+  if (total > 0 && rc.docs.every((d) => d.status === 'approved' || d.status === 'na' || (d.optional && d.status === 'pending'))) {
     return (
       <div className="min-h-full bg-canvas">
         {banner}
@@ -212,7 +212,7 @@ export default function ClientUpload() {
             if (d.status === 'rejected')
               return (
                 <div key={d.id} className="rounded-2xl border-[1.5px] border-[#F3C4BE] bg-white p-3.5">
-                  <div className="text-[15px] font-semibold">{d.name}</div>
+                  <div className="text-[15px] font-semibold">{d.name}{d.optional && <span className="ml-2 rounded-md border border-dashed border-slate-300 px-1.5 py-px align-middle text-[11px] font-semibold text-muted">Optional</span>}</div>
                   <p className="mt-1.5 rounded-lg bg-[#FDF1EF] px-3 py-2 text-[13px] leading-relaxed text-[#7A271A]">Please send again: {d.reason ?? 'the file could not be used'}</p>
                   <div className="mt-2.5 flex">{upload}</div>
                 </div>
@@ -221,12 +221,14 @@ export default function ClientUpload() {
             if (d.status === 'pending')
               return (
                 <div key={d.id} className="rounded-2xl border border-line bg-white p-3.5">
-                  <div className="text-[15px] font-semibold">{d.name}</div>
+                  <div className="text-[15px] font-semibold">{d.name}{d.optional && <span className="ml-2 rounded-md border border-dashed border-slate-300 px-1.5 py-px align-middle text-[11px] font-semibold text-muted">Optional</span>}</div>
                   <div className="mt-2.5 flex gap-2">
                     {upload}
-                    <button type="button" onClick={() => markNotApplicable(request.id, rc.clientId, d.id, true)} className="h-11 shrink-0 rounded-xl bg-canvas px-4 text-[13px] font-semibold text-slate-600">
+{!d.optional && (
+                                          <button type="button" onClick={() => markNotApplicable(request.id, rc.clientId, d.id, true)} className="h-11 shrink-0 rounded-xl bg-canvas px-4 text-[13px] font-semibold text-slate-600">
                       I don't have it
                     </button>
+                    )}
                   </div>
                 </div>
               )
@@ -238,7 +240,7 @@ export default function ClientUpload() {
                     <Clock size={16} />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <div className="text-[15px] font-semibold text-muted">{d.name}</div>
+                    <div className="text-[15px] font-semibold text-muted">{d.name}{d.optional && <span className="ml-2 rounded-md border border-dashed border-slate-300 px-1.5 py-px align-middle text-[11px] font-semibold text-muted">Optional</span>}</div>
                     <div className="text-xs text-muted">Marked as not available</div>
                   </div>
                   <button type="button" onClick={() => markNotApplicable(request.id, rc.clientId, d.id, false)} className="rounded-lg px-3 py-2 text-[13px] font-semibold text-brand">
@@ -255,7 +257,7 @@ export default function ClientUpload() {
                     <Check size={17} strokeWidth={2.8} />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <div className="text-[15px] font-semibold">{d.name}</div>
+                    <div className="text-[15px] font-semibold">{d.name}{d.optional && <span className="ml-2 rounded-md border border-dashed border-slate-300 px-1.5 py-px align-middle text-[11px] font-semibold text-muted">Optional</span>}</div>
                     <div className="text-xs font-semibold text-ok">{d.status === 'approved' ? 'Approved' : 'Received'}</div>
                   </div>
                 </div>

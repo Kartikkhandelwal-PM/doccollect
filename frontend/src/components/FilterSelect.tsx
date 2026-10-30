@@ -3,7 +3,19 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 
 // One look for every filter dropdown: the same height and width, the arrow in the same place, a clear focus ring.
-export default function FilterSelect({ value, onChange, label, children, width = 'w-[200px]' }: { value: string; onChange: (value: string) => void; label: string; children: ReactNode; width?: string }) {
+export default function FilterSelect({ value, onChange, label, children, width = 'w-[200px]', named, active }: { value: string; onChange: (value: string) => void; label: string; children: ReactNode; width?: string; named?: boolean; active?: boolean }) {
+  // named: the filter's name is written in front of the choice ("Last date  Any"), so a choice like "Any" is clear on its own.
+  // active: a choice other than the default is on, so the box is outlined in green and it is easy to see what is filtering the list.
+  if (named)
+    return (
+      <label className={`relative flex h-10 shrink-0 items-center rounded-xl border bg-white pl-3.5 pr-8 text-sm transition-colors focus-within:ring-2 focus-within:ring-brand/15 ${active ? 'border-brand bg-[#F3FAF8]' : 'border-line hover:border-slate-400'} ${width} max-md:w-full`}>
+        <span className="mr-2 shrink-0 text-muted">{label}</span>
+        <select value={value} onChange={(e) => onChange(e.target.value)} aria-label={label} className={`h-full min-w-0 flex-1 cursor-pointer appearance-none truncate bg-transparent pr-1 font-semibold outline-none ${active ? 'text-brand-dark' : 'text-ink'}`}>
+          {children}
+        </select>
+        <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted" />
+      </label>
+    )
   return (
     <label className={`relative block h-10 shrink-0 ${width} max-md:w-full`}>
       <span className="sr-only">{label}</span>

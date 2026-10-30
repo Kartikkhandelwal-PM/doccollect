@@ -3,7 +3,7 @@ import { emptyOn } from '../lib/demo'
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Service } from './types'
-import { groups as seedGroups, multipleIds, templates as seedTemplates } from './catalog'
+import { groups as seedGroups, multipleIds, optionalIds, templates as seedTemplates } from './catalog'
 import { seedMessages } from './messageTemplates'
 import type { MsgTemplate } from './messageTemplates'
 
@@ -23,6 +23,8 @@ export interface DocItem {
   name: string
   group: string
   multiple?: boolean // the client may send more than one file for this document
+  optional?: boolean // asked "if you have it" by default; each request can change that
+  once?: boolean // one file is enough for good (PAN, Aadhaar): it belongs to no year, and counts in every year
 }
 export interface Compliance {
   id: string
@@ -45,7 +47,10 @@ export interface Firm {
   gstin: string
 }
 
-const seedDocs: DocItem[] = seedGroups.flatMap((g) => g.docs.map((d) => ({ id: d.id, name: d.name, group: g.title, multiple: multipleIds.has(d.id) })))
+// Papers that are kept once and stay good: ID proofs and the firm's own registrations. Everything else is asked again every year.
+const onceIds = new Set(['pan', 'aadhaar', 'passport', 'address', 'photo', 'voterid', 'dl', 'sign', 'udyam', 'coi', 'moa', 'dsc', 'tanreg', 'gstcert', 'deed', 'shopact', 'fssai', 'iec', 'tradelic', 'ptreg', 'firmpan', 'reg12a', 'trust12a', 'dir3kyc', 'dinkyc'])
+
+const seedDocs: DocItem[] = seedGroups.flatMap((g) => g.docs.map((d) => ({ id: d.id, name: d.name, group: g.title, multiple: multipleIds.has(d.id), once: onceIds.has(d.id), optional: optionalIds.has(d.id) })))
 const seedCompliances: Compliance[] = seedTemplates.filter((t) => t.id !== 'custom').map((t) => ({ id: t.id, name: t.name, kind: t.kind, docIds: t.docIds }))
 
 const seedTeam: TeamMember[] = [
@@ -58,11 +63,14 @@ interface Store {
   documents: DocItem[]
   groups: { title: string; docs: DocItem[] }[] // only categories that have documents (for checklists)
   categories: string[] // every category, including empty ones (for the Documents list page)
-  addDocument: (name: string, group: string, multiple?: boolean) => string
+  addDocument: (name: string, group: string, multiple?: boolean, once?: boolean, optional?: boolean) => string
+  setDocumentOptional: (id: string, on: boolean) => void
+  setDocumentOnce: (id: string, on: boolean) => void
+  onceIds: ReadonlySet<string> // the documents that are kept once, for good
   setDocumentMultiple: (id: string, on: boolean) => void
   renameDocument: (id: string, name: string) => void
   moveDocument: (id: string, group: string) => void
-  removeDocument: (id: string) => void
+  removeDocument: (id: string, replaceWith?: string) => void
   addCategory: (name: string) => void
   renameCategory: (from: string, to: string) => void
   removeCategory: (name: string) => void
@@ -99,9 +107,10 @@ interface Store {
 const Ctx = createContext<Store | null>(null)
 
 export function SetupProvider({ children }: { children: ReactNode }) {
-  const [documents, setDocuments] = useState(seedDocs)
-  const [categories, setCategories] = useState<string[]>(seedGroups.map((g) => g.title))
-  const [compliances, setCompliances] = useState(seedCompliances)
+  // The documents and checklists are kept for the tab, like the requests, so a refresh keeps what was added, renamed or deleted.
+  const [documents, setDocuments] = useSessionState('documents', seedDocs)
+  const [categories, setCategories] = useSessionState<string[]>('doc-categories', seedGroups.map((g) => g.title))
+  const [compliances, setCompliances] = useSessionState('checklists', seedCompliances)
   const [messageTemplates] = useState(seedMessages)
   const [firm, setFirm] = useState<Firm>({
     name: 'Kartik Khandelwal & Associates',
@@ -137,12 +146,15 @@ export function SetupProvider({ children }: { children: ReactNode }) {
   const [graceDays, setGraceDays] = useSessionState('graceDays', 7)
   const [readReplies, setReadReplies] = useSessionState('readReplies', true)
 
-  const addDocument = useCallback((name: string, group: string, multiple = false) => {
+  const addDocument = useCallback((name: string, group: string, multiple = false, once = false, optional = false) => {
     const id = `d-${Date.now()}`
-    setDocuments((p) => [...p, { id, name, group, multiple }])
+    setDocuments((p) => [...p, { id, name, group, multiple, once, optional }])
     setCategories((p) => (p.includes(group) ? p : [...p, group]))
     return id
   }, [])
+  const setDocumentOptional = useCallback((id: string, on: boolean) => setDocuments((p) => p.map((d) => (d.id === id ? { ...d, optional: on } : d))), [])
+  const setDocumentOnce = useCallback((id: string, on: boolean) => setDocuments((p) => p.map((d) => (d.id === id ? { ...d, once: on } : d))), [])
+  const onceIdSet = useMemo(() => new Set(documents.filter((d) => d.once).map((d) => d.id)), [documents])
   const setDocumentMultiple = useCallback((id: string, on: boolean) => setDocuments((p) => p.map((d) => (d.id === id ? { ...d, multiple: on } : d))), [])
   const moveDocument = useCallback((id: string, group: string) => {
     setDocuments((p) => p.map((d) => (d.id === id ? { ...d, group } : d)))
@@ -155,9 +167,10 @@ export function SetupProvider({ children }: { children: ReactNode }) {
   }, [])
   const removeCategory = useCallback((name: string) => setCategories((p) => p.filter((c) => c !== name)), [])
   const renameDocument = useCallback((id: string, name: string) => setDocuments((p) => p.map((d) => (d.id === id ? { ...d, name } : d))), [])
-  const removeDocument = useCallback((id: string) => {
+  // The document goes from the list. In the checklists it is taken out, or (when its files were moved to another document) swapped for that one.
+  const removeDocument = useCallback((id: string, replaceWith?: string) => {
     setDocuments((p) => p.filter((d) => d.id !== id))
-    setCompliances((p) => p.map((c) => ({ ...c, docIds: c.docIds.filter((x) => x !== id) })))
+    setCompliances((p) => p.map((c) => ({ ...c, docIds: replaceWith ? [...new Set(c.docIds.map((x) => (x === id ? replaceWith : x)))] : c.docIds.filter((x) => x !== id) })))
   }, [])
 
   const addCompliance = useCallback((name: string, kind: Service, docIds: string[] = []) => {
@@ -187,13 +200,13 @@ export function SetupProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<Store>(
     () => ({
-      documents, groups, categories, addDocument, setDocumentMultiple, renameDocument, moveDocument, removeDocument, addCategory, renameCategory, removeCategory,
+      documents, groups, categories, addDocument, setDocumentOptional, setDocumentOnce, onceIds: onceIdSet, setDocumentMultiple, renameDocument, moveDocument, removeDocument, addCategory, renameCategory, removeCategory,
       compliances, templates, addCompliance, updateCompliance, removeCompliance,
       messageTemplates,
       firm, saveFirm: setFirm, team, invite, setRole, removeMember,
       whatsapp, connectWhatsApp, ownNumber: whatsapp?.number ?? null, sendFrom, setSendFrom, approvedTemplates, approveTemplates, viaFor, graceDays, setGraceDays, readReplies, setReadReplies,
     }),
-    [documents, groups, categories, addDocument, setDocumentMultiple, renameDocument, moveDocument, removeDocument, addCategory, renameCategory, removeCategory, compliances, templates, addCompliance, updateCompliance, removeCompliance, messageTemplates, firm, team, invite, setRole, removeMember, whatsapp, connectWhatsApp, sendFrom, setSendFrom, approvedTemplates, approveTemplates, viaFor, graceDays, readReplies],
+    [documents, groups, categories, addDocument, setDocumentOptional, setDocumentOnce, onceIdSet, setDocumentMultiple, renameDocument, moveDocument, removeDocument, addCategory, renameCategory, removeCategory, compliances, templates, addCompliance, updateCompliance, removeCompliance, messageTemplates, firm, team, invite, setRole, removeMember, whatsapp, connectWhatsApp, sendFrom, setSendFrom, approvedTemplates, approveTemplates, viaFor, graceDays, readReplies],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

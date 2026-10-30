@@ -1,5 +1,6 @@
 import { createPortal } from 'react-dom'
 import { autoFolderId } from '../data/master'
+import { useSetup } from '../data/setup'
 import type { DocRequest, RequestDoc } from '../data/requests'
 import { parentIdOf } from '../data/mock'
 import FolderPickerDialog from './FolderPickerDialog'
@@ -13,7 +14,8 @@ export interface Approving {
 }
 
 export default function ApproveSaveDialog({ request, doc, clientId, onApprove, onClose }: { request: DocRequest; doc: RequestDoc; clientId: string; onApprove: (folderId: string | null) => void; onClose: () => void }) {
-  const suggested = typeof doc.filedTo === 'string' ? doc.filedTo : autoFolderId(request.title, clientId)
+  const { onceIds } = useSetup()
+  const suggested = typeof doc.filedTo === 'string' ? doc.filedTo : autoFolderId(request, clientId, onceIds.has(doc.id))
   const files = [doc.fileName ?? `${doc.name}.pdf`, ...(doc.moreFiles ?? [])]
   return createPortal(
     <FolderPickerDialog

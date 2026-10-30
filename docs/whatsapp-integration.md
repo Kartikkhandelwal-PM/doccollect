@@ -18,7 +18,7 @@ Ramwin is the only way to connect. There is no other provider, and the firm neve
 - The firm chooses **once, in Settings > WhatsApp** (the tiles, then **Use my number** / **Use CA Connect instead**, which asks to confirm). The choice is kept until the firm changes it.
 - The New request step only **shows** which number it goes from, with a link to Settings. Reminders and later messages use the same choice.
 - Switching back to CA Connect keeps the own number connected. Only **Disconnect** removes it.
-- **Template approval:** WhatsApp approves each message template before it can be sent from the firm's own number. Until a template is approved, that message goes from CA Connect (as a link). Connecting a new number starts with no template approved. Settings shows "Waiting for approval", then "n of 19 approved", then "All approved".
+- **Template approval:** WhatsApp approves each message template before it can be sent from the firm's own number. Until a template is approved, that message goes from CA Connect (as a link). Connecting a new number starts with no template approved. There are 20 ready messages (one more than before: the message for an optional document that was sent back). Settings shows "Waiting for approval", then "n of 20 approved", then "All approved".
 
 ## What we found out (so we do not promise the wrong thing)
 

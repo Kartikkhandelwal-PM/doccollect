@@ -2,7 +2,7 @@ import { demoDay } from '../lib/dates'
 import type { DocRequest, RequestClient, RequestDoc, UnsortedFile } from './requests'
 import { bulkNames, slugOf } from './bulkClients'
 import type { Status } from './types'
-import { multipleIds } from './catalog'
+import { multipleIds, optionalIds } from './catalog'
 
 // Sample requests for the demo, in every state a CA meets: fresh, half done, waiting, late, finished.
 // All names and numbers are made up.
@@ -62,12 +62,17 @@ function rc(clientId: string, defs: Def[], codes: string, n = 0, lastReminder?: 
   const docs: RequestDoc[] = defs.map(([id, name], i) => {
     const status = CODE[codes[i] ?? 'P']
     const multiple = multipleIds.has(id)
-    if (status === 'pending') return { id, name, status, multiple }
+    const optional = optionalIds.has(id)
+    if (status === 'pending') return { id, name, status, multiple, optional }
     const source: 'WhatsApp' | 'Link' = (n + i) % 3 === 0 ? 'WhatsApp' : 'Link'
     const receivedAt = status === 'to_review' ? fresh[(n + i) % fresh.length] : earlier[(n + i) % earlier.length]
-    return { id, name, status, multiple, source, receivedAt, fileName: fileFor(name), reason: status === 'rejected' ? why[(n + i) % why.length] : undefined }
+    return { id, name, status, multiple, optional, source, receivedAt, fileName: fileFor(name), reason: status === 'rejected' ? why[(n + i) % why.length] : undefined }
   })
-  return { clientId, docs, lastReminder }
+  // A sample reminder has a day only; give it a believable time, the same one every time for the same client.
+  let h = 0
+  for (const ch of clientId) h = (h * 31 + ch.charCodeAt(0)) >>> 0
+  const at = lastReminder && !lastReminder.includes(',') ? `${lastReminder}, ${String(9 + (h % 9)).padStart(2, '0')}:${String(5 * (h % 12)).padStart(2, '0')}` : lastReminder
+  return { clientId, docs, lastReminder: at }
 }
 
 // A document that allows several files, with the first file and the others (the front and back of a card).

@@ -1,6 +1,6 @@
-import { Check, Plus, Search } from 'lucide-react'
+import { ArrowLeft, Check, Plus, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
 import DueDatePicker from '../components/DueDatePicker'
 import WaText from '../components/WaText'
@@ -14,11 +14,11 @@ import { contactOf, useContacts, whatsappOn } from '../data/contacts'
 import { useMessenger } from '../data/messenger'
 import { defaultDue } from '../lib/dates'
 import { serviceColor } from '../lib/status'
-import { fillTemplate, formatList } from '../lib/template'
+import { fillTemplate, formatDocuments } from '../lib/template'
 import { LINK_DOMAIN, SHARED_NUMBER_NAME } from '../lib/brand'
 import { linkToken } from '../lib/links'
 
-type CatalogDoc = { id: string; name: string; multiple?: boolean }
+type CatalogDoc = { id: string; name: string; multiple?: boolean; optional?: boolean }
 type Kind = Service
 
 const kindName: Record<Kind, string> = { ITR: 'ITR', GST: 'GST', TDS: 'TDS' }
@@ -84,8 +84,11 @@ export default function NewRequest() {
   const { create, receiveFile } = useRequests()
   const { markPlaced } = useInbox()
   const { sendRequest } = useMessenger()
-  const { groups, compliances, messageTemplates, firm, ownNumber, whatsapp, sendFrom, approvedTemplates, viaFor, addCompliance } = useSetup()
+  const { documents, groups, compliances, messageTemplates, firm, ownNumber, whatsapp, sendFrom, approvedTemplates, viaFor, addCompliance } = useSetup()
   const [params] = useSearchParams()
+  // Opened from the Tracker with some clients ticked: they are asked only for what each one is missing.
+  const fromTracker = (useLocation().state as { tracker?: { kind: Kind; complianceId: string; clientIds: string[]; missing: Record<string, string[]> } } | null)?.tracker
+  const trackerDocs = fromTracker ? [...new Set(Object.values(fromTracker.missing).flat())] : []
   const preselected = params.get('client')
   // Opened from a file a client sent with no request: when the request is sent, that file goes on its document.
   const fileParam = params.get('file')
@@ -96,14 +99,14 @@ export default function NewRequest() {
   // Kind first: it decides which checklists and which registrations are offered.
   const kindParam = params.get('kind')
   const firstKind = (['ITR', 'GST', 'TDS'] as const).find((k) => preClient?.registrations.some((r) => r.type === k))
-  const [kind, setKind] = useState<Kind>(kindParam === 'ITR' || kindParam === 'GST' || kindParam === 'TDS' ? kindParam : (firstKind ?? 'GST'))
-  const [complianceId, setComplianceId] = useState<string>(() => compliances.find((c) => c.kind === kind)?.id ?? 'custom')
-  const [docIds, setDocIds] = useState<string[]>(() => compliances.find((c) => c.kind === kind)?.docIds ?? [])
+  const [kind, setKind] = useState<Kind>(fromTracker?.kind ?? (kindParam === 'ITR' || kindParam === 'GST' || kindParam === 'TDS' ? kindParam : (firstKind ?? 'GST')))
+  const [complianceId, setComplianceId] = useState<string>(() => fromTracker?.complianceId ?? compliances.find((c) => c.kind === kind)?.id ?? 'custom')
+  const [docIds, setDocIds] = useState<string[]>(() => (fromTracker ? trackerDocs : (compliances.find((c) => c.kind === kind)?.docIds ?? [])))
   const [custom, setCustom] = useState<CatalogDoc[]>([])
   const [docQuery, setDocQuery] = useState('')
 
   // What is picked are registrations: a client's ITR, or one of its GSTINs or TANs. Each one gets its own request line and its own message.
-  const [selected, setSelected] = useState<string[]>(() => (preClient ? preClient.registrations.filter((r) => r.type === (kindParam === 'ITR' || kindParam === 'GST' || kindParam === 'TDS' ? kindParam : firstKind)).map((r) => r.id) : []))
+  const [selected, setSelected] = useState<string[]>(() => fromTracker?.clientIds ?? (preClient ? preClient.registrations.filter((r) => r.type === (kindParam === 'ITR' || kindParam === 'GST' || kindParam === 'TDS' ? kindParam : firstKind)).map((r) => r.id) : []))
   const [query, setQuery] = useState('')
 
   // Starts on whatever is connected in Settings. Your own number is only there once it is connected.
@@ -117,7 +120,15 @@ export default function NewRequest() {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(preClient ? 2 : 1)
 
   const allDocs = useMemo(() => [...groups.flatMap((g) => g.docs), ...custom], [groups, custom])
-  const chosenDocs = docIds.map((id) => allDocs.find((d) => d.id === id)).filter((d): d is CatalogDoc => !!d)
+  // Required or optional, for this request only. It starts from the document's own default (Documents page) and can be changed here; once the request is sent it is fixed.
+  const [optChoice, setOptChoice] = useState<Record<string, boolean>>({})
+  const isOpt = (id: string) => optChoice[id] ?? !!documents.find((d) => d.id === id)?.optional
+  const chosenDocs = docIds
+    .map((id) => allDocs.find((d) => d.id === id))
+    .filter((d): d is CatalogDoc => !!d)
+    .map((d) => ({ ...d, optional: isOpt(d.id) }))
+  const requiredDocs = chosenDocs.filter((d) => !d.optional)
+  const optionalDocs = chosenDocs.filter((d) => d.optional)
   const chosenClients = selected.map((id) => getClient(id)).filter((c) => c !== undefined)
   const checklist = compliances.find((c) => c.id === complianceId)
   // Your own checklist: the CA gives it a name (it is also the name of the request), and can keep it for next time.
@@ -190,7 +201,8 @@ export default function NewRequest() {
   const message = fillTemplate(requestTemplate, {
     name: first?.name ?? 'there',
     firm: firm.name,
-    documents: formatList(chosenDocs.map((d) => d.name)),
+    // Required first; an optional one says so, so the client knows it can skip it.
+    documents: formatDocuments(requiredDocs.map((d) => d.name), optionalDocs.map((d) => d.name)),
     request: `${title}${first && regSuffix(first.id) ? ` (${regSuffix(first.id).replace(' · ', '')})` : ''}`,
     due_date: due ? fmtDate(due) : 'the last date',
     link: `${LINK_DOMAIN}/u/${linkToken('R-' + (1050), first?.id ?? 'client', 1)}`,
@@ -204,7 +216,10 @@ export default function NewRequest() {
     const norm = (x: string) => x.toLowerCase().replace(/[^a-z0-9]/g, '')
     const fits = (name: string) => norm(docParam).length > 2 && (norm(name).includes(norm(docParam)) || norm(docParam).includes(norm(name)))
     const docs = fileParam && docParam && !chosenDocs.some((d) => fits(d.name)) ? [...chosenDocs, { id: `file-${Date.now()}`, name: docParam }] : chosenDocs
-    const r = create({ title, due, via, clientIds: selected, docs })
+    // From the Tracker, each client gets only the documents they are missing (plus anything added here for everyone).
+    const docsByClient = fromTracker ? Object.fromEntries(selected.map((id) => [id, docs.filter((d) => !trackerDocs.includes(d.id) || fromTracker.missing[id]?.includes(d.id))])) : undefined
+    const clientIds = docsByClient ? selected.filter((id) => (docsByClient[id]?.length ?? 0) > 0) : selected
+    const r = create({ title, due, via, clientIds, docs, docsByClient })
     if (fileParam && convParam) {
       const line = r.clients.find((c) => c.clientId === preselected) ?? r.clients[0]
       const doc = line?.docs.find((d) => fits(d.name))
@@ -290,16 +305,16 @@ export default function NewRequest() {
 
   return (
     <div className="flex min-h-full flex-col gap-4 px-4 pb-8 md:gap-5 md:px-8">
-      <div className="z-10 -mx-4 border-b border-line bg-canvas px-4 pb-4 pt-4 md:sticky md:top-0 md:-mx-8 md:px-8 md:pt-6">
-        <div className="text-[13px] text-muted">
-          <Link to="/requests" className="font-semibold text-brand">
-            ← Requests
-          </Link>
-        </div>
-        <div className="mt-1 flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h1 className="text-[24px] font-bold tracking-tight">{step === 1 ? 'What do you need?' : step === 2 ? 'Who should get it?' : 'Check and send'}</h1>
-            <p className="mt-0.5 text-sm text-muted">{step === 1 ? 'Pick a checklist, then change its documents if you need to.' : step === 2 ? `Only ${kindName[kind]} registrations are listed.` : 'This is what your clients will receive.'}</p>
+      <div className="z-10 -mx-4 border-b border-line bg-canvas px-4 py-3 md:sticky md:top-0 md:-mx-8 md:px-8">
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+          <div className="flex min-w-0 items-center gap-3">
+            <Link to="/requests" aria-label="Back to requests" title="Back to requests" className="-ml-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-white hover:text-ink">
+              <ArrowLeft size={18} />
+            </Link>
+            <div className="min-w-0">
+              <h1 className="text-[20px] font-bold leading-tight tracking-tight">{step === 1 ? 'What do you need?' : step === 2 ? 'Who should get it?' : 'Check and send'}</h1>
+              <p className="truncate text-[13px] text-muted">{step === 1 ? 'Pick a checklist, then change its documents if you need to.' : step === 2 ? `Only ${kindName[kind]} registrations are listed.` : 'This is what your clients will receive.'}</p>
+            </div>
           </div>
           <Stepper step={step as 1 | 2 | 3} />
         </div>
@@ -311,19 +326,25 @@ export default function NewRequest() {
         </div>
       )}
 
+      {fromTracker && step < 4 && (
+        <div className="rounded-xl border border-brand/30 bg-brand-soft px-4 py-3 text-[14px]">
+          From the Tracker: <span className="font-semibold">{fromTracker.clientIds.length} {fromTracker.clientIds.length === 1 ? 'client' : 'clients'}</span> are asked only for the documents they have not sent. The list below is everything any of them is missing.
+        </div>
+      )}
+
       <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-12">
         <div className={`flex min-w-0 flex-col gap-5 ${step === 3 ? 'lg:col-span-7' : 'lg:col-span-12'}`}>
           {/* ---------- 1. What ---------- */}
           {step === 1 && (
-            <div className="grid h-[calc(100vh-300px)] min-h-[520px] grid-cols-1 overflow-hidden rounded-[18px] border border-line bg-white md:grid-cols-[340px_1fr]">
+            <div className="grid h-[calc(100vh-232px)] min-h-[520px] grid-cols-1 overflow-hidden rounded-[18px] border border-line bg-white md:grid-cols-[340px_1fr]">
               {/* ---- The checklists ---- */}
               <div className="flex min-h-0 flex-col border-b border-line md:border-b-0 md:border-r">
-                <div className="shrink-0 border-b border-line p-3">
+                <div className="shrink-0 border-b border-line p-3 md:flex md:h-[104px] md:flex-col md:justify-center">
                   <label className="flex h-10 items-center gap-2.5 rounded-xl border border-line bg-white px-3.5 text-sm text-muted focus-within:border-brand">
                     <Search size={15} />
                     <input value={listQuery} onChange={(e) => setListQuery(e.target.value)} placeholder={`Search ${compliances.length} checklists`} className="w-full bg-transparent outline-none placeholder:text-muted" />
                   </label>
-                  <div className="mt-2.5 flex w-full gap-0.5 rounded-xl bg-slate-100 p-1" role="tablist" aria-label="Income tax, GST or TDS">
+                  <div className="mt-2 flex w-full gap-0.5 rounded-xl bg-slate-100 p-1" role="tablist" aria-label="Income tax, GST or TDS">
                     {(['All', 'ITR', 'GST', 'TDS'] as const).map((k) => (
                       <button
                         key={k}
@@ -331,7 +352,7 @@ export default function NewRequest() {
                         role="tab"
                         aria-selected={listKind === k}
                         onClick={() => setListKind(k)}
-                        className={`flex h-9 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-[13px] font-semibold transition-colors ${listKind === k ? 'bg-white text-brand-dark shadow-sm' : 'text-slate-600 hover:text-ink'}`}
+                        className={`flex h-8 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-[13px] font-semibold transition-colors ${listKind === k ? 'bg-white text-brand-dark shadow-sm' : 'text-slate-600 hover:text-ink'}`}
                       >
                         {k === 'All' ? 'All' : k}
                         <span className={listKind === k ? 'text-brand-dark/70' : 'text-faint'}>{k === 'All' ? compliances.length : compliances.filter((c) => c.kind === k).length}</span>
@@ -352,6 +373,10 @@ export default function NewRequest() {
                       <span className="min-w-0 flex-1">
                         <span className={`block truncate text-[14px] ${complianceId === c.id ? 'font-bold text-brand-dark' : 'font-semibold'}`}>{c.name}</span>
                         <span className="block text-xs text-muted">{c.docIds.length} documents</span>
+                        <span className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-slate-500">
+                          {c.docIds.slice(0, 4).map((id) => allDocs.find((d) => d.id === id)?.name ?? id).join(', ')}
+                          {c.docIds.length > 4 && ` +${c.docIds.length - 4} more`}
+                        </span>
                       </span>
                     </button>
                   ))}
@@ -372,7 +397,46 @@ export default function NewRequest() {
 
               {/* ---- The chosen one: its name, and its documents ---- */}
               <section className="flex min-h-0 flex-col">
-                <div className={`flex shrink-0 items-center gap-4 border-b border-line bg-gradient-to-r px-6 py-4 ${tint[kind]}`}>
+                {complianceId === 'custom' ? (
+                  /* Your own checklist: one row for what you fill in (the kind, the name, what it is used for, keep it), and a line under it. Everything on the row is the same height. */
+                  <div className={`shrink-0 border-b border-line bg-gradient-to-r px-6 py-4 md:flex md:h-[104px] md:flex-col md:justify-center ${tint[kind]}`}>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+                      <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-[12px] font-extrabold shadow-sm ring-1 ring-black/5 ${serviceColor[kind]}`}>{kind}</span>
+                      <input
+                        value={customName}
+                        onChange={(e) => setCustomName(e.target.value)}
+                        placeholder="Name your checklist"
+                        aria-label="Name of your checklist"
+                        className="h-11 min-w-0 flex-[1_1_180px] rounded-xl border border-black/10 bg-white px-3.5 text-[17px] font-bold tracking-tight text-ink outline-none placeholder:font-semibold placeholder:text-faint focus:border-brand"
+                      />
+                      <div className="flex h-11 shrink-0 items-center gap-0.5 rounded-xl bg-white px-1 shadow-sm ring-1 ring-black/5" role="radiogroup" aria-label="Used for">
+                        {(['ITR', 'GST', 'TDS'] as const).map((k) => (
+                          <button
+                            key={k}
+                            type="button"
+                            role="radio"
+                            aria-checked={kind === k}
+                            onClick={() => {
+                              setKind(k)
+                              setSelected((sel) => sel.filter((rid) => getClient(rid)?.service === k))
+                            }}
+                            className={`h-9 rounded-lg px-3.5 text-[13px] font-semibold transition-colors ${kind === k ? 'bg-brand text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}
+                          >
+                            {kindName[k]}
+                          </button>
+                        ))}
+                      </div>
+                      <button type="button" role="checkbox" aria-checked={saveIt} onClick={() => setSaveIt((v) => !v)} className="flex h-11 shrink-0 items-center gap-2 text-[13px] font-medium text-slate-700">
+                        <Box on={saveIt} />
+                        Keep for next time
+                      </button>
+                    </div>
+                    <p className="mt-2 text-[13px] text-slate-600 md:pl-[60px]">
+                      {kindName[kind]} · {docIds.length} {docIds.length === 1 ? 'document' : 'documents'} · {kind === 'GST' ? 'sent to each GSTIN' : kind === 'TDS' ? 'sent to each TAN' : 'sent on the PAN'}
+                    </p>
+                  </div>
+                ) : (
+                <div className={`flex shrink-0 items-center gap-4 border-b border-line bg-gradient-to-r px-6 py-4 md:h-[104px] ${tint[kind]}`}>
                   <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-[13px] font-extrabold shadow-sm ring-1 ring-black/5 ${serviceColor[kind]}`}>{kind}</span>
                   <div className="min-w-0 flex-1">
                     {complianceId === 'custom' ? (
@@ -422,8 +486,9 @@ export default function NewRequest() {
                     )
                   )}
                 </div>
+                )}
 
-                <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-2">
+                <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
                   <div className="flex min-h-0 flex-col border-r border-line">
                     <div className="shrink-0 px-5 pb-3 pt-4">
                       <h3 className="text-[13px] font-bold">All documents</h3>
@@ -449,7 +514,7 @@ export default function NewRequest() {
                       )}
                       {shownGroups.length === 0 && !canAddTyped && <p className="px-2 py-4 text-sm text-muted">No document matches.</p>}
                       {shownGroups.map((g) => (
-                        <div key={g.title} className="mb-4">
+                        <div key={g.title} className="mb-3">
                           <div className="mb-1 px-2 text-[12px] font-bold uppercase tracking-widest text-faint">{g.title}</div>
                           {g.docs.map((d) => {
                             const on = docIds.includes(d.id)
@@ -460,7 +525,7 @@ export default function NewRequest() {
                                 role="checkbox"
                                 aria-checked={on}
                                 onClick={() => toggleDoc(d.id)}
-                                className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-[14px] ${on ? 'bg-[#EEF8F5] font-semibold' : 'font-medium hover:bg-canvas'}`}
+                                className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-1.5 text-left text-[14px] ${on ? 'bg-[#EEF8F5] font-semibold' : 'font-medium hover:bg-canvas'}`}
                               >
                                 <Box on={on} />
                                 {d.name}
@@ -486,17 +551,51 @@ export default function NewRequest() {
                         </button>
                       )}
                     </div>
+                    {chosenDocs.length > 0 && (
+                      <div className="flex items-center justify-end gap-2 px-5 pb-1 text-[11px] font-semibold text-muted">
+                        <span>Switch on = optional</span>
+                        <span className="w-8" />
+                      </div>
+                    )}
                     <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
                       {chosenDocs.length === 0 && <div className="mx-2 rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm text-muted">Nothing here yet. Tick documents on the left.</div>}
-                      {chosenDocs.map((d, i) => (
-                        <div key={d.id} className="flex items-center gap-3 rounded-lg px-2.5 py-2 text-[14px] font-medium hover:bg-white">
-                          <span className="w-5 shrink-0 text-right text-xs text-faint">{i + 1}</span>
-                          <span className="min-w-0 flex-1">{d.name}</span>
-                          <button type="button" onClick={() => toggleDoc(d.id)} aria-label={`Remove ${d.name}`} className="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-danger-soft hover:text-danger">
-                            ✕
-                          </button>
-                        </div>
-                      ))}
+                      {(
+                        [
+                          ['Mandatory', requiredDocs, 'The request waits for these'],
+                          ['Optional', optionalDocs, 'Client can skip these. Nobody is reminded.'],
+                        ] as const
+                      ).map(([title, list, hint]) =>
+                        list.length === 0 && title === 'Optional' ? null : (
+                          <div key={title} className="mb-3">
+                            <div className="flex items-baseline gap-2 px-2.5 pb-1 pt-1.5" title={hint}>
+                              <span className="text-[11px] font-bold uppercase tracking-wider text-faint">{title}</span>
+                              <span className="text-[11px] font-semibold text-muted">{list.length}</span>
+                            </div>
+                            {list.map((d) => (
+                              <div key={d.id} className="group flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[14px] font-medium hover:bg-white">
+                                <span className="min-w-0 flex-1 truncate" title={d.name}>
+                                  {d.name}
+                                </span>
+                                <button
+                                  type="button"
+                                  role="switch"
+                                  aria-checked={!!d.optional}
+                                  aria-label={`${d.name}: ${d.optional ? 'optional' : 'mandatory'}. Click to change`}
+                                  title={d.optional ? 'Optional. Click to make it mandatory' : 'Mandatory. Click to make it optional'}
+                                  onClick={() => setOptChoice((o) => ({ ...o, [d.id]: !d.optional }))}
+                                  className={`relative h-6 w-10 shrink-0 rounded-full transition-colors ${d.optional ? 'bg-[#E3A33B]' : 'bg-slate-300'}`}
+                                >
+                                  <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${d.optional ? 'left-[18px]' : 'left-0.5'}`} />
+                                </button>
+                                <button type="button" onClick={() => toggleDoc(d.id)} aria-label={`Remove ${d.name}`} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted hover:bg-danger-soft hover:text-danger">
+                                  ✕
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        ),
+                      )}
+                      {chosenDocs.length > 0 && requiredDocs.length === 0 && <p className="mx-2 rounded-xl bg-[#FEF0D5] px-3 py-2 text-[13px] text-[#6E3B00]">Keep at least one document mandatory, or the request has nothing to wait for.</p>}
                     </div>
                   </div>
                 </div>
@@ -668,7 +767,7 @@ export default function NewRequest() {
           <button
             type="button"
             onClick={() => (step === 3 ? send() : setStep((step + 1) as 2 | 3))}
-            disabled={step === 1 ? docIds.length === 0 : step === 2 ? selected.length === 0 : !canSend}
+            disabled={step === 1 ? requiredDocs.length === 0 : step === 2 ? selected.length === 0 : !canSend}
             className="h-12 rounded-xl bg-brand px-7 text-[15px] font-semibold text-white shadow-[0_6px_16px_rgba(11,122,107,0.25)] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
           >
             {step === 1 ? 'Continue to who →' : step === 2 ? 'Continue to review →' : `Send ${selected.length} ${selected.length === 1 ? 'message' : 'messages'}`}

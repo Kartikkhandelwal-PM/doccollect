@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { backdropProps, panelProps } from '../lib/motion'
 import { buildMaster, clientFolderInfo } from '../data/master'
 import { FIRM_FOLDER, useMasterStore } from '../data/masterStore'
+import { useSetup } from '../data/setup'
 import { getBookClient } from '../data/mock'
 import { useRequests } from '../data/requests'
 import Avatar from './Avatar'
@@ -22,6 +23,7 @@ interface Node {
 export default function FolderPickerDialog({ fileName, suggested, clientIds, step, title, more, saveLabel, alt, onSave, onClose }: { fileName: string; suggested?: string; step?: string; clientIds: string[]; title?: string; more?: string[]; saveLabel?: string; alt?: { label: string; onClick: () => void }; onSave: (folderId: string) => void; onClose: () => void }) {
   const { requests } = useRequests()
   const { folders, uploads, folderNames, fileEdits, addFolder } = useMasterStore()
+  const { onceIds } = useSetup()
   const [selected, setSelected] = useState<string | null>(suggested ?? null)
   const [open, setOpen] = useState<Set<string>>(() => {
     const s = new Set<string>()
@@ -59,7 +61,7 @@ export default function FolderPickerDialog({ fileName, suggested, clientIds, ste
       map.set(y, { id: y, name: folderNames[y] ?? comp, parentId: c })
       map.set(folderId, { id: folderId, name: folderNames[folderId] ?? fy, parentId: y })
     }
-    ;[...buildMaster(requests), ...uploads].forEach((f) => f.folderId && addAuto(f.folderId))
+    ;[...buildMaster(requests, onceIds), ...uploads].forEach((f) => f.folderId && addAuto(f.folderId))
     if (suggested) addAuto(suggested)
     return [...map.values(), ...folders.map((f) => ({ id: f.id, name: f.name, parentId: f.parentId }))]
   }, [requests, uploads, folders, folderNames, suggested])
@@ -67,7 +69,7 @@ export default function FolderPickerDialog({ fileName, suggested, clientIds, ste
   // The files, exactly as Document Master lists them (with its renames, moves and deletes).
   const files = useMemo(
     () =>
-      [...buildMaster(requests), ...uploads]
+      [...buildMaster(requests, onceIds), ...uploads]
         .filter((f) => !fileEdits[f.id]?.deleted)
         .map((f) => {
           const e = fileEdits[f.id]

@@ -1,6 +1,10 @@
-import { ArrowLeft, FileText, MoreHorizontal, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
+import { Archive, ArrowLeft, Check, FileText, Files, MoreHorizontal, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
 import Page from '../components/Page'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import Toast from '../components/Toast'
+import { archiveFolderId, buildMaster } from '../data/master'
+import { useMasterStore } from '../data/masterStore'
+import { useRequests } from '../data/requests'
 import FilterSelect from '../components/FilterSelect'
 import EmptyState from '../components/EmptyState'
 import { useSetup } from '../data/setup'
@@ -8,17 +12,40 @@ import { useSetup } from '../data/setup'
 const ALL = '__all'
 
 export default function Documents() {
-  const { documents, categories, compliances, addDocument, setDocumentMultiple, renameDocument, moveDocument, removeDocument, addCategory, renameCategory, removeCategory } = useSetup()
+  const { documents, categories, compliances, addDocument, setDocumentMultiple, setDocumentOnce, setDocumentOptional, renameDocument, moveDocument, removeDocument, addCategory, renameCategory, removeCategory } = useSetup()
 
   const [selected, setSelected] = useState<string>(categories[0] ?? ALL)
   // On a phone you see the categories, or the documents of one category.
   const [showDocs, setShowDocs] = useState(false)
   const [query, setQuery] = useState('')
   // A document is made or changed in a small window: id null means a new one.
-  const [form, setForm] = useState<{ id: string | null; name: string; group: string; multiple: boolean; sure?: boolean } | null>(null)
+  const [form, setForm] = useState<{ id: string | null; name: string; group: string; multiple: boolean; once: boolean; optional: boolean; sure?: boolean } | null>(null)
   // The row menu is drawn over the page (fixed), so the list can never cut it off. It opens upward near the bottom of the screen.
   const [rowMenu, setRowMenu] = useState<{ id: string; top: number; right: number } | null>(null)
   const [confirmId, setConfirmId] = useState<string | null>(null)
+  const { requests, reassignDoc } = useRequests()
+  const { fileEdits, editFile } = useMasterStore()
+  const [delChoice, setDelChoice] = useState<'move' | 'archive'>('archive')
+  const [delTarget, setDelTarget] = useState('')
+  const [delQuery, setDelQuery] = useState('')
+  const [toast, setToast] = useState<string | null>(null)
+  useEffect(() => {
+    setDelChoice('archive')
+    setDelTarget('')
+    setDelQuery('')
+  }, [confirmId])
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 3200)
+    return () => clearTimeout(t)
+  }, [toast])
+
+  // What a document is used by: the files in Document Master, the requests that asked for it, and the checklists it is in.
+  const usage = (id: string) => ({
+    files: buildMaster(requests).filter((f) => (fileEdits[f.id]?.docId ?? f.docId) === id && !fileEdits[f.id]?.deleted),
+    requests: requests.filter((r) => r.clients.some((rc) => rc.docs.some((x) => x.id === id))).length,
+    lists: compliances.filter((c) => c.docIds.includes(id)).length,
+  })
 
   const [addingCat, setAddingCat] = useState(false)
   const [catText, setCatText] = useState('')
@@ -39,19 +66,21 @@ export default function Documents() {
   const list = documents.filter((d) => (searching ? d.name.toLowerCase().includes(query.toLowerCase()) : current === ALL || d.group === current))
   const showCategoryTag = searching || current === ALL
 
-  const startNew = () => setForm({ id: null, name: '', group: '', multiple: false })
+  const startNew = () => setForm({ id: null, name: '', group: '', multiple: false, once: false, optional: false })
   const saveForm = () => {
     if (!form) return
     const n = form.name.trim()
     if (!n || !form.group) return
     // A document that sits in checklists is renamed there too, so the CA is asked once.
     const was = form.id ? documents.find((d) => d.id === form.id) : undefined
-    if (was && n !== was.name && usedIn(was.id) > 0 && !form.sure) return setForm({ ...form, sure: true })
+    if (was && n !== was.name && (usedIn(was.id) > 0 || usage(was.id).files.length > 0 || usage(was.id).requests > 0) && !form.sure) return setForm({ ...form, sure: true })
     if (form.id === null) {
-      addDocument(n, form.group, form.multiple)
+      addDocument(n, form.group, form.multiple, form.once, form.optional)
     } else {
       renameDocument(form.id, n)
       setDocumentMultiple(form.id, form.multiple)
+      setDocumentOnce(form.id, form.once)
+      setDocumentOptional(form.id, form.optional)
       const was = documents.find((d) => d.id === form.id)
       if (was && was.group !== form.group) moveDocument(form.id, form.group)
     }
@@ -228,11 +257,16 @@ export default function Documents() {
               return (
                 <div key={d.id} className={`group grid items-center gap-4 border-b border-line px-6 py-3 last:border-b-0 hover:bg-slate-50/70 ${showCategoryTag ? 'lg:grid-cols-[1fr_180px_150px_48px]' : 'lg:grid-cols-[1fr_150px_48px]'} grid-cols-[1fr_48px]`}>
                   <div className="flex min-w-0 items-center gap-3">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-canvas text-muted">
-                      <FileText size={17} />
+                    {/* The icon says how many files it takes: one page, or a stack of pages. */}
+                    <span title={d.multiple ? 'Many files allowed' : 'One file'} aria-label={d.multiple ? 'Many files allowed' : 'One file'} role="img" className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] ${d.multiple ? 'bg-brand-soft text-brand-dark' : 'bg-canvas text-muted'}`}>
+                      {d.multiple ? <Files size={17} /> : <FileText size={17} />}
                     </span>
                     <span className="truncate text-[15px] font-semibold">{d.name}</span>
-                    {d.multiple && <span className="shrink-0 rounded-md bg-canvas px-1.5 py-0.5 text-[12px] font-semibold text-muted">Several files</span>}
+                    {/* Only what is not the usual case is written, so a plain document has no tags. */}
+                    <span className="flex shrink-0 items-center gap-1.5">
+                      {d.optional && <span title="Client can skip it. The request can finish without it." className="rounded-md border border-dashed border-[#E3B25C] bg-[#FEF6E4] px-1.5 py-0.5 text-[12px] font-semibold text-[#8A4B00]">Optional</span>}
+                      {d.once && <span title="Asked one time only, not every year." className="rounded-md bg-[#E8F1FD] px-1.5 py-0.5 text-[12px] font-semibold text-[#174E9C]">One time</span>}
+                    </span>
                   </div>
                   {showCategoryTag && <span className="truncate text-[13px] text-slate-600 max-lg:hidden">{d.group}</span>}
                   <span className="max-lg:hidden">
@@ -270,7 +304,7 @@ export default function Documents() {
               onClick={() => {
                 const d = documents.find((x) => x.id === rowMenu.id)
                 setRowMenu(null)
-                if (d) setForm({ id: d.id, name: d.name, group: d.group, multiple: !!d.multiple })
+                if (d) setForm({ id: d.id, name: d.name, group: d.group, multiple: !!d.multiple, once: !!d.once, optional: !!d.optional })
               }}
               className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm font-semibold hover:bg-canvas"
             >
@@ -352,51 +386,111 @@ export default function Documents() {
               e.preventDefault()
               saveForm()
             }}
-            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+            className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl"
           >
             {form.sure && form.id ? (
               <>
-                <div className="text-base font-bold">Change the name in {usedIn(form.id)} {usedIn(form.id) === 1 ? 'checklist' : 'checklists'}?</div>
-                <p className="mt-1.5 text-[13px] leading-relaxed text-muted">
-                  “{documents.find((d) => d.id === form.id)?.name}” will be called “{form.name.trim()}” in {namesOf(form.id)}. Requests you already sent are not changed.
-                </p>
+                {(() => {
+                  const u = usage(form.id)
+                  const was = documents.find((d) => d.id === form.id)
+                  return (
+                    <>
+                      <div className="text-base font-bold">Change the name of a document that is in use?</div>
+                      <p className="mt-1.5 text-[13px] leading-relaxed text-muted">
+                        “{was?.name}” will be called “{form.name.trim()}” everywhere: {u.files.length} {u.files.length === 1 ? 'file' : 'files'}, {u.requests} {u.requests === 1 ? 'request' : 'requests'} and {u.lists} {u.lists === 1 ? 'checklist' : 'checklists'}.
+                      </p>
+                      <p className="mt-2 rounded-xl bg-[#FEF0D5] px-3.5 py-2.5 text-[13px] leading-relaxed text-[#6E3B00]">
+                        Use this for spelling or a better name. If it is really a different document, cancel and add a new one, so the old files keep their name.
+                      </p>
+                    </>
+                  )
+                })()}
               </>
             ) : (
               <>
-            <div className="text-base font-bold">{form.id ? 'Edit document' : 'New document'}</div>
-            {/* Category first, chosen by the user (nothing is pre-selected), then the name. */}
-            <label className="mt-4 block text-[13px] font-semibold text-muted">
-              Category
-              <span className="mt-1 block">
-                <FilterSelect value={form.group} onChange={(v) => setForm({ ...form, group: v })} label="Category" width="w-full">
-                  <option value="" disabled>
-                    Choose a category
-                  </option>
-                  {categories.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
+            <div className="flex items-center gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand-dark">
+                <FileText size={22} />
+              </span>
+              <div>
+                <div className="text-[18px] font-bold leading-tight">{form.id ? 'Edit document' : 'New document'}</div>
+                <div className="text-[13px] text-muted">Set it up once. Every checklist and request can use it.</div>
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-[1.3fr_1fr]">
+              <label className="block text-[13px] font-semibold text-muted">
+                Name
+                <input
+                  autoFocus
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="For example, Rent agreement"
+                  className="mt-1 block h-11 w-full rounded-xl border border-line px-3.5 text-[15px] font-medium text-ink outline-none focus:border-brand"
+                />
+              </label>
+              <label className="block text-[13px] font-semibold text-muted">
+                Category
+                <span className="mt-1 block">
+                  <FilterSelect value={form.group} onChange={(v) => setForm({ ...form, group: v })} label="Category" width="w-full">
+                    <option value="" disabled>
+                      Choose…
                     </option>
-                  ))}
-                </FilterSelect>
-              </span>
-            </label>
-            <label className="mt-4 block text-[13px] font-semibold text-muted">
-              Name
-              <input
-                autoFocus={!!form.id}
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="For example, Rent agreement"
-                className="mt-1 block h-11 w-full rounded-xl border border-line px-3.5 text-[15px] font-medium text-ink outline-none focus:border-brand"
-              />
-            </label>
-            <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-line px-3.5 py-3">
-              <input type="checkbox" checked={form.multiple} onChange={(e) => setForm({ ...form, multiple: e.target.checked })} className="mt-0.5 h-[18px] w-[18px] shrink-0 accent-[#0F7B6C]" />
-              <span className="text-sm">
-                <span className="block font-semibold text-ink">Allow more than one file</span>
-                <span className="mt-0.5 block text-[13px] leading-snug text-muted">For things like the front and back of a card, or a few months of statements. Without this, the client can send only one file for it.</span>
-              </span>
-            </label>
+                    {categories.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </FilterSelect>
+                </span>
+              </label>
+            </div>
+
+            {/* Three yes or no questions, each a plain sentence with a switch and an example. Off is the usual case. */}
+            <div className="mt-5 divide-y divide-line rounded-2xl border border-line">
+              {(
+                [
+                  { key: 'multiple', title: 'Client can send many files', eg: 'Like Aadhaar front and back, or 3 months of bank statement.', on: form.multiple },
+                  { key: 'optional', title: 'Optional', eg: 'Client can skip it. The request can finish without it, and we do not remind.', on: form.optional },
+                  { key: 'once', title: 'Send only one time', eg: 'Like PAN card. We do not ask for it again next year.', on: form.once },
+                ] as const
+              ).map((row) => (
+                <div key={row.key} className="flex items-center gap-4 px-4 py-3.5">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[14px] font-semibold">{row.title}</div>
+                    <div className="mt-0.5 text-[12px] leading-snug text-muted">{row.eg}</div>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={row.on}
+                    aria-label={row.title}
+                    onClick={() => setForm({ ...form, [row.key]: !row.on })}
+                    className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${row.on ? 'bg-brand' : 'bg-slate-300'}`}
+                  >
+                    <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all ${row.on ? 'left-[22px]' : 'left-0.5'}`} />
+                  </button>
+                </div>
+              ))}
+            </div>
+            {/* What the choices add up to, in plain words. */}
+            <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-muted">
+              <span className="font-semibold text-ink">This document is</span>
+              {[
+                form.optional ? 'optional' : 'mandatory',
+                form.multiple ? 'many files' : '1 file',
+                form.once ? 'asked one time only' : 'asked every year',
+              ].map((t) => (
+                <span key={t} className="rounded-full bg-brand-soft px-2.5 py-0.5 text-[12px] font-semibold text-brand-dark">
+                  {t}
+                </span>
+              ))}
+            </p>
+            {form.id && !!documents.find((d) => d.id === form.id) && !!documents.find((d) => d.id === form.id)?.once !== form.once && usage(form.id).files.length > 0 && (
+              <p className="mt-3 rounded-xl bg-[#FEF0D5] px-3.5 py-2.5 text-[12px] leading-snug text-[#6E3B00]">
+                It already has {usage(form.id).files.length} {usage(form.id).files.length === 1 ? 'file' : 'files'}. They move too (to the client’s Permanent folder, or back to their years), unless you saved them in a folder yourself.
+              </p>
+            )}
               </>
             )}
             <div className="mt-6 flex justify-end gap-2">
@@ -421,38 +515,111 @@ export default function Documents() {
         const d = documents.find((x) => x.id === confirmId)
         if (!d) return null
         const n = usedIn(d.id)
+        const u = usage(d.id)
+        const inUse = u.files.length > 0 || u.requests > 0
+        const others = documents.filter((x) => x.id !== d.id)
+        const target = others.find((x) => x.id === delTarget)
+        const close = () => setConfirmId(null)
+        const plural = (k: number, one: string, many: string) => `${k} ${k === 1 ? one : many}`
+        const confirm = () => {
+          if (!inUse) removeDocument(d.id)
+          else if (delChoice === 'move' && target) {
+            reassignDoc(d.id, { id: target.id, name: target.name })
+            u.files.forEach((f) => editFile(f.id, { docId: target.id }))
+            removeDocument(d.id, target.id)
+            setToast(`“${d.name}” deleted. ${plural(u.files.length, 'file', 'files')} and ${plural(u.requests, 'request', 'requests')} moved to “${target.name}”.`)
+          } else {
+            // Each file goes to the Archive of its own client (by year), so it stays with the client and can be found there.
+            u.files.forEach((f) => editFile(f.id, f.clientId ? { folderId: archiveFolderId(f.clientId, f.period), was: d.group } : { folderId: null, was: d.group }))
+            removeDocument(d.id)
+            setToast(`“${d.name}” deleted. ${plural(u.files.length, 'file', 'files')} sent to the Archive of their clients.`)
+          }
+          close()
+        }
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="Delete document" onClick={() => setConfirmId(null)}>
-            <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-              <div className="text-base font-bold">{n > 0 ? `Delete “${d.name}” from ${n} ${n === 1 ? 'checklist' : 'checklists'}?` : `Delete “${d.name}”?`}</div>
-              <p className="mt-1.5 text-[13px] leading-relaxed text-muted">
-                {n > 0 ? (
-                  <>
-                    It will be taken out of {namesOf(d.id)}, so it will not be asked for in new requests. Requests you already sent and files you already received are not changed.
-                  </>
-                ) : (
-                  'It is not in any checklist. Requests you already sent are not changed.'
-                )}
-              </p>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="Delete document" onClick={close}>
+            <div className={`w-full rounded-2xl bg-white p-6 shadow-2xl ${inUse ? 'max-w-[520px]' : 'max-w-sm'}`} onClick={(e) => e.stopPropagation()}>
+              {inUse ? (
+                <>
+                  <div className="text-[18px] font-bold">Delete “{d.name}”?</div>
+                  <p className="mt-1 text-[13px] text-muted">This document is already in use, so choose what happens to what it holds.</p>
+                  <div className="mt-4 grid grid-cols-3 gap-2.5">
+                    {[
+                      [u.files.length, u.files.length === 1 ? 'file' : 'files'],
+                      [u.requests, u.requests === 1 ? 'request' : 'requests'],
+                      [u.lists, u.lists === 1 ? 'checklist' : 'checklists'],
+                    ].map(([k, label]) => (
+                      <div key={label} className="rounded-xl border border-line bg-[#FAFBFC] px-3.5 py-3">
+                        <div className="text-[22px] font-bold leading-tight">{k}</div>
+                        <div className="text-xs text-muted">{label}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-4 flex flex-col gap-2.5" role="radiogroup" aria-label="What happens to the files">
+                    <label className={`flex cursor-pointer items-start gap-3 rounded-xl border-[1.5px] px-4 py-3.5 ${delChoice === 'archive' ? 'border-brand bg-brand-soft/60' : 'border-line hover:border-slate-300'}`}>
+                      <input type="radio" name="del" checked={delChoice === 'archive'} onChange={() => setDelChoice('archive')} className="mt-1 h-[18px] w-[18px] accent-[#0F7B6C]" />
+                      <span className="text-sm">
+                        <span className="flex items-center gap-2 font-semibold">
+                          <Archive size={15} /> Send the files to the client’s Archive
+                        </span>
+                        <span className="mt-0.5 block text-[13px] leading-snug text-muted">Each file goes to the Archive inside its own client’s folder in Document Master (Client › Archive › year), so it stays with the client. You can move it to any folder from there. Old requests keep the name as text. The document is taken out of the checklists.</span>
+                      </span>
+                    </label>
+                    <label className={`flex cursor-pointer items-start gap-3 rounded-xl border-[1.5px] px-4 py-3.5 ${delChoice === 'move' ? 'border-brand bg-brand-soft/60' : 'border-line hover:border-slate-300'}`}>
+                      <input type="radio" name="del" checked={delChoice === 'move'} onChange={() => setDelChoice('move')} className="mt-1 h-[18px] w-[18px] accent-[#0F7B6C]" />
+                      <span className="min-w-0 flex-1 text-sm">
+                        <span className="block font-semibold">Move everything to another document</span>
+                        <span className="mt-0.5 block text-[13px] leading-snug text-muted">The files, the requests and the checklists use the document you pick.</span>
+                        {delChoice === 'move' && (
+                          <div className="mt-3" onClick={(e) => e.preventDefault()}>
+                            <div className="flex h-10 items-center gap-2 rounded-xl border border-line bg-white px-3 text-sm text-muted focus-within:border-brand">
+                              <Search size={15} />
+                              <input autoFocus value={delQuery} onChange={(e) => setDelQuery(e.target.value)} placeholder="Search documents" aria-label="Search documents" className="w-full bg-transparent text-ink outline-none placeholder:text-muted" />
+                            </div>
+                            <div role="radiogroup" aria-label="Move to" className="mt-2 max-h-[210px] overflow-y-auto rounded-xl border border-line bg-white">
+                              {categories.map((c) => {
+                                const inCat = others.filter((x) => x.group === c && (!delQuery.trim() || x.name.toLowerCase().includes(delQuery.trim().toLowerCase())))
+                                if (inCat.length === 0) return null
+                                return (
+                                  <div key={c}>
+                                    <div className="sticky top-0 bg-[#FAFBFC] px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-faint">{c}</div>
+                                    {inCat.map((x) => (
+                                      <button key={x.id} type="button" role="radio" aria-checked={delTarget === x.id} onClick={() => setDelTarget(x.id)} className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm ${delTarget === x.id ? 'bg-brand-soft font-semibold text-brand-dark' : 'hover:bg-canvas'}`}>
+                                        {x.name}
+                                        {delTarget === x.id && <Check size={15} className="shrink-0" />}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )
+                              })}
+                              {others.every((x) => delQuery.trim() && !x.name.toLowerCase().includes(delQuery.trim().toLowerCase())) && <p className="px-3 py-6 text-center text-[13px] text-muted">No document matches.</p>}
+                            </div>
+                            <p className="mt-2 text-[13px] text-muted">{target ? <>Moving to <b className="text-ink">{target.name}</b></> : 'Choose the document that takes over.'}</p>
+                          </div>
+                        )}
+                      </span>
+                    </label>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="text-base font-bold">{n > 0 ? `Delete “${d.name}” from ${n} ${n === 1 ? 'checklist' : 'checklists'}?` : `Delete “${d.name}”?`}</div>
+                  <p className="mt-1.5 text-[13px] leading-relaxed text-muted">{n > 0 ? <>It will be taken out of {namesOf(d.id)}, so it will not be asked for in new requests. No file or request uses it.</> : 'No file, request or checklist uses it.'}</p>
+                </>
+              )}
               <div className="mt-5 flex justify-end gap-2">
-                <button type="button" onClick={() => setConfirmId(null)} className="h-10 rounded-xl border border-line px-4 text-sm font-semibold">
+                <button type="button" onClick={close} className="h-10 rounded-xl border border-line px-4 text-sm font-semibold">
                   Keep it
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    removeDocument(d.id)
-                    setConfirmId(null)
-                  }}
-                  className="h-10 rounded-xl bg-danger px-4 text-sm font-semibold text-white"
-                >
-                  {n > 0 ? `Delete from ${n}` : 'Delete'}
+                <button type="button" disabled={inUse && delChoice === 'move' && !target} onClick={confirm} className="h-10 rounded-xl bg-danger px-4 text-sm font-semibold text-white disabled:opacity-40">
+                  {!inUse ? (n > 0 ? `Delete from ${n}` : 'Delete') : delChoice === 'move' ? 'Move and delete' : 'Archive and delete'}
                 </button>
               </div>
             </div>
           </div>
         )
       })()}
+      <Toast message={toast} />
     </Page>
   )
 }

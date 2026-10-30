@@ -7,6 +7,7 @@ import type { Notice } from '../data/notifications'
 import { buildMaster } from '../data/master'
 import { book, getClient } from '../data/mock'
 import { lineRef, useRequests } from '../data/requests'
+import { useSetup } from '../data/setup'
 
 interface Result {
   id: string
@@ -36,6 +37,7 @@ const iconBox = 'flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px
 // One search for the whole app: clients, requests, the documents inside them, approved files, and pages.
 function GlobalSearch() {
   const { requests } = useRequests()
+  const { onceIds } = useSetup()
   const navigate = useNavigate()
   const input = useRef<HTMLInputElement>(null)
   const [q, setQ] = useState('')
@@ -102,7 +104,7 @@ function GlobalSearch() {
       }),
     )
 
-    buildMaster(requests)
+    buildMaster(requests, onceIds)
       .filter((f) => has(f.name, f.fileName))
       .slice(0, MAX_PER_GROUP)
       .forEach((f) => {

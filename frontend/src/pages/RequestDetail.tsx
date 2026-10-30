@@ -1,7 +1,7 @@
 import { backdropProps, panelProps } from '../lib/motion'
 import { motion } from 'framer-motion'
 import Toast from '../components/Toast'
-import { Bell, ChevronRight, MessageCircle, RefreshCw, Search, X } from 'lucide-react'
+import { ArrowLeft, Bell, ChevronRight, LayoutGrid, List, MessageCircle, RefreshCw, Search, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
@@ -10,6 +10,9 @@ import DocPreviewDrawer from '../components/DocPreviewDrawer'
 import ApproveSaveDialog from '../components/ApproveSaveDialog'
 import Pagination, { usePaging } from '../components/Pagination'
 import ReminderDialog from '../components/ReminderDialog'
+import RequestTracker from '../components/RequestTracker'
+import { nextSort, SortButton } from '../components/SortHead'
+import type { SortDir } from '../components/SortHead'
 import { useMessenger } from '../data/messenger'
 import FileTypeIcon from '../components/FileTypeIcon'
 import StatusBadge from '../components/StatusBadge'
@@ -17,7 +20,7 @@ import DueDatePicker from '../components/DueDatePicker'
 import { getBookClient, getClient, regSuffix } from '../data/mock'
 import { contactOf, useContacts } from '../data/contacts'
 import type { DocRequest } from '../data/requests'
-import { fmtDate, progress, useRequests, lineRef } from '../data/requests'
+import { fmtDate, isCounted, progress, useRequests, lineRef } from '../data/requests'
 import type { Status } from '../data/types'
 import { useSetup } from '../data/setup'
 import { isExpired, todayISO } from '../lib/dates'
@@ -92,6 +95,10 @@ function RequestView({ request }: { request: DocRequest }) {
   const [filter, setFilter] = useState<Filter>('all')
   const [query, setQuery] = useState('')
   const [asking, setAsking] = useState(false)
+  // How the clients are ordered. Nothing chosen: the ones that need a look first (to review, then missing, then complete).
+  const [sort, setSort] = useState<{ by: string; dir: SortDir } | null>(null)
+  // The same clients, as a list (open a client to see its documents) or as a Tracker (a grid: a client per row, a document per column).
+  const [view, setView] = useState<'list' | 'tracker'>(params.get('view') === 'tracker' ? 'tracker' : 'list')
   // Clients whose documents are showing. One client can be opened straight from the Dashboard (?client=).
   const [open, setOpen] = useState<Set<string>>(() => {
     const c = params.get('client') ?? (params.get('doc') ?? '').split(':')[0]
@@ -107,7 +114,6 @@ function RequestView({ request }: { request: DocRequest }) {
   const { sendUpdate, sendNewLink, sendRejected, preview } = useMessenger()
   const p = progress(request)
   const mixedKinds = new Set(request.clients.map((rc) => getClient(rc.clientId)?.service)).size > 1
-  const pct = p.total ? Math.round((p.received / p.total) * 100) : 0
   const approved = request.clients.flatMap((c) => c.docs).filter((d) => d.status === 'approved').length
 
   // Every document the client has sent, in the order they are shown. The preview panel walks through these.
@@ -125,7 +131,7 @@ function RequestView({ request }: { request: DocRequest }) {
       request.clients.flatMap((rc) => {
         const c = getClient(rc.clientId)
         if (!c) return []
-        const counted = rc.docs.filter((d) => d.status !== 'na')
+        const counted = rc.docs.filter(isCounted)
         const missing = counted.filter((d) => d.status === 'pending' || d.status === 'rejected').length
         const toReview = counted.filter((d) => d.status === 'to_review').length
         const got = counted.filter((d) => d.status !== 'pending' && d.status !== 'rejected').length
@@ -170,7 +176,27 @@ function RequestView({ request }: { request: DocRequest }) {
       (filter === 'all' || (filter === 'waiting' ? r.missing > 0 : r.state === filter)) &&
       (!query.trim() || matches(r, query)),
   )
-  const paging = usePaging(shown, `${filter}|${query}`)
+  const stateRank = (r: (typeof rows)[number]) => (r.state === 'review' ? 0 : r.missing > 0 ? 1 : 2)
+  // A document, for sorting: sent back, then not here, then waiting for review, then approved, then not asked.
+  const docRank = (r: (typeof rows)[number], docId: string) => {
+    const d = r.rc.docs.find((x) => x.id === docId)
+    return !d ? 4 : d.status === 'rejected' ? 0 : d.status === 'pending' ? 1 : d.status === 'to_review' ? 2 : d.status === 'approved' ? 3 : 4
+  }
+  const sorted = [...shown].sort((a, b) => {
+    if (!sort) return stateRank(a) - stateRank(b)
+    const d =
+      sort.by === 'client'
+        ? a.c.name.localeCompare(b.c.name)
+        : sort.by === 'status'
+          ? stateRank(a) - stateRank(b)
+          : sort.by === 'received'
+            ? (a.total ? a.got / a.total : 0) - (b.total ? b.got / b.total : 0)
+            : docRank(a, sort.by.slice(4)) - docRank(b, sort.by.slice(4))
+    return sort.dir === 'asc' ? d : -d
+  })
+  const sortBy = (by: string) => setSort((now) => nextSort(now, by))
+  const dirOf = (by: string) => (sort?.by === by ? sort.dir : null)
+  const paging = usePaging(sorted, `${filter}|${query}|${sort?.by}|${sort?.dir}`)
   const toRemind = rows.filter((r) => r.missing > 0)
   // One button for the whole request: chase whoever is missing something, or, when nobody is, tell everyone who is done.
   const thanking = toRemind.length === 0
@@ -249,28 +275,47 @@ function RequestView({ request }: { request: DocRequest }) {
   }
 
   return (
-    <div className="flex min-h-full flex-col gap-4 px-4 py-4 pb-8 max-md:pb-28 md:gap-5 md:px-8 md:py-6 md:pb-8">
-      <div className="z-10 -mx-4 -mt-4 flex flex-col gap-3 bg-canvas px-4 pb-3 pt-4 md:sticky md:top-0 md:-mx-8 md:-mt-6 md:gap-4 md:px-8 md:pt-6">
-      <nav className="text-[13px] text-muted">
-        <Link to="/requests" className="font-semibold text-brand">
-          ← Requests
-        </Link>
-        <span className="mx-2">/</span>
-        <span className="text-ink">{request.ref}</span>
-      </nav>
-
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h1 className="flex flex-wrap items-center gap-3 text-[24px] font-bold tracking-tight">
+    <div className="flex min-h-full flex-col gap-3 px-4 py-4 pb-8 max-md:pb-28 md:gap-3 md:px-8 md:py-4 md:pb-8">
+      {/* The top of the page in two slim lines: what the request is (and who to remind), then how far it has got. */}
+      <div className="z-10 -mx-4 -mt-4 flex flex-col gap-2 bg-canvas px-4 pb-2 pt-3 md:sticky md:top-0 md:-mx-8 md:-mt-6 md:px-8 md:pt-4">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
+          <Link to="/requests" aria-label="Back to requests" title="Back to requests" className="-ml-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-white hover:text-ink">
+            <ArrowLeft size={18} />
+          </Link>
+          <h1 className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 text-[22px] font-bold leading-tight tracking-tight">
             {request.title}
+            <span className="rounded-md bg-white px-2 py-0.5 font-mono text-xs font-semibold text-slate-600 ring-1 ring-line">{request.ref}</span>
             {[...new Set(request.clients.map((rc) => getClient(rc.clientId)?.service).filter((x): x is NonNullable<typeof x> => !!x))].filter((k) => !request.title.includes(k)).map((k) => (
               <span key={k} className={`rounded-md bg-white px-2 py-0.5 text-xs font-bold shadow-sm ring-1 ring-black/5 ${serviceColor[k]}`}>
                 {k}
               </span>
             ))}
           </h1>
-          <p className="mt-0.5 text-sm text-muted">
-            {request.ref} · sent {fmtDate(request.createdAt)} from {request.via === 'own' ? (whatsapp?.displayName ?? 'your WhatsApp') : `the ${SHARED_NUMBER_NAME} number`} · due {fmtDate(request.due)}{request.via === 'own' && !ownNumber && ` · your WhatsApp is not connected, reminders go from the ${SHARED_NUMBER_NAME} number`}
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            {demoOn() && (
+              <button type="button" onClick={() => setToast(simulateReply(request.id) ? 'Demo: a client just sent a document' : 'Nothing is pending')} className="h-9 rounded-xl px-3 text-[13px] font-semibold text-muted hover:bg-white hover:text-ink">
+                Demo: simulate reply
+              </button>
+            )}
+            {toNotify.length > 0 && (
+              <button type="button" onClick={() => setAsking(true)} className="flex h-10 items-center gap-2 rounded-xl border border-line bg-white px-4 text-sm font-semibold hover:border-brand hover:text-brand-dark">
+                <Bell size={16} />
+                {thanking ? 'Send update to' : 'Remind'} {toNotify.length} {toNotify.length === 1 ? 'client' : 'clients'}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* One line of facts about the request, from left to right: who sent it, the due date, how far it has got. Nothing under the Remind button. */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[13px] text-muted">
+          <span>
+            Sent {fmtDate(request.createdAt)} from {request.via === 'own' ? (whatsapp?.displayName ?? 'your WhatsApp') : `the ${SHARED_NUMBER_NAME} number`}
+          </span>
+          <span aria-hidden className="text-slate-300">
+            ·
+          </span>
+          <span>
+            Due <b className="font-semibold text-ink">{fmtDate(request.due)}</b>
             <button
               type="button"
               onClick={() => {
@@ -279,53 +324,29 @@ function RequestView({ request }: { request: DocRequest }) {
               }}
               className="-my-2 ml-1 inline-block px-1 py-2 font-semibold text-brand hover:underline"
             >
-              Change date
+              Change
             </button>
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 md:gap-3">
-          {demoOn() && <button
-            type="button"
-            onClick={() => setToast(simulateReply(request.id) ? 'Demo: a client just sent a document' : 'Nothing is pending')}
-            className="h-10 rounded-xl px-3 text-[13px] font-semibold text-muted hover:bg-white hover:text-ink"
-          >
-            Demo: simulate reply
-          </button>}
-          {toNotify.length > 0 && (
-            <button type="button" onClick={() => setAsking(true)} className="flex h-11 items-center gap-2 rounded-xl border border-line bg-white px-4 text-sm font-semibold hover:border-brand hover:text-brand-dark">
-              <Bell size={16} />
-              {thanking ? 'Send update to' : 'Remind'} {toNotify.length} {toNotify.length === 1 ? 'client' : 'clients'}
-            </button>
-          )}
-        </div>
-      </div>
-
-      <section className="flex flex-wrap items-center gap-x-8 gap-y-3 rounded-2xl border border-line bg-white px-4 py-4 md:px-6">
-        <div>
-          <div className="text-[26px] font-bold leading-none">
-            {p.received} <span className="text-[15px] font-medium text-muted">of {p.total} received</span>
-          </div>
-        </div>
-        <div className="h-2 flex-1 overflow-hidden rounded-full bg-line max-md:order-3 max-md:basis-full">
-          <div className="h-2 rounded-full bg-brand transition-all" style={{ width: `${pct}%` }} />
-        </div>
-        <div className="flex gap-5 text-[13px] text-slate-600">
-          <span>
-            <b className="text-ok">{approved}</b> approved
           </span>
-          <span>
-            <b className="text-warn">{p.toReview}</b> to review
+          <span aria-hidden className="text-slate-300">
+            ·
           </span>
-          <span>
-            <b>{p.total - p.received}</b> pending
+          {/* How far it has got: one bar (approved, then waiting for review, the rest still to come) and one sentence. */}
+          <span className="flex items-center gap-2.5" title={`${approved} approved · ${p.toReview} to review · ${p.total - p.received} pending`}>
+            <span>
+              <b className="font-semibold text-ink">{p.received}</b> of {p.total} received
+            </span>
+            <span className="flex h-1.5 w-28 overflow-hidden rounded-full bg-line" role="img" aria-label={`${approved} approved, ${p.toReview} to review, ${p.total - p.received} pending`}>
+              <span className="h-full bg-brand transition-all" style={{ width: `${p.total ? (approved / p.total) * 100 : 0}%` }} />
+              <span className="h-full bg-[#F0B455] transition-all" style={{ width: `${p.total ? (p.toReview / p.total) * 100 : 0}%` }} />
+            </span>
           </span>
+          {request.via === 'own' && !ownNumber && <span className="text-danger">· your WhatsApp is not connected, so reminders go from the {SHARED_NUMBER_NAME} number</span>}
         </div>
-      </section>
       </div>
 
       <section className="@container overflow-hidden rounded-[18px] border border-line bg-white">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3 md:px-6 md:py-3.5">
-          {rows.length > 1 ? (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-3 border-b border-line px-4 py-3 md:px-6">
+          {rows.length > 1 && (
           <div className="flex max-w-full overflow-x-auto rounded-xl bg-[#E9EEF5] p-1 text-[13px] font-semibold text-slate-600" role="group" aria-label="Show clients">
             {(
               [
@@ -335,25 +356,58 @@ function RequestView({ request }: { request: DocRequest }) {
                 ['done', 'Complete', counts.done],
               ] as [Filter, string, number][]
             ).map(([key, label, n]) => (
-              <button key={key} type="button" onClick={() => setFilter(key)} aria-pressed={filter === key} className={`shrink-0 whitespace-nowrap rounded-[9px] px-3.5 py-2 ${filter === key ? 'bg-white text-ink shadow-sm' : ''}`}>
+              <button key={key} type="button" onClick={() => setFilter(key)} aria-pressed={filter === key} className={`shrink-0 whitespace-nowrap rounded-[9px] px-3 py-1.5 ${filter === key ? 'bg-white text-ink shadow-sm' : ''}`}>
                 {label} <span className="ml-0.5 text-xs text-muted">{n}</span>
               </button>
             ))}
           </div>
-          ) : (
-            <span />
           )}
-          <label className="flex h-10 w-72 items-center gap-2 rounded-xl border border-transparent bg-canvas @max-3xl:w-full px-3.5 text-sm text-muted focus-within:border-brand focus-within:bg-white">
+          {(rows.length > 8 || query) ? (
+            <label className="ml-auto flex h-9 w-64 items-center gap-2 rounded-xl border border-line bg-white @max-3xl:ml-0 @max-3xl:w-full px-3 text-sm text-muted transition-colors hover:border-slate-300 focus-within:border-brand">
             <Search size={15} />
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name, number, PAN, GSTIN, mobile or document" aria-label="Search clients in this request" className="w-full bg-transparent text-ink outline-none placeholder:text-muted" />
-          </label>
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search clients" aria-label="Search clients in this request by name, number, PAN, GSTIN, mobile or document" className="w-full bg-transparent text-ink outline-none placeholder:text-muted" />
+            </label>
+          ) : (
+            <span className="ml-auto" />
+          )}
+          <div role="group" aria-label="How to show the clients" className="flex shrink-0 rounded-xl bg-[#E9EEF5] p-1 text-[13px] font-semibold text-slate-600">
+            {(
+              [
+                ['list', 'List', List],
+                ['tracker', 'Tracker', LayoutGrid],
+              ] as const
+            ).map(([key, label, Icon]) => (
+              <button key={key} type="button" onClick={() => setView(key)} aria-pressed={view === key} className={`flex items-center gap-1.5 rounded-[9px] px-3 py-1.5 transition-colors ${view === key ? 'bg-white text-ink shadow-sm' : 'hover:text-ink'}`}>
+                <Icon size={14} />
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
 
+        {view === 'tracker' ? (
+          <RequestTracker
+            request={request}
+            rows={sorted}
+            allRows={rows}
+            info={regInfo}
+            sort={sort}
+            onSort={sortBy}
+            onOpen={(clientId, docId) => setOpenDoc({ clientId, docId })}
+          />
+        ) : (
+          <>
         <div className={`${CLIENT_ROW} @max-3xl:hidden border-b border-line bg-slate-50/80 py-2 text-[12px] font-bold uppercase tracking-wider text-faint`}>
-          <span>Client</span>
+          <SortButton on={dirOf('client')} onClick={() => sortBy('client')} label="Sort by client name">
+            <span className="text-[12px] font-bold uppercase tracking-wider text-faint">Client</span>
+          </SortButton>
           <span>Contact</span>
-          <span>Received</span>
-          <span>Status</span>
+          <SortButton on={dirOf('received')} onClick={() => sortBy('received')} label="Sort by how much has been received, least first">
+            <span className="text-[12px] font-bold uppercase tracking-wider text-faint">Received</span>
+          </SortButton>
+          <SortButton on={dirOf('status')} onClick={() => sortBy('status')} label="Sort by status, to review first">
+            <span className="text-[12px] font-bold uppercase tracking-wider text-faint">Status</span>
+          </SortButton>
           <span />
           <span />
         </div>
@@ -390,7 +444,6 @@ function RequestView({ request }: { request: DocRequest }) {
                     <div className="mt-0.5 truncate text-[13px] text-muted">
                       {regInfo(c.id) && <span className="font-mono text-[12px] text-slate-600">{regInfo(c.id)!.number}</span>}
                       <span title="This client's number in the request"> · {lineRef(request, rc.clientId)}</span>
-                      {rc.lastReminder && ` · reminded ${rc.lastReminder}`}
                     </div>
                   </div>
                 </div>
@@ -409,6 +462,7 @@ function RequestView({ request }: { request: DocRequest }) {
                 <div className="@max-3xl:order-4 @max-3xl:flex-1">
                   <span className={`inline-block rounded-md px-2 py-1 text-[12px] font-bold uppercase tracking-wide ${chip.cls}`}>{chip.text}</span>
                   {state === 'review' && missing > 0 && <div className="mt-1 text-xs text-muted">{missing} pending</div>}
+                  {missing > 0 && rc.lastReminder && <div className="mt-1 whitespace-nowrap text-xs text-muted">Reminded {rc.lastReminder.replace(', ', ' · ')}</div>}
                 </div>
                 <div onClick={(e) => e.stopPropagation()} className="flex justify-end @max-3xl:order-2 @max-3xl:shrink-0">
                   {missing > 0 ? (
@@ -471,7 +525,10 @@ function RequestView({ request }: { request: DocRequest }) {
                       >
                         {gotIt && d.fileName ? <FileTypeIcon file={d.fileName} size={34} /> : <span className="flex h-[34px] w-[27px] items-center justify-center rounded border-[1.5px] border-dashed border-slate-300" />}
                         <div className="min-w-0 flex-1">
-                          <div className={`text-sm font-semibold ${gotIt ? '' : 'text-muted'}`}>{d.name}</div>
+                          <div className={`text-sm font-semibold ${gotIt ? '' : 'text-muted'}`}>
+                            {d.name}
+                            {d.optional && <span className="ml-2 rounded-md border border-dashed border-slate-300 px-1.5 py-px align-middle text-[11px] font-semibold text-muted">Optional</span>}
+                          </div>
                           {(gotIt || d.status === 'na' || (d.status === 'rejected' && d.reason)) && (
                             <div className="text-xs text-muted">
                               {gotIt ? `${d.receivedAt} · via ${d.source === 'Link' ? 'upload link' : 'WhatsApp'}${d.moreFiles?.length ? ` · ${d.moreFiles.length + 1} files` : ''}` : d.status === 'na' ? 'Client says this does not apply to them' : ''}
@@ -489,6 +546,8 @@ function RequestView({ request }: { request: DocRequest }) {
           )
         })}
         <Pagination p={paging} noun="clients" />
+          </>
+        )}
       </section>
 
       {current && currentClient && (

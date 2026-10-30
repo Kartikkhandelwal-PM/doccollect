@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 
 export interface Paging<T> {
   rows: T[]
@@ -39,7 +40,7 @@ function pageList(page: number, pages: number): (number | '…')[] {
 
 const btn = 'flex h-8 min-w-8 items-center justify-center rounded-lg px-2 text-[13px] font-semibold'
 
-export default function Pagination<T>({ p, noun = 'items', className = '' }: { p: Paging<T>; noun?: string; className?: string }) {
+export default function Pagination<T>({ p, noun = 'items', className = '', middle, compact }: { p: Paging<T>; noun?: string; className?: string; middle?: ReactNode; compact?: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
   if (p.total === 0) return null
   const from = (p.page - 1) * p.size + 1
@@ -64,10 +65,11 @@ export default function Pagination<T>({ p, noun = 'items', className = '' }: { p
       <span>
         Showing <b className="font-semibold text-ink">{from}–{to}</b> of <b className="font-semibold text-ink">{p.total}</b> {noun}
       </span>
+      {middle}
       {p.total > p.sizes[0] && (
         <div className="flex items-center gap-4">
           <label className="flex items-center gap-2">
-            Rows per page
+            <span className={compact ? 'sr-only' : ''}>Rows per page</span>
             <select
               value={p.size}
               onChange={(e) => p.setSize(Number(e.target.value))}

@@ -12,9 +12,10 @@ import StatusBadge from '../components/StatusBadge'
 import Toast from '../components/Toast'
 import { mainContact, useContacts } from '../data/contacts'
 import { buildMaster } from '../data/master'
+import { useSetup } from '../data/setup'
 import type { Registration } from '../data/mock'
 import { getBookClient, parentIdOf, sameContact } from '../data/mock'
-import { fmtDate, isReceived, useRequests, lineRef } from '../data/requests'
+import { fmtDate, isCounted, isReceived, useRequests, lineRef } from '../data/requests'
 import type { DocRequest, RequestClient, RequestDoc } from '../data/requests'
 import type { Service } from '../data/types'
 import { serviceColor } from '../lib/status'
@@ -53,11 +54,11 @@ interface Line {
   reg: Registration
 }
 const lineState = (rc: RequestClient): keyof typeof stateLabel => {
-  const docs = rc.docs.filter((d) => d.status !== 'na')
+  const docs = rc.docs.filter(isCounted)
   return docs.every((d) => d.status === 'approved') ? 'completed' : docs.some((d) => d.status === 'to_review') ? 'review' : 'waiting'
 }
 const lineProgress = (rc: RequestClient) => {
-  const docs = rc.docs.filter((d) => d.status !== 'na')
+  const docs = rc.docs.filter(isCounted)
   return { done: docs.filter(isReceived).length, total: docs.length }
 }
 
@@ -163,6 +164,7 @@ export default function ClientDetail() {
   const { id } = useParams()
   const [params, setParams] = useSearchParams()
   const { requests } = useRequests()
+  const { onceIds } = useSetup()
   const location = useLocation()
   // One client per PAN. The page is the client's, and covers all its registrations (ITR, each GSTIN, each TAN).
   const client = id ? getBookClient(id) : undefined
@@ -196,7 +198,7 @@ export default function ClientDetail() {
     [requests, ids, regById],
   )
   const items: Item[] = useMemo(() => lines.flatMap((line) => line.rc.docs.map((doc) => ({ line, doc }))), [lines])
-  const folderFiles = useMemo(() => buildMaster(requests).filter((f) => f.folderId?.startsWith(`c:${client?.id}/`) || (!!f.clientId && parentIdOf(f.clientId) === client?.id)), [requests, client?.id])
+  const folderFiles = useMemo(() => buildMaster(requests, onceIds).filter((f) => f.folderId?.startsWith(`c:${client?.id}/`) || (!!f.clientId && parentIdOf(f.clientId) === client?.id)), [requests, onceIds, client?.id])
 
   // Requests tab: filter by kind and search.
   const kindParam = params.get('kind')

@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom'
 import { buildMaster } from '../data/master'
 import type { MasterFile } from '../data/master'
 import { useMasterStore } from '../data/masterStore'
+import { useSetup } from '../data/setup'
 import { getBookClient } from '../data/mock'
 import { useRequests } from '../data/requests'
 import FileTypeIcon from './FileTypeIcon'
@@ -23,6 +24,7 @@ interface Node {
 export default function ClientRepository({ clientId }: { clientId: string }) {
   const { requests } = useRequests()
   const { folders: custom, uploads } = useMasterStore()
+  const { onceIds } = useSetup()
   const client = getBookClient(clientId)
   const rootId = `c:${clientId}`
   const [current, setCurrent] = useState(rootId)
@@ -30,7 +32,7 @@ export default function ClientRepository({ clientId }: { clientId: string }) {
 
   // Folders and files that belong to this client (the automatic ones, plus any the CA made inside them).
   const { nodes, files } = useMemo(() => {
-    const all = [...buildMaster(requests), ...uploads]
+    const all = [...buildMaster(requests, onceIds), ...uploads]
     const map = new Map<string, Node>()
     for (const f of all) {
       const m = f.folderId?.match(/^c:([^/]+)\/([^/]+)\/(.+)$/)

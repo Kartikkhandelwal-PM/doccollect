@@ -12,6 +12,7 @@ interface Props {
 // Jira-style status lozenge. When onChange is given, it opens a menu to change status in place.
 export default function StatusBadge({ status, onChange, options = changeableStatuses }: Props) {
   const [open, setOpen] = useState(false)
+  const [up, setUp] = useState(false) // near the bottom of the window the menu opens upward, so it is never cut off
   const meta = statusMeta[status]
   const base =
     'inline-flex items-center gap-1 rounded-md px-2 py-1 text-[12px] font-semibold uppercase tracking-wide'
@@ -24,6 +25,7 @@ export default function StatusBadge({ status, onChange, options = changeableStat
         type="button"
         onClick={(e) => {
           e.stopPropagation()
+          setUp(window.innerHeight - e.currentTarget.getBoundingClientRect().bottom < options.length * 40 + 90)
           setOpen((v) => !v)
         }}
         aria-haspopup="menu"
@@ -46,7 +48,7 @@ export default function StatusBadge({ status, onChange, options = changeableStat
           />
           <div
             role="menu"
-            className="absolute left-0 z-20 mt-1 w-44 overflow-hidden rounded-xl border border-line bg-white py-1 shadow-lg"
+            className={`absolute right-0 z-20 w-44 overflow-hidden rounded-xl border border-line bg-white py-1 shadow-lg ${up ? 'bottom-full mb-1' : 'mt-1'}`}
           >
             {options.map((s) => (
               <button

@@ -6,7 +6,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
 import Pagination, { usePaging } from '../components/Pagination'
 import { getBookClient, getClient, parentIdOf, partyName } from '../data/mock'
-import { fmtDate, isReceived, lineRef, progress, requestState, useRequests } from '../data/requests'
+import { fmtDate, isCounted, isReceived, lineRef, progress, reminderDate, reminderTime, requestState, useRequests } from '../data/requests'
 import type { DocRequest, RequestState } from '../data/requests'
 import { daysUntil } from '../lib/dates'
 import { SHARED_NUMBER_NAME } from '../lib/brand'
@@ -24,7 +24,7 @@ const stateMeta: Record<RequestState, { label: string; className: string }> = {
 }
 
 // On a phone every request is a small card instead of a table row.
-const GRID = 'grid grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_130px_110px_170px_150px] items-center gap-4 px-5 @max-4xl:flex @max-4xl:flex-wrap @max-4xl:gap-x-3 @max-4xl:gap-y-2.5 @max-4xl:px-4'
+const GRID = 'grid grid-cols-[minmax(0,1.2fr)_minmax(0,1.3fr)_104px_minmax(150px,1fr)_120px] items-center gap-3 px-5 @max-4xl:flex @max-4xl:flex-wrap @max-4xl:gap-x-3 @max-4xl:gap-y-2.5 @max-4xl:px-4'
 const SHOW_CLIENTS = 5
 
 // A request is late when its last date has passed and it is not complete.
@@ -55,8 +55,8 @@ export default function Requests() {
   const [open, setOpen] = useState<Set<string>>(new Set())
 
   const q = query.trim().toLowerCase()
-  const list = requests.filter((r) => {
-    if (tab !== 'all' && requestState(r) !== tab) return false
+  // The search and the two filters first. The tabs then split what is left, and their counts say how many requests each one has under those filters.
+  const filtered = requests.filter((r) => {
     if (from !== 'all' && r.via !== from) return false
     if (due !== 'all') {
       const days = daysUntil(r.due)
@@ -74,6 +74,18 @@ export default function Requests() {
     }
     return true
   })
+  // Where a client stands in a request, so a tab can show only the clients it is about.
+  const standing = (rc: DocRequest['clients'][number]): RequestState => {
+    const counted = rc.docs.filter(isCounted)
+    if (counted.some((d) => d.status === 'to_review')) return 'review'
+    if (counted.some((d) => d.status === 'pending' || d.status === 'rejected')) return 'waiting'
+    return 'completed'
+  }
+  // A request is under a tab when any of its clients is in that state (so a request with one client to review and one waiting is under both).
+  // Completed is only for a request where everything is approved.
+  const inTab = (r: DocRequest, key: Tab) => key === 'all' || (key === 'completed' ? requestState(r) === 'completed' : r.clients.some((rc) => standing(rc) === key))
+  const list = filtered.filter((r) => inTab(r, tab))
+  const countOf = (key: Tab) => filtered.filter((r) => inTab(r, key)).length
   const listPaging = usePaging(list, `${tab}|${query}|${due}|${from}`)
 
   const tabs: { key: Tab; label: string }[] = [
@@ -107,47 +119,38 @@ export default function Requests() {
         </Link>
       </div>
       }
-      tabs={
-      <div className="flex gap-1 overflow-x-auto border-b border-line text-sm font-semibold text-muted [&>button:first-child]:-ml-3">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            onClick={() => setTab(t.key)}
-            className={`flex h-11 shrink-0 items-center whitespace-nowrap border-b-[3px] px-3 ${tab === t.key ? 'border-brand text-brand-dark' : 'border-transparent hover:text-ink'}`}
-          >
-            {t.label}
-            <span className="ml-1.5 rounded-md bg-canvas px-1.5 py-px text-xs">{t.key === 'all' ? requests.length : requests.filter((r) => requestState(r) === t.key).length}</span>
-          </button>
-        ))}
-      </div>
-      }
     >
       <div className="@container overflow-clip rounded-[18px] border border-line bg-white">
         {/* The filters and the column names stay in view while the list scrolls under them */}
         <div className="sticky -top-5 z-10 bg-white">
-        <div className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-3 md:px-6 md:py-4">
-          <label className="flex h-10 min-w-[240px] flex-1 items-center gap-2 rounded-xl bg-canvas px-3.5 text-sm text-muted @max-4xl:min-w-full">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2.5 border-b border-line px-4 py-3 md:px-6">
+          <div role="group" aria-label="Show requests" className="flex max-w-full shrink-0 overflow-x-auto rounded-xl bg-[#E9EEF5] p-1 text-[13px] font-semibold text-slate-600">
+            {tabs.map((t) => (
+              <button key={t.key} type="button" onClick={() => setTab(t.key)} aria-pressed={tab === t.key} className={`shrink-0 whitespace-nowrap rounded-[9px] px-3.5 py-2 ${tab === t.key ? 'bg-white text-ink shadow-sm' : 'hover:text-ink'}`}>
+                {t.label} <span className="ml-0.5 text-xs text-muted">{countOf(t.key)}</span>
+              </button>
+            ))}
+          </div>
+          <label className="flex h-10 min-w-[200px] flex-1 items-center gap-2 rounded-xl bg-canvas px-3.5 text-sm text-muted @max-4xl:min-w-full">
             <Search size={15} />
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search client, request number, PAN, GSTIN or mobile" className="w-full bg-transparent text-ink outline-none placeholder:text-muted" />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search clients or requests" aria-label="Search client, request number, PAN, GSTIN or mobile" className="w-full bg-transparent text-ink outline-none placeholder:text-muted" />
           </label>
-          <FilterSelect value={due} onChange={(v) => setDue(v as typeof due)} label="Last date" width="w-[170px]">
-            <option value="all">Any last date</option>
+          <FilterSelect value={due} onChange={(v) => setDue(v as typeof due)} label="Last date" width="w-[190px]" named active={due !== 'all'}>
+            <option value="all">Any</option>
             <option value="late">Late</option>
-            <option value="week">Due in 7 days</option>
-            <option value="later">Due later</option>
+            <option value="week">In 7 days</option>
+            <option value="later">Later</option>
           </FilterSelect>
-          <FilterSelect value={from} onChange={(v) => setFrom(v as typeof from)} label="Sent from" width="w-[210px]">
-            <option value="all">Sent from any number</option>
-            <option value="own">Sent from your WhatsApp</option>
-            <option value="kdk">Sent from {SHARED_NUMBER_NAME}</option>
+          <FilterSelect value={from} onChange={(v) => setFrom(v as typeof from)} label="Sent from" width="w-[230px]" named active={from !== 'all'}>
+            <option value="all">Any number</option>
+            <option value="own">Your WhatsApp</option>
+            <option value="kdk">{SHARED_NUMBER_NAME}</option>
           </FilterSelect>
         </div>
 
         <div className={`${GRID} @max-4xl:hidden border-b border-line bg-slate-50/80 py-2.5 text-[12px] font-bold uppercase tracking-wider text-faint`}>
           <span className="pl-[26px]">Request</span>
           <span>Clients</span>
-          <span>Sent</span>
           <span>Last date</span>
           <span>Documents</span>
           <span>Status</span>
@@ -179,9 +182,13 @@ export default function Requests() {
           // How the clients stand, shown under their names: how many have something to review, and how many still owe documents.
           const reviewing = r.clients.filter((rc) => rc.docs.some((d) => d.status === 'to_review')).length
           const owing = r.clients.filter((rc) => {
-            const counted = rc.docs.filter((d) => d.status !== 'na')
+            const counted = rc.docs.filter(isCounted)
             return !counted.some((d) => d.status === 'to_review') && counted.some((d) => d.status === 'pending' || d.status === 'rejected')
           }).length
+          // A tab shows only the counts, and (when opened) only the clients, that it is about.
+          const showReviewing = reviewing > 0 && (tab === 'all' || tab === 'review')
+          const showOwing = owing > 0 && (tab === 'all' || tab === 'waiting')
+          const shownClients = r.clients.filter((rc) => tab === 'all' || standing(rc) === tab)
           return (
             <Fragment key={r.id}>
               <motion.div {...rowIn(index)} {...rowKeys(() => navigate(`/requests/${r.id}`))} aria-label={`Open ${r.title} ${r.ref}`} onClick={() => navigate(`/requests/${r.id}`)} className={`${GRID} min-h-[68px] ${rowHover} ${rowFocus} border-b border-line py-3 @max-4xl:py-3.5 ${isOpen ? 'bg-slate-50' : ''}`}>
@@ -206,7 +213,10 @@ export default function Requests() {
                 )}
                   <div className="min-w-0">
                     <div className="truncate text-[15px] font-semibold">{r.title}</div>
-                    <div className="text-xs text-muted">{r.ref}</div>
+                    <div className="truncate text-xs text-muted">
+                      {r.ref} · sent {fmtDate(r.createdAt)}
+                      {r.via === 'kdk' && ` · ${SHARED_NUMBER_NAME}`}
+                    </div>
                   </div>
                 </div>
                 <div className="flex min-w-0 items-center gap-2.5 @max-4xl:order-3 @max-4xl:flex-[1_1_58%]">
@@ -224,18 +234,14 @@ export default function Requests() {
                   <div className="min-w-0">
                     <div className="truncate text-sm font-semibold">{people.length === 1 ? people[0].name : `${people.length} clients`}</div>
                     {people.length === 1 && rows.length > 1 && <div className="truncate text-xs text-muted">{rows.map((c) => c.label ?? c.service).join(', ')}</div>}
-                    {people.length > 1 && (reviewing > 0 || owing > 0) && (
+                    {people.length > 1 && (showReviewing || showOwing) && (
                       <div className="truncate text-xs font-semibold">
-                        {reviewing > 0 && <span className="text-warn">{reviewing} to review</span>}
-                        {reviewing > 0 && owing > 0 && <span className="text-faint"> · </span>}
-                        {owing > 0 && <span className={isLate(r) ? 'text-danger' : 'text-muted'}>{owing} {isLate(r) ? 'late' : 'waiting'}</span>}
+                        {showReviewing && <span className="text-warn">{reviewing} to review</span>}
+                        {showReviewing && showOwing && <span className="text-faint"> · </span>}
+                        {showOwing && <span className={isLate(r) ? 'text-danger' : 'text-muted'}>{owing} {isLate(r) ? 'late' : 'waiting'}</span>}
                       </div>
                     )}
                   </div>
-                </div>
-                <div className="@max-4xl:hidden">
-                  <div className="text-sm font-semibold">{fmtDate(r.createdAt)}</div>
-                  <div className="truncate text-xs text-muted">{r.via === 'own' ? 'Your WhatsApp' : SHARED_NUMBER_NAME}</div>
                 </div>
                 <div className="@max-4xl:order-4 @max-4xl:shrink-0 @max-4xl:text-right"><DueCell r={r} /></div>
                 <div className="@max-4xl:order-5 @max-4xl:basis-full">
@@ -270,9 +276,9 @@ export default function Requests() {
                     <span>Status</span>
                     <span className="@max-4xl:hidden">Last reminder</span>
                   </div>
-                  {r.clients.slice(0, SHOW_CLIENTS).map((rc) => {
+                  {shownClients.slice(0, SHOW_CLIENTS).map((rc) => {
                     const c = getClient(rc.clientId)
-                    const counted = rc.docs.filter((d) => d.status !== 'na')
+                    const counted = rc.docs.filter(isCounted)
                     const got = counted.filter(isReceived).length
                     const toReview = counted.filter((d) => d.status === 'to_review').length
                     const missing = counted.filter((d) => d.status === 'pending' || d.status === 'rejected').length
@@ -290,13 +296,13 @@ export default function Requests() {
                         <span>
                           <span className={`inline-block rounded-md px-2 py-0.5 text-[12px] font-semibold uppercase tracking-wide ${tone}`}>{label}</span>
                         </span>
-                        <span className="text-[13px] text-muted @max-4xl:hidden">{rc.lastReminder ?? 'None yet'}</span>
+                        <span className="text-[13px] text-muted @max-4xl:hidden">{rc.lastReminder ? `${reminderDate(rc.lastReminder)}, ${reminderTime(rc.lastReminder)}` : 'None yet'}</span>
                       </Link>
                     )
                   })}
-                  {r.clients.length > SHOW_CLIENTS && (
+                  {shownClients.length > SHOW_CLIENTS && (
                     <Link to={`/requests/${r.id}`} className="ml-3 mt-1 inline-block py-1.5 text-[13px] font-semibold text-brand-dark hover:underline">
-                      View all {r.clients.length} clients
+                      View all {shownClients.length} {tab === 'all' ? '' : `${tab === 'review' ? 'to review ' : tab === 'waiting' ? 'waiting ' : 'completed '}`}clients
                     </Link>
                   )}
                 </div>

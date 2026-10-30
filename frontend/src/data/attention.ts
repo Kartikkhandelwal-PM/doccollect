@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { todayISO } from '../lib/dates'
 import { useInbox } from './inbox'
 import { getClient, partyName } from './mock'
-import { fmtDate, isReceived, useRequests } from './requests'
+import { fmtDate, isCounted, isReceived, useRequests } from './requests'
 import { useSetup } from './setup'
 import type { AttentionItem } from './types'
 
@@ -22,7 +22,7 @@ export function useAttention() {
       for (const rc of r.clients) {
         const client = getClient(rc.clientId)
         if (!client) continue
-        const counted = rc.docs.filter((d) => d.status !== 'na')
+        const counted = rc.docs.filter(isCounted)
         const missing = counted.filter((d) => d.status === 'pending' || d.status === 'rejected').length
         const toReview = counted.filter((d) => d.status === 'to_review')
         const got = counted.filter(isReceived).length
@@ -51,7 +51,7 @@ export function useAttention() {
             kind: 'no_response',
             sub: `${missing} ${missing === 1 ? 'document' : 'documents'} pending`,
             activity: late ? `Overdue since ${fmtDate(r.due)}` : got === 0 ? `Waiting since ${fmtDate(r.createdAt)}` : `Due ${fmtDate(r.due)}`,
-            activitySub: rc.lastReminder ? `Last reminder ${rc.lastReminder}` : 'No reminder sent yet',
+            activitySub: rc.lastReminder ? `Last reminder ${rc.lastReminder.replace(', ', ' at ')}` : 'No reminder sent yet',
             activityTone: late ? 'danger' : undefined,
             status: late ? 'overdue' : 'awaiting',
             href: `/requests/${r.id}?client=${rc.clientId}`,
