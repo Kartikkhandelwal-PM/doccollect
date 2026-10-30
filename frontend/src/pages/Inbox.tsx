@@ -25,6 +25,7 @@ import type { Conversation, Msg } from '../data/inbox'
 import { addContact } from '../data/contacts'
 import { book, getBookClient, getClient, parentIdOf, regSuffix } from '../data/mock'
 import { autoFolderId, autoFolderLabel, folderIdOf } from '../data/master'
+import { CURRENT_FY } from '../lib/period'
 import ApproveSaveDialog from '../components/ApproveSaveDialog'
 import type { Approving } from '../components/ApproveSaveDialog'
 import FolderPickerDialog from '../components/FolderPickerDialog'
@@ -608,7 +609,7 @@ function RightPanel({ conv, onReview, onPreview }: { conv: Conversation; onRevie
 
 function InboxMain() {
   const { conversations: allConversations, markRead, send, markPlaced, linkChat, arrive, patchMsg } = useInbox()
-  const { messageTemplates, firm, readReplies, ownNumber, whatsapp } = useSetup()
+  const { messageTemplates, firm, readReplies, ownNumber, whatsapp, onceIds } = useSetup()
   // Each WhatsApp number is shown by its name, with the number under it.
   const accounts = {
     own: whatsapp?.displayName ?? 'Your WhatsApp',
@@ -803,7 +804,7 @@ function InboxMain() {
   const folderChoices: (FolderChoice & { regId?: string })[] = [
     ...attachIds.flatMap((id) => {
       const c = getClient(id)
-      return c ? [{ id: folderIdOf(parentIdOf(id), 'FY 2025-26', `${c.service}${c.service === 'ITR' ? '' : regSuffix(id)}`), label: `${getBookClient(id)?.name ?? c.name} / ${c.service}${c.service === 'ITR' ? '' : regSuffix(id)} / FY 2025-26`, regId: id }] : []
+      return c ? [{ id: folderIdOf(parentIdOf(id), CURRENT_FY, `${c.service}${c.service === 'ITR' ? '' : regSuffix(id)}`), label: `${getBookClient(id)?.name ?? c.name} / ${c.service}${c.service === 'ITR' ? '' : regSuffix(id)} / ${CURRENT_FY}`, regId: id }] : []
     }),
     ...masterFolders.map((f) => ({ id: f.id, label: f.parentId ? `${masterFolders.find((x) => x.id === f.parentId)?.name} / ${f.name}` : f.name })),
   ]
@@ -1272,7 +1273,7 @@ function InboxMain() {
             const r = l && requests.find((x) => x.id === l.requestId)
             const d = r && r.clients.find((c) => c.clientId === l!.clientId)?.docs.find((x) => x.id === l!.docId)
             if (!l || !r || !d || d.status !== 'approved' || d.filedTo === null) return null
-            const id = d.filedTo ?? autoFolderId(r.title, l.clientId)
+            const id = d.filedTo ?? autoFolderId(r, l.clientId, onceIds.has(d.id))
             return autoFolderLabel(id) ?? folderPathName(id)
           })()}
           onFile={() => viewing.link && setFiling(viewing.link)}
@@ -1318,7 +1319,7 @@ function InboxMain() {
           <FolderPickerDialog
             fileName={files[0]}
             more={files.slice(1)}
-            suggested={typeof d.filedTo === 'string' ? d.filedTo : autoFolderId(r.title, filing.clientId)}
+            suggested={typeof d.filedTo === 'string' ? d.filedTo : autoFolderId(r, filing.clientId, onceIds.has(d.id))}
             clientIds={[parentIdOf(filing.clientId)]}
             onClose={() => setFiling(null)}
             onSave={(folderId) => {

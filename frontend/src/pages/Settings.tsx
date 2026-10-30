@@ -1,7 +1,7 @@
 import { backdropProps, panelProps } from '../lib/motion'
 import { motion } from 'framer-motion'
 import Toast from '../components/Toast'
-import { Check, Clock, ExternalLink, Trash2 } from 'lucide-react'
+import { Check, Clock, ExternalLink } from 'lucide-react'
 import Page from '../components/Page'
 import { useEffect, useState } from 'react'
 import Avatar from '../components/Avatar'
@@ -14,7 +14,7 @@ import { useInbox } from '../data/inbox'
 import { fmtDate, useRequests } from '../data/requests'
 import { addDays, expiresOn, todayISO } from '../lib/dates'
 import { useSetup } from '../data/setup'
-import type { Firm, TeamMember } from '../data/setup'
+import type { Firm } from '../data/setup'
 import { RAMWIN_CONNECT_URL, SHARED_NUMBER, SHARED_NUMBER_NAME } from '../lib/brand'
 import { formatMobile, isMobile, mobileDigits } from '../lib/phone'
 
@@ -26,7 +26,6 @@ const tabs: { key: Tab; label: string }[] = [
   { key: 'team', label: 'Team' },
   // { key: 'usage', label: 'Usage' }, // parked: the usage numbers come with the backend
 ]
-const roles: TeamMember['role'][] = ['Owner', 'Admin', 'Staff']
 
 function Field({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
@@ -95,15 +94,13 @@ export function Usage() {
 }
 
 export default function Settings() {
-  const { firm, saveFirm, team, invite, setRole, removeMember, whatsapp, connectWhatsApp, sendFrom, setSendFrom, approvedTemplates, approveTemplates, messageTemplates, graceDays, setGraceDays, readReplies, setReadReplies } = useSetup()
+  const { firm, saveFirm, team, whatsapp, connectWhatsApp, sendFrom, setSendFrom, approvedTemplates, approveTemplates, messageTemplates, graceDays, setGraceDays, readReplies, setReadReplies } = useSetup()
   const { requests } = useRequests()
   const [params] = useSearchParams()
   const [tab, setTab] = useState<Tab>(params.get('tab') === 'whatsapp' ? 'whatsapp' : 'firm')
   const [disconnecting, setDisconnecting] = useState(false)
   const [draft, setDraft] = useState<Firm>(firm)
   const [toast, setToast] = useState<string | null>(null)
-  const [inviteEmail, setInviteEmail] = useState('')
-  const [inviteRole, setInviteRole] = useState<TeamMember['role']>('Staff')
   const [ask, setAsk] = useState<'own' | 'kdk' | null>(null) // asking before switching the number
   const navigate = useNavigate()
   // The number a message really goes from now: your own only when it is connected and chosen.
@@ -434,60 +431,18 @@ export default function Settings() {
       {tab === 'team' && (
         <section className="max-w-2xl rounded-[18px] border border-line bg-white p-6">
           <h2 className="text-base font-bold tracking-tight">Team members</h2>
-          {team.map((m) => (
-            <div key={m.id} className="flex items-center gap-3.5 border-b border-line py-3.5 last:border-b-0">
-              <Avatar name={m.name} size={42} />
-              <div className="min-w-0 flex-1">
-                <div className="text-[15px] font-semibold capitalize">{m.name}</div>
-                <div className="truncate text-[13px] text-muted">{m.email}</div>
+          <p className="mt-0.5 text-[13px] text-muted">The people who work in this account, and what each one can do.</p>
+          <div className="mt-2">
+            {team.map((m) => (
+              <div key={m.id} className="flex items-center gap-3.5 border-b border-line py-3.5 last:border-b-0">
+                <Avatar name={m.name} size={42} />
+                <div className="min-w-0 flex-1">
+                  <div className="text-[15px] font-semibold capitalize">{m.name}</div>
+                  <div className="truncate text-[13px] text-muted">{m.email}</div>
+                </div>
+                <span className={`rounded-md px-2.5 py-1 text-[12px] font-semibold ${m.role === 'Owner' ? 'bg-brand-soft text-brand-dark' : m.role === 'Admin' ? 'bg-info-soft text-info' : 'bg-slate-100 text-slate-600'}`}>{m.role}</span>
               </div>
-              <select
-                value={m.role}
-                disabled={m.role === 'Owner'}
-                onChange={(e) => setRole(m.id, e.target.value as TeamMember['role'])}
-                aria-label={`Role of ${m.name}`}
-                className="h-10 rounded-xl border border-line bg-white px-3 text-sm font-medium outline-none focus:border-brand disabled:bg-canvas"
-              >
-                {roles.map((r) => (
-                  <option key={r}>{r}</option>
-                ))}
-              </select>
-              <button
-                type="button"
-                aria-label={`Remove ${m.name}`}
-                disabled={m.role === 'Owner'}
-                onClick={() => {
-                  removeMember(m.id)
-                  setToast(`${m.name} removed`)
-                }}
-                className="flex h-10 w-10 items-center justify-center rounded-xl text-muted hover:bg-danger-soft hover:text-danger disabled:opacity-30"
-              >
-                <Trash2 size={16} />
-              </button>
-            </div>
-          ))}
-          <div className="mt-4 flex flex-col gap-3 rounded-2xl bg-canvas p-4 md:flex-row md:items-end">
-            <label className="flex-1 text-[13px] font-semibold text-muted">
-              Invite by email
-              <input value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="name@firm.com" className="mt-1 block h-11 w-full rounded-xl border border-line bg-white px-3.5 text-[15px] font-medium text-ink outline-none focus:border-brand" />
-            </label>
-            <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value as TeamMember['role'])} aria-label="Role for the invite" className="h-11 rounded-xl border border-line bg-white px-3 text-sm font-medium outline-none">
-              {roles.filter((r) => r !== 'Owner').map((r) => (
-                <option key={r}>{r}</option>
-              ))}
-            </select>
-            <button
-              type="button"
-              disabled={!/^\S+@\S+\.\S+$/.test(inviteEmail)}
-              onClick={() => {
-                invite(inviteEmail, inviteRole)
-                setToast(`Invite sent to ${inviteEmail}`)
-                setInviteEmail('')
-              }}
-              className="h-11 rounded-xl bg-brand px-5 text-sm font-semibold text-white disabled:opacity-40"
-            >
-              Send invite
-            </button>
+            ))}
           </div>
         </section>
       )}

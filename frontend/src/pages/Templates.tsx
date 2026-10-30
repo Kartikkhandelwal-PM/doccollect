@@ -105,7 +105,7 @@ export default function Templates() {
                     {v.label}
                     <span className="ml-2 rounded-md bg-canvas px-1.5 py-0.5 text-xs text-muted">{`{${v.key}}`}</span>
                   </dt>
-                  <dd className="max-w-[45%] whitespace-pre-line text-right text-slate-600">{sample[v.key]}</dd>
+                  <dd className="max-w-[45%] whitespace-pre-line text-right text-slate-600">{sample[v.key].replace(/\*/g, '')}</dd>
                 </div>
               ))}
             </dl>

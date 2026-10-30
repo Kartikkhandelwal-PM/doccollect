@@ -1,7 +1,7 @@
 import { backdropProps, panelProps } from '../lib/motion'
 import { motion } from 'framer-motion'
 import Toast from '../components/Toast'
-import { Building2, ChevronDown, ShieldCheck, Folders, ChevronRight, Download, Folder, FolderInput, FolderPlus, FolderUp, LayoutGrid, List, MoreHorizontal, Pencil, Search, Trash2, Upload, X } from 'lucide-react'
+import { Archive, Pin, Building2, ChevronDown, ShieldCheck, Folders, ChevronRight, Download, Folder, FolderInput, FolderPlus, FolderUp, LayoutGrid, List, MoreHorizontal, Pencil, Search, Trash2, Upload, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import Avatar from '../components/Avatar'
@@ -11,11 +11,15 @@ import OpenInTab from '../components/OpenInTab'
 import PaperPreview from '../components/PaperPreview'
 import { fileLink } from '../lib/fileLink'
 import Pagination, { usePaging } from '../components/Pagination'
-import { buildMaster, clientFolderInfo } from '../data/master'
+import { ARCHIVE, PERMANENT, buildMaster, clientFolderInfo } from '../data/master'
 import type { MasterFile } from '../data/master'
 import { FIRM_FOLDER, useMasterStore } from '../data/masterStore'
 import { getBookClient } from '../data/mock'
 import { useRequests } from '../data/requests'
+import MasterTabs from '../components/MasterTabs'
+import Tracker from '../components/Tracker'
+import { useSearchParams } from 'react-router-dom'
+import { useSetup } from '../data/setup'
 
 interface Node {
   id: string
@@ -25,6 +29,7 @@ interface Node {
   clientId?: string
   locked?: boolean
   number?: string // a registration's GSTIN, TAN or PAN
+  contact?: string // who gets the messages for this registration
 }
 
 const START = FIRM_FOLDER
@@ -42,6 +47,7 @@ interface Action {
 // The "..." menu on folders and files the CA owns.
 function ItemMenu({ label, actions, compact }: { label: string; actions: Action[]; compact?: boolean }) {
   const [open, setOpen] = useState(false)
+  const [up, setUp] = useState(false) // near the bottom of the window the menu opens upward, so it is never cut off
   if (actions.length === 0) return null
   return (
     <div className="relative">
@@ -52,6 +58,7 @@ function ItemMenu({ label, actions, compact }: { label: string; actions: Action[
         aria-expanded={open}
         onClick={(e) => {
           e.stopPropagation()
+          setUp(window.innerHeight - e.currentTarget.getBoundingClientRect().bottom < actions.length * 40 + 24)
           setOpen((v) => !v)
         }}
         className={`flex items-center justify-center rounded-lg text-muted hover:bg-canvas hover:text-ink ${compact ? "h-8 w-8" : "h-8 w-8 bg-white/90 shadow-sm"}`}
@@ -61,7 +68,7 @@ function ItemMenu({ label, actions, compact }: { label: string; actions: Action[
       {open && (
         <>
           <button type="button" aria-label="Close menu" className="fixed inset-0 z-10 cursor-default" onClick={() => setOpen(false)} />
-          <div role="menu" className="absolute right-0 z-40 mt-1 w-44 overflow-hidden rounded-xl border border-line bg-white py-1 shadow-lg">
+          <div role="menu" className={`absolute right-0 z-40 w-44 overflow-hidden rounded-xl border border-line bg-white py-1 shadow-lg ${up ? 'bottom-full mb-1' : 'mt-1'}`}>
             {actions.map((a) => (
               <button
                 key={a.label}
@@ -101,17 +108,20 @@ type Dialog = { type: 'rename' | 'move' | 'delete'; target: Target } | null
 const PAGE = 30 // folders shown at first in the main area, and added with each "Show more"
 const SIDE_PAGE = 25 // client folders shown at first in the left list
 
-export default function Master() {
+function MasterFolders() {
   const { requests } = useRequests()
+  const { documents, onceIds } = useSetup()
+  // The category the file's document sits in (Identity, Income, Bank…), from the Documents list. Files with no document (uploads) have none.
+  const catOf = (f: MasterFile) => documents.find((d) => d.id === f.docId)?.group ?? (f.was ? `Archived · ${f.was}` : undefined)
   const { folders: custom, uploads, fileEdits, folderNames, addFolder, addUploads, renameFolder, renameAutoFolder, moveFolder, deleteFolder, renameUpload, moveUpload, deleteUpload, editFile } = useMasterStore()
   // Approved documents plus uploads, with the CA's own renames, moves and deletes applied on top.
   const files = useMemo(
     () =>
-      [...buildMaster(requests), ...uploads]
+      [...buildMaster(requests, onceIds), ...uploads]
         .filter((f) => !fileEdits[f.id]?.deleted)
         .map((f) => {
           const e = fileEdits[f.id]
-          return e ? { ...f, name: e.name ?? f.name, folderId: e.folderId !== undefined ? e.folderId : f.folderId } : f
+          return e ? { ...f, name: e.name ?? f.name, folderId: e.folderId !== undefined ? e.folderId : f.folderId, docId: e.docId ?? f.docId, was: e.was ?? f.was } : f
         })
         // A file saved in a folder the CA has since deleted is not lost: it is "not in a folder yet" again.
         .map((f) => (f.folderId && f.folderId.startsWith('f:') && !custom.some((c) => c.id === f.folderId) ? { ...f, folderId: null } : f)),
@@ -168,14 +178,16 @@ export default function Master() {
       // The registration is not a folder the CA made: it is the client's ITR, GSTIN or TAN, so it shows its number and cannot be renamed, moved or deleted.
       const [type, place] = comp.split(' · ')
       const reg = getBookClient(clientId)?.registrations.find((r) => r.type === type && (!place || r.label === place))
-      map.set(y, { id: y, name: folderNames[y] ?? comp, parentId: c, kind: 'compliance', clientId, number: reg?.number })
+      map.set(y, { id: y, name: folderNames[y] ?? comp, parentId: c, kind: 'compliance', clientId, number: reg?.number, contact: reg?.contact?.name })
       map.set(f.folderId!, { id: f.folderId!, name: folderNames[f.folderId!] ?? fy, parentId: y, kind: 'fy', clientId })
     }
     return [...map.values(), ...custom.map((c): Node => ({ id: c.id, name: c.name, parentId: c.parentId, kind: c.id === FIRM_FOLDER ? 'firm' : 'custom', locked: c.locked }))]
   }, [files, custom, folderNames])
 
   const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes])
-  const childrenOf = (id: string | null) => nodes.filter((n) => n.parentId === id)
+  // A client's registrations come first, then its Permanent papers, then its Archive.
+  const place = (n: Node) => (n.kind === 'compliance' && n.name === ARCHIVE ? 2 : n.kind === 'compliance' && n.name === PERMANENT ? 1 : 0)
+  const childrenOf = (id: string | null) => nodes.filter((n) => n.parentId === id).sort((a, b) => place(a) - place(b))
   const trail = (id: string | null) => {
     const out: Node[] = []
     let n = id ? byId.get(id) : undefined
@@ -208,14 +220,35 @@ export default function Master() {
   const regNode = onReg ? node : node?.kind === 'fy' ? byId.get(node.parentId ?? '') : undefined
   const years = regNode ? childrenOf(regNode.id).filter((n) => n.kind === 'fy').sort((a, b) => b.name.localeCompare(a.name)) : []
   const direct = onReg ? filesUnder(current) : files.filter((f) => f.folderId === current)
-  const filePaging = usePaging(direct, `${current}|${view}`, [12, 24, 48])
+  const [fileQuery, setFileQuery] = useState('')
+  // Search among the files shown: by the document's name, its category, the file's name, or where it came from.
+  const fq = fileQuery.trim().toLowerCase()
+  const shownFiles = fq ? direct.filter((f) => `${f.name} ${catOf(f) ?? ''} ${f.fileName} ${f.from} ${f.date}`.toLowerCase().includes(fq)) : direct
+  const filePaging = usePaging(shownFiles, `${current}|${view}|${fq}`, [12, 24, 48])
   const total = filesUnder(current).length
 
+  // On a registration the year is a filter in the files' toolbar.
+  const yearSelect = regNode && regNode.name !== PERMANENT && years.length > 0 && (
+    <label className="flex h-9 items-center gap-2 rounded-lg border border-line bg-white pl-3 pr-1.5 text-[13px] focus-within:border-brand">
+      <span className="text-muted">Year</span>
+      <select value={current ?? regNode.id} onChange={(e) => go(e.target.value)} aria-label="Year" className="h-full cursor-pointer bg-transparent pr-1 font-semibold outline-none">
+        {[{ id: regNode.id, name: 'All years' }, ...years].map((y) => (
+          <option key={y.id} value={y.id}>
+            {y.name} ({filesUnder(y.id).length})
+          </option>
+        ))}
+      </select>
+    </label>
+  )
+
   const go = (id: string | null) => {
+    const to = id ? byId.get(id) : undefined
+    if (to && (to.kind === 'compliance' || to.kind === 'fy')) setView('list') // a registration's files read best as a table
     setCurrent(id)
     setTreeOpen(false)
     setGridLimit(PAGE)
     setClientQuery('')
+    setFileQuery('')
     setRegQuery('')
     setRegLimit({})
     if (id) setExpanded((s) => new Set([...s, ...trail(id).map((n) => n.id)]))
@@ -456,11 +489,16 @@ export default function Master() {
                 {isOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
               </button>
               <button type="button" onClick={() => go(n.id)} className="flex min-w-0 flex-1 items-center gap-2 py-1.5 text-left">
-                {n.kind === 'client' ? <Avatar name={n.name} size={26} /> : n.kind === 'firm' ? <Building2 size={15} className="shrink-0" /> : n.kind === 'compliance' ? <ShieldCheck size={15} className="shrink-0 text-brand-dark" /> : <Folder size={15} className="shrink-0" />}
+                {n.kind === 'client' ? <Avatar name={n.name} size={26} /> : n.kind === 'firm' ? <Building2 size={15} className="shrink-0" /> : n.kind === 'compliance' && n.name === ARCHIVE ? <Archive size={15} className="shrink-0" /> : n.kind === 'compliance' && n.name === PERMANENT ? <Pin size={15} className="shrink-0" /> : n.kind === 'compliance' ? <ShieldCheck size={15} className="shrink-0 text-brand-dark" /> : <Folder size={15} className="shrink-0" />}
                 {n.kind === 'client' ? (
                   <span className="min-w-0">
                     <span className="block truncate leading-tight">{n.name}</span>
                     <ClientLine id={n.clientId} compact />
+                  </span>
+                ) : n.kind === 'compliance' && n.number ? (
+                  <span className="min-w-0">
+                    <span className="block truncate leading-tight">{n.name}</span>
+                    <span className="block truncate font-mono text-[11px] leading-tight tracking-tight text-muted">{n.number}</span>
                   </span>
                 ) : (
                   <span className="truncate">{n.name}</span>
@@ -483,12 +521,11 @@ export default function Master() {
   const clientForPreview = open ? getBookClient(clientOf(open.folderId) ?? '') : undefined
 
   return (
-    <div className="flex h-full md:min-h-[640px]">
+    <div className="flex h-full min-h-0">
       {treeOpen && <button type="button" aria-label="Close folders" onClick={() => setTreeOpen(false)} className="fixed inset-0 z-30 bg-ink/40 md:hidden" />}
       <aside className={`flex w-[290px] shrink-0 flex-col border-r border-line bg-white max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-40 max-md:w-[86%] max-md:shadow-2xl ${treeOpen ? '' : 'max-md:hidden'}`}>
-        <div className="px-4 pb-3 pt-6">
-          <h1 className="text-[24px] font-bold tracking-tight">Document Master</h1>
-          <label className="mt-3 flex h-10 items-center gap-2.5 rounded-xl bg-canvas px-3.5 text-sm text-muted">
+        <div className="px-4 pb-3 pt-4">
+          <label className="flex h-10 items-center gap-2.5 rounded-xl bg-canvas px-3.5 text-sm text-muted">
             <Search size={15} />
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search folders" className="w-full bg-transparent outline-none placeholder:text-muted" />
           </label>
@@ -593,9 +630,9 @@ export default function Master() {
                 {node && <ItemMenu compact label={node.name} actions={folderActions(node)} />}
               </div>
               <p className="mt-0.5 text-sm text-muted">
-                {onReg && `Registration${node?.number ? ` · ${node.number}` : ''} · `}
+                {onReg && (node?.name === ARCHIVE ? 'Files of deleted documents · ' : node?.name === PERMANENT ? 'Kept for good, in no year · ' : `Registration${node?.number ? ` · ${node.number}` : ''} · `)}
                 {onClient
-                  ? `${subFolders.filter((n) => n.kind === 'compliance').length} registrations`
+                  ? `${subFolders.filter((n) => n.kind === 'compliance' && n.name !== ARCHIVE && n.name !== PERMANENT).length} registrations`
                   : onReg
                     ? `${years.length} ${years.length === 1 ? 'year' : 'years'}`
                     : `${subFolders.length} ${subFolders.length === 1 ? 'folder' : 'folders'}`}{' '}
@@ -603,21 +640,20 @@ export default function Master() {
               </p>
             </div>
             <div className="flex w-full shrink-0 items-center gap-2 md:w-auto md:gap-2.5">
-              <button
+              {!onReg && <button
                 type="button"
                 onClick={() => openNewFolder(current)}
-                disabled={node?.kind === 'compliance'}
                 className="flex h-11 shrink-0 disabled:opacity-40 items-center justify-center whitespace-nowrap gap-2 rounded-xl border border-line bg-white px-4 text-sm font-semibold hover:bg-canvas max-md:flex-1 max-md:px-2"
               >
                 <FolderPlus size={16} />
                 New folder
-              </button>
+              </button>}
               <input ref={fileInput} type="file" multiple className="hidden" onChange={(e) => onUpload(e.target.files)} />
-              <button type="button" disabled={node?.kind === 'compliance'} onClick={() => pickFiles(current)} className="flex h-11 shrink-0 disabled:opacity-40 items-center justify-center whitespace-nowrap gap-2 rounded-xl border border-line bg-white px-4 text-sm font-semibold hover:bg-canvas max-md:flex-1 max-md:px-2">
+              {!onReg && <button type="button" onClick={() => pickFiles(current)} className="flex h-11 shrink-0 disabled:opacity-40 items-center justify-center whitespace-nowrap gap-2 rounded-xl border border-line bg-white px-4 text-sm font-semibold hover:bg-canvas max-md:flex-1 max-md:px-2">
                 <Upload size={16} />
                 <span className="max-md:hidden">Upload file</span>
                 <span className="md:hidden">Upload</span>
-              </button>
+              </button>}
               <button
                 type="button"
                 disabled={total === 0}
@@ -632,27 +668,11 @@ export default function Master() {
           </div>
         </div>
 
-        <motion.div key={current ?? 'top'} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }} className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4 md:gap-5 md:px-8 md:py-5">
+        <motion.div key={current ?? 'top'} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }} className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-3 md:gap-4 md:px-6 md:py-4">
         {(() => {
           // At the top, the firm's own folders stay in their own short block above the (possibly huge) list of clients.
           const atTop = current === null
           // On a registration (or one of its years) the years are chips, not folders.
-          const yearChips = regNode && years.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[13px] font-semibold text-muted">Year</span>
-              {[{ id: regNode.id, name: 'All years' }, ...years].map((y) => (
-                <button
-                  key={y.id}
-                  type="button"
-                  onClick={() => go(y.id)}
-                  className={`h-9 rounded-full border px-4 text-[13px] font-semibold ${current === y.id ? 'border-brand bg-brand-soft text-brand-dark' : 'border-line bg-white text-slate-600 hover:border-brand'}`}
-                >
-                  {y.name}
-                  <span className="ml-1.5 font-medium text-muted">{filesUnder(y.id).length}</span>
-                </button>
-              ))}
-            </div>
-          )
           const firmFolders = atTop ? subFolders.filter((n) => n.kind !== 'client') : []
           const q = clientQuery.trim().toLowerCase()
           const baseFolders = atTop ? subFolders.filter((n) => n.kind === 'client') : onReg ? [] : subFolders.filter((n) => n.kind !== 'compliance')
@@ -663,11 +683,14 @@ export default function Master() {
           const rq = regQuery.trim().toLowerCase()
           const regs = onClient ? subFolders.filter((n) => n.kind === 'compliance') : []
           const regTypes = ['ITR', 'GST', 'TDS'].filter((t) => regs.some((r) => typeOf(r) === t))
-          // On a laptop the registrations are in the dropdown under the client on the left; this list is for the phone, where that tree is a panel.
-          const regSection = regs.length > 0 && (
-            <section className="md:hidden">
+          // A client's page: its registrations as cards (what it is, its number, how many files, and its years to open directly),
+          // and its Archive (the files of documents that were deleted) after them.
+          const archive = onClient ? subFolders.find((n) => n.kind === 'compliance' && n.name === ARCHIVE) : undefined
+          const permanent = onClient ? subFolders.find((n) => n.kind === 'compliance' && n.name === PERMANENT) : undefined
+          const regSection = (regs.length > 0 || archive || permanent) && (
+            <section>
               <div className="mb-2.5 flex items-center justify-between gap-4">
-                <h3 className="text-[12px] font-bold uppercase tracking-widest text-faint">Registrations · {regs.length}</h3>
+                <h3 className="text-[12px] font-bold uppercase tracking-widest text-faint">Registrations · {regs.filter((r) => r.name !== ARCHIVE && r.name !== PERMANENT).length}</h3>
                 {regs.length > 6 && (
                   <label className="flex h-9 w-72 items-center gap-2 rounded-xl bg-white px-3 text-sm text-muted ring-1 ring-line focus-within:ring-brand">
                     <Search size={14} />
@@ -676,43 +699,82 @@ export default function Master() {
                 )}
               </div>
               <div className="flex flex-col gap-4">
-                {regTypes.map((t) => {
-                  const all = regs.filter((r) => typeOf(r) === t)
-                  const list = all.filter((r) => !rq || r.name.toLowerCase().includes(rq) || (r.number ?? '').toLowerCase().includes(rq))
-                  if (list.length === 0) return null
-                  const limit = regLimit[t] ?? 6
+                {(() => {
+                  // All registrations in one grid, income tax first, then GST, then TDS; each card says which kind it is.
+                  const ordered = regTypes.flatMap((t) => regs.filter((r) => typeOf(r) === t))
+                  const list = ordered.filter((r) => !rq || r.name.toLowerCase().includes(rq) || (r.number ?? '').toLowerCase().includes(rq))
+                  const limit = regLimit.all ?? 12
+                  if (list.length === 0) return rq ? <p className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-6 text-center text-sm text-muted">No registration found.</p> : null
                   return (
-                    <div key={t}>
-                      <div className="mb-1.5 text-[13px] font-semibold text-muted">
-                        {t} · {all.length}
-                      </div>
-                      <div className="overflow-hidden rounded-2xl border border-line bg-white">
-                        {list.slice(0, limit).map((r) => (
-                          <button key={r.id} type="button" onClick={() => go(r.id)} className="flex w-full items-center gap-3.5 border-b border-line px-4 py-3 text-left last:border-b-0 hover:bg-canvas">
-                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand-dark">
-                              <ShieldCheck size={20} />
-                            </span>
-                            <span className="min-w-0 flex-1">
-                              <span className="block truncate text-[15px] font-semibold">{all.length === 1 && t !== 'GST' ? t : placeOf(r)}</span>
-                              {r.number && <span className="block font-mono text-[12px] tracking-tight text-muted">{r.number}</span>}
-                            </span>
-                            <span className="shrink-0 text-[13px] text-muted">
-                              {filesUnder(r.id).length} {filesUnder(r.id).length === 1 ? 'file' : 'files'}
-                            </span>
-                            <ChevronRight size={16} className="shrink-0 text-faint" />
-                          </button>
-                        ))}
+                    <>
+                      <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(270px,1fr))]">
+                        {list.slice(0, limit).map((r) => {
+                          const t = typeOf(r)
+                          const n = filesUnder(r.id).length
+                          const sameKind = regs.filter((x) => typeOf(x) === t).length
+                          return (
+                            <button key={r.id} type="button" onClick={() => go(r.id)} className="flex flex-col gap-3 rounded-2xl border border-line bg-white p-4 text-left transition-shadow hover:border-brand hover:shadow-sm">
+                              <span className="flex items-start gap-3">
+                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand-dark">
+                                  <ShieldCheck size={20} />
+                                </span>
+                                <span className="min-w-0 flex-1">
+                                  <span className="flex items-center gap-2">
+                                    <span className="truncate text-[15px] font-semibold">{sameKind === 1 && t === 'ITR' ? 'Income tax' : sameKind === 1 && t === 'TDS' ? 'TDS' : placeOf(r)}</span>
+                                    <span className={`shrink-0 rounded-md bg-slate-100 px-1.5 text-[11px] font-bold leading-[18px] ${t === 'ITR' ? 'text-violet-700' : t === 'GST' ? 'text-blue-700' : 'text-amber-700'}`}>{t}</span>
+                                  </span>
+                                  <span className="mt-0.5 block text-[12px] text-muted">{t === 'GST' ? 'GST registration' : t === 'TDS' ? 'TDS · TAN' : 'Income tax · PAN'}</span>
+                                </span>
+                              </span>
+                              <span className="block rounded-lg bg-[#F6F8FA] px-3 py-2">
+                                <span className="block text-[11px] font-semibold uppercase tracking-wider text-faint">{t === 'GST' ? 'GSTIN' : t === 'TDS' ? 'TAN' : 'PAN'}</span>
+                                <span className="block truncate font-mono text-[13px] font-semibold tracking-tight">{r.number || '—'}</span>
+                              </span>
+                              <span className="flex items-center justify-between gap-3 text-[13px]">
+                                <span className="min-w-0 truncate text-muted">{r.contact ? `Contact · ${r.contact}` : ''}</span>
+                                <span className="shrink-0 font-semibold">{n} {n === 1 ? 'file' : 'files'}</span>
+                              </span>
+                            </button>
+                          )
+                        })}
                       </div>
                       {list.length > limit && (
-                        <button type="button" onClick={() => setRegLimit((l) => ({ ...l, [t]: limit + 10 }))} className="mx-auto mt-2 flex h-9 items-center rounded-xl border border-line bg-white px-4 text-[13px] font-semibold hover:border-brand hover:text-brand-dark">
-                          Show {Math.min(10, list.length - limit)} more · {list.length - limit} left
+                        <button type="button" onClick={() => setRegLimit((l) => ({ ...l, all: limit + 12 }))} className="mx-auto flex h-9 items-center rounded-xl border border-line bg-white px-4 text-[13px] font-semibold hover:border-brand hover:text-brand-dark">
+                          Show {Math.min(12, list.length - limit)} more · {list.length - limit} left
                         </button>
                       )}
-                    </div>
+                    </>
                   )
-                })}
-                {rq && regTypes.every((t) => !regs.some((r) => typeOf(r) === t && (r.name.toLowerCase().includes(rq) || (r.number ?? '').toLowerCase().includes(rq)))) && (
-                  <p className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-6 text-center text-sm text-muted">No registration found.</p>
+                })()}
+                {permanent && (
+                  <button type="button" onClick={() => go(permanent.id)} className="flex items-center gap-3 rounded-2xl border border-line bg-white px-4 py-3 text-left hover:border-brand">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand-dark">
+                      <Pin size={20} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[15px] font-semibold">Permanent</span>
+                      <span className="block text-[12px] text-muted">PAN, Aadhaar and other papers kept for good, in no year</span>
+                    </span>
+                    <span className="shrink-0 text-[13px] text-muted">
+                      {filesUnder(permanent.id).length} {filesUnder(permanent.id).length === 1 ? 'file' : 'files'}
+                    </span>
+                    <ChevronRight size={16} className="shrink-0 text-faint" />
+                  </button>
+                )}
+                {archive && (
+                  <button type="button" onClick={() => go(archive.id)} className="flex items-center gap-3 rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-3 text-left hover:border-brand">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                      <Archive size={20} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[15px] font-semibold">Archive</span>
+                      <span className="block text-[12px] text-muted">Files of documents you deleted</span>
+                    </span>
+                    <span className="shrink-0 text-[13px] text-muted">
+                      {filesUnder(archive.id).length} {filesUnder(archive.id).length === 1 ? 'file' : 'files'}
+                    </span>
+                    <ChevronRight size={16} className="shrink-0 text-faint" />
+                  </button>
                 )}
               </div>
             </section>
@@ -730,7 +792,7 @@ export default function Master() {
                     <Avatar name={n.name} size={48} />
                   ) : (
                     <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand-dark">
-                      {n.kind === 'firm' ? <Building2 size={24} /> : n.kind === 'compliance' ? <ShieldCheck size={24} /> : <Folder size={24} />}
+                      {n.kind === 'firm' ? <Building2 size={24} /> : n.kind === 'compliance' && n.name === ARCHIVE ? <Archive size={24} /> : n.kind === 'compliance' && n.name === PERMANENT ? <Pin size={24} /> : n.kind === 'compliance' ? <ShieldCheck size={24} /> : <Folder size={24} />}
                     </span>
                   )}
                   <span className="min-w-0">
@@ -750,11 +812,7 @@ export default function Master() {
           const more = shownFolders.length - gridLimit
           return (
             <>
-              {yearChips}
               {regSection}
-              {onClient && regs.length > 0 && shownFolders.length === 0 && direct.length === 0 && (
-                <p className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-10 text-center text-sm text-muted max-md:hidden">Pick a registration from the list on the left to see its years and files.</p>
-              )}
               {firmFolders.length > 0 && (
                 <section>
                   <h3 className="mb-2.5 text-[12px] font-bold uppercase tracking-widest text-faint">Firm folders</h3>
@@ -785,10 +843,18 @@ export default function Master() {
         })()}
 
         {direct.length > 0 && (
-          <div className="rounded-[18px] border border-line bg-white p-5">
-            <div className="mb-4 flex items-center justify-between">
-              <span className="text-sm font-semibold text-muted">{current === null ? 'Not in a folder yet' : onReg ? 'Files in all years' : 'Files in this folder'}</span>
-              <div className="flex rounded-lg bg-canvas p-1">
+          <div className="rounded-2xl border border-line bg-white">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-2.5">
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                {yearSelect || <span className="text-sm font-semibold text-muted">{current === null ? 'Not in a folder yet' : 'Files in this folder'}</span>}
+                {direct.length > 4 && (
+                  <label className="flex h-9 w-full max-w-[280px] items-center gap-2 rounded-lg border border-line bg-white px-3 text-[13px] text-muted focus-within:border-brand">
+                    <Search size={14} />
+                    <input value={fileQuery} onChange={(e) => setFileQuery(e.target.value)} placeholder="Search files" aria-label="Search files" className="w-full bg-transparent text-ink outline-none placeholder:text-muted" />
+                  </label>
+                )}
+              </div>
+              <div className="flex rounded-lg bg-canvas p-0.5">
                 <button type="button" aria-label="Grid view" onClick={() => setView('grid')} className={`flex h-8 w-9 items-center justify-center rounded-md ${view === 'grid' ? 'bg-white shadow-sm' : 'text-muted'}`}>
                   <LayoutGrid size={16} />
                 </button>
@@ -797,8 +863,9 @@ export default function Master() {
                 </button>
               </div>
             </div>
-            {view === 'grid' ? (
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+            {shownFiles.length === 0 && <p className="px-4 py-10 text-center text-sm text-muted">No file matches “{fileQuery.trim()}”.</p>}
+            {shownFiles.length > 0 && view === 'grid' ? (
+              <div className="grid grid-cols-2 gap-3 p-4 md:grid-cols-4 md:gap-4">
                 {filePaging.rows.map((f) => (
                   <div key={f.id} className="group relative" {...dragProps('file', f.id)}>
                     <button type="button" onClick={() => setOpen(f)} className="block w-full overflow-hidden rounded-2xl border border-line text-left hover:border-brand hover:shadow-sm">
@@ -806,6 +873,7 @@ export default function Master() {
                         <FileTypeIcon file={f.fileName} size={64} />
                       </div>
                       <div className="px-3.5 py-3">
+                        {catOf(f) && <div className="truncate text-[11px] font-bold uppercase tracking-wider text-faint">{catOf(f)}</div>}
                         <div className="truncate text-sm font-semibold">{f.name}</div>
                         <div className="text-xs text-muted">
                           {f.size} · {f.date}
@@ -818,25 +886,42 @@ export default function Master() {
                   </div>
                 ))}
               </div>
-            ) : (
+            ) : shownFiles.length === 0 ? null : (
               <div>
+                {/* The heading and every row use the same columns, so each heading sits right over its values. */}
+                <div className="flex items-center border-b border-line bg-[#FAFBFC] px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-faint">
+                  <div className={`grid flex-1 items-center gap-3 max-md:grid-cols-1 ${onReg ? 'grid-cols-[minmax(160px,1fr)_68px_64px_96px_80px]' : 'grid-cols-[minmax(160px,1fr)_64px_96px_80px]'}`}>
+                    <span className="pl-[33px]">Document</span>
+                    {onReg && <span className="max-md:hidden">Year</span>}
+                    <span className="max-md:hidden">Size</span>
+                    <span className="max-md:hidden">Date</span>
+                    <span className="max-md:hidden">Source</span>
+                  </div>
+                  <span className="w-8 shrink-0" />
+                </div>
                 {filePaging.rows.map((f) => (
-                  <div key={f.id} className="group flex items-center border-b border-line last:border-b-0 hover:bg-slate-50" {...dragProps('file', f.id)}>
-                    <button type="button" onClick={() => setOpen(f)} className="flex flex-1 items-center gap-3.5 py-3 text-left">
-                      <FileTypeIcon file={f.fileName} size={32} />
-                      <span className="flex-1 text-sm font-semibold">{f.name}</span>
-                      <span className="w-24 text-[13px] text-muted max-md:hidden">{f.size}</span>
-                      <span className="w-28 text-[13px] text-muted max-md:hidden">{f.date}</span>
-                      <span className="w-28 truncate text-[13px] text-muted max-md:hidden">{f.from}</span>
+                  <div key={f.id} className="group flex items-center border-b border-line px-4 last:border-b-0 hover:bg-[#F6F8FA]" {...dragProps('file', f.id)}>
+                    <button type="button" onClick={() => setOpen(f)} className={`grid min-w-0 flex-1 items-center gap-3 py-2 text-left max-md:grid-cols-1 ${onReg ? 'grid-cols-[minmax(160px,1fr)_68px_64px_96px_80px]' : 'grid-cols-[minmax(160px,1fr)_64px_96px_80px]'}`}>
+                      <span className="flex min-w-0 items-center gap-3">
+                        <FileTypeIcon file={f.fileName} size={26} />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-semibold">{f.name}</span>
+                          {catOf(f) && <span className="block truncate text-[11px] font-semibold uppercase tracking-wider text-faint">{catOf(f)}</span>}
+                        </span>
+                      </span>
+                      {onReg && <span className="text-[13px] text-muted max-md:hidden">{f.period?.replace('FY ', '') ?? ''}</span>}
+                      <span className="text-[13px] text-muted max-md:hidden">{f.size}</span>
+                      <span className="text-[13px] text-muted max-md:hidden">{f.date}</span>
+                      <span className="truncate text-[13px] text-muted max-md:hidden">{f.from}</span>
                     </button>
-                    <div className="w-9 opacity-0 transition focus-within:opacity-100 group-hover:opacity-100 has-[[aria-expanded=true]]:opacity-100 pointer-coarse:opacity-100">
+                    <div className="w-8 shrink-0 opacity-0 transition focus-within:opacity-100 group-hover:opacity-100 has-[[aria-expanded=true]]:opacity-100 pointer-coarse:opacity-100">
                       <ItemMenu compact label={f.name} actions={fileActions(f)} />
                     </div>
                   </div>
                 ))}
               </div>
             )}
-            <Pagination p={filePaging} noun="files" className="-mx-5 -mb-5 mt-4 rounded-b-[18px]" />
+            <Pagination p={filePaging} noun="files" className="rounded-b-2xl" />
           </div>
         )}
 
@@ -861,10 +946,14 @@ export default function Master() {
             <div className="flex items-center gap-3 border-b border-line px-5 py-4">
               <FileTypeIcon file={open.fileName} size={34} />
               <div className="min-w-0 flex-1">
-                <div className="truncate text-base font-bold">{open.name}</div>
+                <div className="truncate text-base font-bold">
+                  {catOf(open) && <span className="font-medium text-muted">{catOf(open)} › </span>}
+                  {open.name}
+                </div>
                 <div className="truncate text-[13px] text-muted">
                   {trail(open.folderId).map((n) => n.name).join(' / ') || 'Top level'} · {open.size}
                 </div>
+                <div className="truncate text-[13px] text-muted">Original file: {open.fileName}</div>
               </div>
               <button type="button" aria-label="Close" onClick={() => setOpen(null)} className="flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-canvas">
                 <X size={20} />
@@ -1001,6 +1090,22 @@ export default function Master() {
       )}
 
       <Toast message={toast} />
+    </div>
+  )
+}
+
+// Two views of the same files: the folders, and the Tracker (who has sent what).
+export default function Master() {
+  const [params] = useSearchParams()
+  const tracker = params.get('view') === 'tracker'
+  // One header for both views, so the title and the tabs stay exactly where they are when you switch.
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-line bg-white px-4 py-2.5 md:px-8">
+        <h1 className="text-[20px] font-bold leading-tight tracking-tight">Document Master</h1>
+        <MasterTabs />
+      </header>
+      <div className="relative min-h-0 flex-1">{tracker ? <Tracker /> : <MasterFolders />}</div>
     </div>
   )
 }

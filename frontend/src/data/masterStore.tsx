@@ -1,7 +1,8 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useMemo } from 'react'
 import type { ReactNode } from 'react'
 import type { MasterFile } from './master'
 import { emptyOn } from '../lib/demo'
+import { useSessionState } from '../lib/session'
 
 // A folder the CA created. parentId is any folder id, or null for the top level.
 export interface CustomFolder {
@@ -16,6 +17,8 @@ export interface CustomFolder {
 export interface FileEdit {
   name?: string
   folderId?: string | null
+  docId?: string // the document the file is for, when it was moved to another document
+  was?: string // the category its document had, when the document was deleted and the file archived
   deleted?: boolean
 }
 
@@ -68,10 +71,11 @@ const seedUploads: MasterFile[] = [
 ]
 
 export function MasterProvider({ children }: { children: ReactNode }) {
-  const [folders, setFolders] = useState<CustomFolder[]>(emptyOn() ? seedFolders.filter((f) => f.id === FIRM_FOLDER) : seedFolders)
-  const [uploads, setUploads] = useState<MasterFile[]>(emptyOn() ? [] : seedUploads)
-  const [fileEdits, setFileEdits] = useState<Record<string, FileEdit>>({})
-  const [folderNames, setFolderNames] = useState<Record<string, string>>({})
+  // Kept for the tab, like the requests, so a refresh does not undo a move, a delete or a new folder.
+  const [folders, setFolders] = useSessionState<CustomFolder[]>('master-folders', emptyOn() ? seedFolders.filter((f) => f.id === FIRM_FOLDER) : seedFolders)
+  const [uploads, setUploads] = useSessionState<MasterFile[]>('master-uploads', emptyOn() ? [] : seedUploads)
+  const [fileEdits, setFileEdits] = useSessionState<Record<string, FileEdit>>('master-file-edits', {})
+  const [folderNames, setFolderNames] = useSessionState<Record<string, string>>('master-folder-names', {})
 
   const addFolder = useCallback((parentId: string | null, name: string) => {
     const id = `f:${Date.now()}-${Math.random().toString(36).slice(2, 6)}`

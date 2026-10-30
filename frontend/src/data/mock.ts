@@ -164,7 +164,7 @@ const finished = new Set<string>()
 for (const r of initialRequests) {
   const done = requestState(r) === 'completed'
   for (const c of r.clients) {
-    const complete = c.docs.every((d) => d.status === 'approved' || d.status === 'na')
+    const complete = c.docs.every((d) => d.status === 'approved' || d.status === 'na' || (d.optional && d.status === 'pending'))
     if (!complete) {
       open.set(c.clientId, (open.get(c.clientId) ?? 0) + 1)
       if (r.due < today) late.add(c.clientId)

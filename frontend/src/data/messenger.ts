@@ -2,13 +2,13 @@ import { useCallback } from 'react'
 import { useInbox } from './inbox'
 import { contactOf, whatsappOn } from './contacts'
 import { getBookClient, getClient, regSuffix } from './mock'
-import { useRequests } from './requests'
+import { isCounted, useRequests } from './requests'
 import type { DocRequest, RequestClient } from './requests'
 import { useSetup } from './setup'
 import { LINK_DOMAIN } from '../lib/brand'
 import { linkToken } from '../lib/links'
 import { parseISO } from '../lib/dates'
-import { fillTemplate, formatList } from '../lib/template'
+import { countLabel, formatDocuments, fillTemplate, formatList } from '../lib/template'
 import { seedMessages } from './messageTemplates'
 
 // The one place that decides which message a client gets. Whatever goes out is also written into that client's Inbox chat.
@@ -34,7 +34,7 @@ export function useMessenger() {
   const viaOf = useCallback((r: DocRequest, templateId: string): 'own' | 'kdk' => viaFor(r.via, templateId), [viaFor])
   const tidOf = (rc: RequestClient, id: string) => {
     if (id !== 'update') return id
-    const counted = rc.docs.filter((d) => d.status !== 'na')
+    const counted = rc.docs.filter(isCounted)
     const missing = counted.filter((d) => d.status === 'pending' || d.status === 'rejected').length
     const approved = counted.filter((d) => d.status === 'approved').length
     return missing === 0 ? 'thanks' : approved > 0 ? 'update' : 'pendinglist'
@@ -60,10 +60,10 @@ export function useMessenger() {
   )
 
   const build = useCallback(
-    (r: DocRequest, rc: RequestClient, id: 'request' | 'update' | 'rejected' | 'newlink' | 'blurry' | 'wrongdoc' | 'pages' | 'wrongyear', extra: Record<string, string> = {}): string => {
+    (r: DocRequest, rc: RequestClient, id: 'request' | 'update' | 'rejected' | 'rejectedopt' | 'newlink' | 'blurry' | 'wrongdoc' | 'pages' | 'wrongyear', extra: Record<string, string> = {}): string => {
       const client = getClient(rc.clientId)
       if (!client) return ''
-      const counted = rc.docs.filter((d) => d.status !== 'na')
+      const counted = rc.docs.filter(isCounted)
       const missing = counted.filter((d) => d.status === 'pending' || d.status === 'rejected')
       const approved = counted.filter((d) => d.status === 'approved').length
       const tid = id !== 'update' ? id : missing.length === 0 ? 'thanks' : approved > 0 ? 'update' : 'pendinglist'
@@ -73,9 +73,12 @@ export function useMessenger() {
         firm: firm.name,
         // a client with several GSTINs or TANs: say which one this is, like "GST monthly (Karnataka)"
         request: `${r.title}${regSuffix(rc.clientId) ? ` (${regSuffix(rc.clientId).replace(' · ', '')})` : ''}`,
-        documents: formatList(counted.map((d) => d.name)),
-        pending_documents: formatList(missing.map((d) => d.name)),
+        // The request lists everything asked for, the required ones first; an optional one says so, so the client knows it can skip it.
+        documents: formatDocuments(rc.docs.filter((d) => d.status !== 'na' && !d.optional).map((d) => d.name), rc.docs.filter((d) => d.status !== 'na' && d.optional).map((d) => d.name)),
+        // An optional document that was sent and sent back is chased like the others, and is marked so.
+        pending_documents: formatList(missing.map((d) => (d.optional ? `${d.name} (optional)` : d.name))),
         pending_count: String(missing.length),
+        pending_label: countLabel(missing.length),
         approved_count: String(approved),
         due_date: parseISO(r.due).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
         link: `${LINK_DOMAIN}/u/${linkToken(r.ref, rc.clientId, rc.linkVersion ?? 1)}`,
@@ -130,7 +133,9 @@ export function useMessenger() {
       // A ready-made reason with no note of your own uses its own message; anything else goes out as "we could not accept ...: <your words>".
       const ready = remark ? undefined : SENT_BACK[reason]
       const words = [reason, remark].filter(Boolean).join(' · ') || 'please send it again'
-      const rid = ready ?? 'rejected'
+      // An optional document that is sent back gets its own, softer message: it can still be skipped.
+      const optional = !!rc.docs.find((d) => d.name === docName)?.optional
+      const rid = optional ? 'rejectedopt' : (ready ?? 'rejected')
       post(client, build(r, rc, rid, { document: docName, reason: words.charAt(0).toLowerCase() + words.slice(1) }), viaOf(r, rid))
     },
     [getRequest, build, post, viaOf],
