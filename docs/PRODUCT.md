@@ -56,7 +56,15 @@ Messages come from fixed, WhatsApp-approved templates. The CA does not edit the 
 
 ## 5. WhatsApp numbers
 
-Two numbers can work at the same time.
+**Only the firm's own number for now.** The firm has to connect its own WhatsApp first. Until it is connected (or while WhatsApp has not approved the messages yet) the app still works, but a banner says so and every send (New request, Remind, Send update, new link) opens a dialog that leads to Settings > WhatsApp. There is no fallback to CA Connect. The CA Connect number (below) is not part of the product; its screen parts are kept in `frontend/src/parked/caConnect.txt`.
+
+**When a message cannot be sent** (full table in `whatsapp-integration.md`):
+- Not connected, waiting for approval, a template not approved, or the connection lost: a banner and a dialog that leads to Settings; nothing is sent. One template not approved blocks only that message. It shows as "waiting for approval" whether it is waiting or WhatsApp turned it down; the firm never sees names or reasons (templates are KDK's job).
+- The client's number is not on WhatsApp: the app says so on the send, on the client's row and in the chat. The reminder does not count as sent.
+- A document sent back while WhatsApp is not ready is still rejected; the screen says the client was not told.
+- More than 24 hours since the client's last message: free typing is locked in the Inbox; only approved templates that are complete can be sent, and the client writing again unlocks it.
+
+The rest of this section describes both numbers; CA Connect is off for now.
 
 - **Your own WhatsApp:** connected in Settings through Ramwin (the only way): **Connect your own WhatsApp** opens Ramwin's page, the firm links the number there, and the channel ID and API key come back to us on their own (nothing is pasted). Client replies and files are read and land in the Inbox.
 - **CA Connect number:** KDK's shared number, always available. Messages go in the firm's name. Files clients send there are read and added to the right request, and the firm sees only its own clients' chats (the rules are in `document-matching.md`; the real matching comes with the backend, the demo shows sample chats). No typing from the Inbox on this number.

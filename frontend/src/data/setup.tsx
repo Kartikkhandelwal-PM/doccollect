@@ -96,12 +96,21 @@ interface Store {
   setSendFrom: (v: 'own' | 'kdk') => void
   approvedTemplates: string[] // message templates WhatsApp has approved for the firm's own number
   approveTemplates: () => void
+  rejectedTemplates: Record<string, string> // templates WhatsApp did not approve, with the reason. For KDK; the firm only sees that the message is not available.
+  templateState: (id: string) => 'approved' | 'pending' // a turned-down template also shows as pending: the firm only ever sees "waiting for approval"
+  connectionLost: boolean // the number was logged out or blocked at WhatsApp, not disconnected by the firm
+  loseConnection: () => void // demo only
   // The number a message really goes from: the firm's own only when it is connected, chosen, and WhatsApp has approved that message's template. Otherwise CA Connect.
   viaFor: (via: 'own' | 'kdk', templateId: string) => 'own' | 'kdk'
+  // Messages go only from the firm's own number. 'off' = not connected, 'waiting' = connected but WhatsApp has not approved the messages yet, 'ready' = can send.
+  // 'lost' = it was connected, but WhatsApp logged the number out or blocked it.
+  sendState: 'off' | 'lost' | 'waiting' | 'ready'
+  askConnect: (templateId?: string) => void // opens the dialog for a send that was blocked; with a template, it is that message that is not approved
+  connectAsk: boolean
+  askTemplate: string | null
+  closeConnectAsk: () => void
   graceDays: number // how many days after the last date an upload link keeps working
   setGraceDays: (n: number) => void
-  readReplies: boolean // read client replies sent to the firm's own WhatsApp number
-  setReadReplies: (v: boolean) => void
 }
 
 const Ctx = createContext<Store | null>(null)
@@ -129,22 +138,45 @@ export function SetupProvider({ children }: { children: ReactNode }) {
     channelId: 'ch_7q2m9xk4',
     connectedAt: '12 Oct 2026',
   })
-  const [sendFrom, setSendFrom] = useSessionState<'own' | 'kdk'>('sendFrom', emptyOn() ? 'kdk' : 'own')
+  const [sendFrom, setSendFrom] = useSessionState<'own' | 'kdk'>('sendFrom', 'own')
   // The sample firm connected a while ago, so all its templates are approved. A number connected now starts with none, until WhatsApp approves them.
   const [approvedTemplates, setApprovedTemplates] = useSessionState<string[]>('waApproved', emptyOn() ? [] : seedMessages.map((m) => m.id))
+  const [rejectedTemplates, setRejectedTemplates] = useSessionState<Record<string, string>>('waRejected', {})
+  const [connectionLost, setConnectionLost] = useSessionState('waLost', false)
+  const loseConnection = useCallback(() => setConnectionLost(true), [setConnectionLost])
   const connectWhatsApp = useCallback(
     (link: WhatsAppLink | null) => {
       setWhatsapp(link)
       setApprovedTemplates([])
-      setSendFrom(link ? 'own' : 'kdk')
+      setRejectedTemplates({})
+      setConnectionLost(false)
+      setSendFrom('own') // CA Connect (the shared number) is off: was link ? 'own' : 'kdk'
     },
-    [setWhatsapp, setApprovedTemplates, setSendFrom],
+    [setWhatsapp, setApprovedTemplates, setRejectedTemplates, setConnectionLost, setSendFrom],
   )
-  // Demo of WhatsApp's review: the first check finds some approved, the next one all of them.
-  const approveTemplates = useCallback(() => setApprovedTemplates((a) => (a.length === 0 ? seedMessages.slice(0, 7).map((m) => m.id) : seedMessages.map((m) => m.id))), [setApprovedTemplates])
-  const viaFor = useCallback((via: 'own' | 'kdk', templateId: string): 'own' | 'kdk' => (via === 'own' && whatsapp && approvedTemplates.includes(templateId) ? 'own' : 'kdk'), [whatsapp, approvedTemplates])
+  // Demo of WhatsApp's review. First check: some are approved. Second: the rest, but WhatsApp turns one down. Third: that one was fixed and sent again, and is approved.
+  const approveTemplates = useCallback(() => {
+    const all = seedMessages.map((m) => m.id)
+    if (approvedTemplates.length === 0) setApprovedTemplates(all.slice(0, 7))
+    else if (Object.keys(rejectedTemplates).length > 0 || approvedTemplates.length >= all.length - 1) {
+      setApprovedTemplates(all)
+      setRejectedTemplates({})
+    } else {
+      setApprovedTemplates(all.filter((id) => id !== 'rejectedopt'))
+      // The reason is for KDK. The firm is never shown it.
+      setRejectedTemplates({ rejectedopt: 'WhatsApp: message not clear enough' })
+    }
+  }, [approvedTemplates, rejectedTemplates, setApprovedTemplates, setRejectedTemplates])
+  const templateState = useCallback((id: string): 'approved' | 'pending' => (approvedTemplates.includes(id) ? 'approved' : 'pending'), [approvedTemplates])
+  // CA Connect (the shared number) is off. Every message goes from the firm's own number, or is not sent at all (see sendState).
+  // const viaFor = useCallback((via: 'own' | 'kdk', templateId: string): 'own' | 'kdk' => (via === 'own' && whatsapp && approvedTemplates.includes(templateId) ? 'own' : 'kdk'), [whatsapp, approvedTemplates])
+  const viaFor = useCallback((_via: 'own' | 'kdk', _templateId: string): 'own' | 'kdk' => 'own', [])
+  const sendState: 'off' | 'lost' | 'waiting' | 'ready' = !whatsapp ? 'off' : connectionLost ? 'lost' : approvedTemplates.length === 0 ? 'waiting' : 'ready'
+  const [connectAsk, setConnectAsk] = useState(false)
+  const [askTemplate, setAskTemplate] = useState<string | null>(null)
+  const askConnect = useCallback((templateId?: string) => (setAskTemplate(templateId ?? null), setConnectAsk(true)), [])
+  const closeConnectAsk = useCallback(() => setConnectAsk(false), [])
   const [graceDays, setGraceDays] = useSessionState('graceDays', 7)
-  const [readReplies, setReadReplies] = useSessionState('readReplies', true)
 
   const addDocument = useCallback((name: string, group: string, multiple = false, once = false, optional = false) => {
     const id = `d-${Date.now()}`
@@ -204,9 +236,9 @@ export function SetupProvider({ children }: { children: ReactNode }) {
       compliances, templates, addCompliance, updateCompliance, removeCompliance,
       messageTemplates,
       firm, saveFirm: setFirm, team, invite, setRole, removeMember,
-      whatsapp, connectWhatsApp, ownNumber: whatsapp?.number ?? null, sendFrom, setSendFrom, approvedTemplates, approveTemplates, viaFor, graceDays, setGraceDays, readReplies, setReadReplies,
+      whatsapp, connectWhatsApp, ownNumber: whatsapp?.number ?? null, sendFrom, setSendFrom, approvedTemplates, approveTemplates, rejectedTemplates, templateState, connectionLost, loseConnection, viaFor, sendState, askConnect, connectAsk, askTemplate, closeConnectAsk, graceDays, setGraceDays,
     }),
-    [documents, groups, categories, addDocument, setDocumentOptional, setDocumentOnce, onceIdSet, setDocumentMultiple, renameDocument, moveDocument, removeDocument, addCategory, renameCategory, removeCategory, compliances, templates, addCompliance, updateCompliance, removeCompliance, messageTemplates, firm, team, invite, setRole, removeMember, whatsapp, connectWhatsApp, sendFrom, setSendFrom, approvedTemplates, approveTemplates, viaFor, graceDays, readReplies],
+    [documents, groups, categories, addDocument, setDocumentOptional, setDocumentOnce, onceIdSet, setDocumentMultiple, renameDocument, moveDocument, removeDocument, addCategory, renameCategory, removeCategory, compliances, templates, addCompliance, updateCompliance, removeCompliance, messageTemplates, firm, team, invite, setRole, removeMember, whatsapp, connectWhatsApp, sendFrom, setSendFrom, approvedTemplates, approveTemplates, rejectedTemplates, templateState, connectionLost, loseConnection, viaFor, sendState, askConnect, connectAsk, askTemplate, closeConnectAsk, graceDays],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

@@ -13,7 +13,8 @@ import ReminderDialog from '../components/ReminderDialog'
 import RequestTracker from '../components/RequestTracker'
 import { nextSort, SortButton } from '../components/SortHead'
 import type { SortDir } from '../components/SortHead'
-import { useMessenger } from '../data/messenger'
+import { useInbox } from '../data/inbox'
+import { rejectedToast, sentToast, useMessenger } from '../data/messenger'
 import FileTypeIcon from '../components/FileTypeIcon'
 import StatusBadge from '../components/StatusBadge'
 import DueDatePicker from '../components/DueDatePicker'
@@ -111,7 +112,8 @@ function RequestView({ request }: { request: DocRequest }) {
     return () => clearTimeout(t)
   }, [toast])
 
-  const { sendUpdate, sendNewLink, sendRejected, preview } = useMessenger()
+  const { sendUpdate, sendNewLink, sendRejected, preview, ready, askConnect } = useMessenger()
+  const { failedFor } = useInbox()
   const p = progress(request)
   const mixedKinds = new Set(request.clients.map((rc) => getClient(rc.clientId)?.service)).size > 1
   const approved = request.clients.flatMap((c) => c.docs).filter((d) => d.status === 'approved').length
@@ -220,9 +222,17 @@ function RequestView({ request }: { request: DocRequest }) {
       return n
     })
   const sendReminders = () => {
-    toNotify.forEach((r) => sendUpdate(request.id, r.rc.clientId))
-    setToast(`${thanking ? 'Update' : 'Reminder'} sent to ${toNotify.length} ${toNotify.length === 1 ? 'client' : 'clients'} on WhatsApp`)
     setAsking(false)
+    let sent = 0
+    const failed: string[] = []
+    for (const r of toNotify) {
+      const res = sendUpdate(request.id, r.rc.clientId)
+      if (res.status === 'blocked') return // the dialog says what is missing
+      if (res.status === 'sent') sent++
+      else failed.push(getClient(r.rc.clientId)?.name ?? 'a client')
+    }
+    const what = thanking ? 'Update' : 'Reminder'
+    setToast(failed.length ? `${what} sent to ${sent}. Could not send to ${failed.join(', ')}: not on WhatsApp.` : `${what} sent to ${sent} ${sent === 1 ? 'client' : 'clients'} on WhatsApp`)
   }
 
   const openAt = (i: number) => {
@@ -268,8 +278,7 @@ function RequestView({ request }: { request: DocRequest }) {
     if (!rejecting) return
     const text = [reason, remark].filter(Boolean).join(' · ') || 'Please send it again'
     setDocStatus(request.id, rejecting.clientId, rejecting.docId, 'rejected', text)
-    sendRejected(request.id, rejecting.clientId, rejecting.docName, reason, remark)
-    setToast(`${rejecting.docName} rejected. The client was told on WhatsApp.`)
+    setToast(rejectedToast(sendRejected(request.id, rejecting.clientId, rejecting.docName, reason, remark), rejecting.docName))
     setRejecting(null)
     if (current && current.clientId === rejecting.clientId && current.doc.id === rejecting.docId) advance()
   }
@@ -298,7 +307,7 @@ function RequestView({ request }: { request: DocRequest }) {
               </button>
             )}
             {toNotify.length > 0 && (
-              <button type="button" onClick={() => setAsking(true)} className="flex h-10 items-center gap-2 rounded-xl border border-line bg-white px-4 text-sm font-semibold hover:border-brand hover:text-brand-dark">
+              <button type="button" onClick={() => (ready ? setAsking(true) : askConnect())} className="flex h-10 items-center gap-2 rounded-xl border border-line bg-white px-4 text-sm font-semibold hover:border-brand hover:text-brand-dark">
                 <Bell size={16} />
                 {thanking ? 'Send update to' : 'Remind'} {toNotify.length} {toNotify.length === 1 ? 'client' : 'clients'}
               </button>
@@ -340,7 +349,7 @@ function RequestView({ request }: { request: DocRequest }) {
               <span className="h-full bg-[#F0B455] transition-all" style={{ width: `${p.total ? (p.toReview / p.total) * 100 : 0}%` }} />
             </span>
           </span>
-          {request.via === 'own' && !ownNumber && <span className="text-danger">· your WhatsApp is not connected, so reminders go from the {SHARED_NUMBER_NAME} number</span>}
+          {request.via === 'own' && !ownNumber && <span className="text-danger">· your WhatsApp is not connected, so reminders cannot be sent</span>}
         </div>
       </div>
 
@@ -449,7 +458,10 @@ function RequestView({ request }: { request: DocRequest }) {
                 </div>
                 <div className="min-w-0 @max-3xl:order-1 @max-3xl:basis-full">
                   <div className="truncate text-[13px] font-semibold">{contactFor(c.id)?.name ?? c.name}</div>
-                  <div className="mt-0.5 truncate text-[13px] text-muted">{contactFor(c.id)?.phone || c.phone}</div>
+                  <div className="mt-0.5 truncate text-[13px] text-muted">
+                    {contactFor(c.id)?.phone || c.phone}
+                    {failedFor(rc.clientId) && <span className="ml-1.5 font-semibold text-danger" title="The last message could not be delivered. Check the number.">· {failedFor(rc.clientId)}</span>}
+                  </div>
                 </div>
                 <div className="@max-3xl:order-3 @max-3xl:basis-[42%]">
                   <div className="text-[13px] font-semibold tabular-nums">
@@ -469,8 +481,7 @@ function RequestView({ request }: { request: DocRequest }) {
                     <button
                       type="button"
                       onClick={() => {
-                        sendUpdate(request.id, rc.clientId)
-                        setToast(`Reminder sent to ${c.name} on WhatsApp`)
+                        setToast(sentToast(sendUpdate(request.id, rc.clientId), `Reminder sent to ${c.name} on WhatsApp`, c.name))
                       }}
                       className="flex h-9 w-[124px] items-center justify-center gap-1.5 rounded-lg border border-line bg-white text-[13px] font-semibold hover:border-brand hover:text-brand-dark"
                     >
@@ -481,8 +492,7 @@ function RequestView({ request }: { request: DocRequest }) {
                     <button
                       type="button"
                       onClick={() => {
-                        sendUpdate(request.id, rc.clientId)
-                        setToast(`Thank-you sent to ${c.name} on WhatsApp`)
+                        setToast(sentToast(sendUpdate(request.id, rc.clientId), `Thank-you sent to ${c.name} on WhatsApp`, c.name))
                       }}
                       className="flex h-9 w-[124px] items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-line bg-white text-[13px] font-semibold hover:border-brand hover:text-brand-dark"
                     >
@@ -609,8 +619,7 @@ function RequestView({ request }: { request: DocRequest }) {
               <button
                 type="button"
                 onClick={() => {
-                  sendNewLink(request.id, linkFor)
-                  setToast(`New link sent to ${getClient(linkFor)?.name} on WhatsApp`)
+                  setToast(sentToast(sendNewLink(request.id, linkFor), `New link sent to ${getClient(linkFor)?.name} on WhatsApp`, getClient(linkFor)?.name ?? 'the client'))
                   setLinkFor(null)
                 }}
                 className="h-11 rounded-xl bg-brand px-6 text-sm font-semibold text-white"

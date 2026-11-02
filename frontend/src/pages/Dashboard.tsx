@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Avatar from '../components/Avatar'
 import EmptyState from '../components/EmptyState'
-import { useMessenger } from '../data/messenger'
+import { sentToast, useMessenger } from '../data/messenger'
 import { useAttention } from '../data/attention'
 import { useSetup } from '../data/setup'
 import { getClient } from '../data/mock'
@@ -177,8 +177,7 @@ export default function Dashboard() {
   const viewAll = tab === 'received' ? '/requests?tab=review' : '/requests?tab=waiting'
 
   const remindOne = (i: (typeof items)[number]) => {
-    sendUpdate(i.requestId!, i.clientId!)
-    setToast(`Reminder sent to ${i.title} on WhatsApp`)
+    setToast(sentToast(sendUpdate(i.requestId!, i.clientId!), `Reminder sent to ${i.title} on WhatsApp`, i.title))
   }
 
   const tabs: { key: Tab; label: string; danger?: boolean }[] = [

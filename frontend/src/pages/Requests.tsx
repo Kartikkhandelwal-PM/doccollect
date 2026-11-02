@@ -9,7 +9,6 @@ import { getBookClient, getClient, parentIdOf, partyName } from '../data/mock'
 import { fmtDate, isCounted, isReceived, lineRef, progress, reminderDate, reminderTime, requestState, useRequests } from '../data/requests'
 import type { DocRequest, RequestState } from '../data/requests'
 import { daysUntil } from '../lib/dates'
-import { SHARED_NUMBER_NAME } from '../lib/brand'
 import { ease, rowIn } from '../lib/motion'
 import { rowFocus, rowHover, rowKeys } from '../lib/ui'
 import FilterSelect from '../components/FilterSelect'
@@ -51,13 +50,11 @@ export default function Requests() {
   const [tab, setTab] = useState<Tab>(first === 'review' || first === 'waiting' || first === 'completed' ? first : 'all')
   const [query, setQuery] = useState('')
   const [due, setDue] = useState<'all' | 'late' | 'week' | 'later'>('all')
-  const [from, setFrom] = useState<'all' | 'own' | 'kdk'>('all')
   const [open, setOpen] = useState<Set<string>>(new Set())
 
   const q = query.trim().toLowerCase()
   // The search and the two filters first. The tabs then split what is left, and their counts say how many requests each one has under those filters.
   const filtered = requests.filter((r) => {
-    if (from !== 'all' && r.via !== from) return false
     if (due !== 'all') {
       const days = daysUntil(r.due)
       const done = requestState(r) === 'completed'
@@ -86,7 +83,7 @@ export default function Requests() {
   const inTab = (r: DocRequest, key: Tab) => key === 'all' || (key === 'completed' ? requestState(r) === 'completed' : r.clients.some((rc) => standing(rc) === key))
   const list = filtered.filter((r) => inTab(r, tab))
   const countOf = (key: Tab) => filtered.filter((r) => inTab(r, key)).length
-  const listPaging = usePaging(list, `${tab}|${query}|${due}|${from}`)
+  const listPaging = usePaging(list, `${tab}|${query}|${due}`)
 
   const tabs: { key: Tab; label: string }[] = [
     { key: 'all', label: 'All' },
@@ -141,11 +138,6 @@ export default function Requests() {
             <option value="week">In 7 days</option>
             <option value="later">Later</option>
           </FilterSelect>
-          <FilterSelect value={from} onChange={(v) => setFrom(v as typeof from)} label="Sent from" width="w-[230px]" named active={from !== 'all'}>
-            <option value="all">Any number</option>
-            <option value="own">Your WhatsApp</option>
-            <option value="kdk">{SHARED_NUMBER_NAME}</option>
-          </FilterSelect>
         </div>
 
         <div className={`${GRID} @max-4xl:hidden border-b border-line bg-slate-50/80 py-2.5 text-[12px] font-bold uppercase tracking-wider text-faint`}>
@@ -166,7 +158,7 @@ export default function Requests() {
         )}
         {requests.length > 0 && list.length === 0 && (
           <EmptyState art="search" compact title="No request found" text="Nothing matches what you typed or the filters you chose.">
-            <button type="button" onClick={() => { setQuery(''); setDue('all'); setFrom('all'); setTab('all') }} className="h-11 rounded-xl border border-line px-5 text-sm font-semibold hover:border-brand">
+            <button type="button" onClick={() => { setQuery(''); setDue('all'); setTab('all') }} className="h-11 rounded-xl border border-line px-5 text-sm font-semibold hover:border-brand">
               Clear filters
             </button>
           </EmptyState>
@@ -215,7 +207,6 @@ export default function Requests() {
                     <div className="truncate text-[15px] font-semibold">{r.title}</div>
                     <div className="truncate text-xs text-muted">
                       {r.ref} · sent {fmtDate(r.createdAt)}
-                      {r.via === 'kdk' && ` · ${SHARED_NUMBER_NAME}`}
                     </div>
                   </div>
                 </div>

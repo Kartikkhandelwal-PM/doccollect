@@ -3,7 +3,6 @@ import type { ReactNode } from 'react'
 import { formatList, fillTemplate } from '../lib/template'
 import { seedMessages } from './messageTemplates'
 import { getClient } from './mock'
-import { useSetup } from './setup'
 import { useSessionState } from '../lib/session'
 import { emptyOn } from '../lib/demo'
 import { addDays, todayISO } from '../lib/dates'
@@ -24,6 +23,7 @@ export interface Msg {
   guess?: Placement // where we think it goes. The CA confirms it.
   link?: { requestId: string; clientId: string; docId: string } // the request document this file became
   tick?: 'sent' | 'read'
+  failed?: string // WhatsApp could not deliver it, like "Not on WhatsApp"
   clientId?: string // which client a message sent by the firm was for. Matters when one number belongs to several clients.
 }
 
@@ -439,7 +439,8 @@ interface Store {
   unreadTotal: number
   markRead: (id: string) => void
   send: (id: string, text: string) => void
-  postToClient: (client: { id: string; name: string; phone: string }, text: string, via: 'own' | 'kdk') => void
+  postToClient: (client: { id: string; name: string; phone: string }, text: string, via: 'own' | 'kdk', failed?: string) => void
+  failedFor: (clientId: string) => string | null // why the last message to this client was not delivered, if it was not
   settle: (id: string, note: string, keep: boolean) => void
   linkChat: (convId: string, clientIds: string[], title: string) => void
   resolveFile: (convId: string, msgId: string, note: string) => void
@@ -452,7 +453,6 @@ interface Store {
 const Ctx = createContext<Store | null>(null)
 
 export function InboxProvider({ children }: { children: ReactNode }) {
-  const { readReplies } = useSetup()
   const [conversations, setConversations] = useSessionState<Conversation[]>('inbox', seed)
 
   const patch = useCallback((id: string, fn: (c: Conversation) => Conversation) => {
@@ -476,8 +476,8 @@ export function InboxProvider({ children }: { children: ReactNode }) {
 
   // A message the app sends for a client (a request, a reminder, a thank-you). It lands in that client's chat,
   // which is found by phone number so clients on a shared number stay in one chat. No chat yet? One is started.
-  const postToClient = useCallback((client: { id: string; name: string; phone: string }, text: string, via: 'own' | 'kdk') => {
-    const msg: Msg = { id: `s${Date.now()}${Math.random().toString(36).slice(2, 6)}`, from: 'ca', day: todayISO(), time: nowTime(), sentAt: Date.now(), tick: 'sent', text, clientId: client.id }
+  const postToClient = useCallback((client: { id: string; name: string; phone: string }, text: string, via: 'own' | 'kdk', failed?: string) => {
+    const msg: Msg = { id: `s${Date.now()}${Math.random().toString(36).slice(2, 6)}`, from: 'ca', day: todayISO(), time: nowTime(), sentAt: Date.now(), tick: failed ? undefined : 'sent', failed, text, clientId: client.id }
     setConversations((prev) => {
       const at = prev.findIndex((c) => !c.unassigned && c.via === via && (c.phone === client.phone || c.clientIds.includes(client.id)))
       if (at < 0) return [{ id: `c-${client.id}-${via}`, title: client.name, phone: client.phone, clientIds: [client.id], via, unread: 0, msgs: [msg] }, ...prev]
@@ -486,6 +486,15 @@ export function InboxProvider({ children }: { children: ReactNode }) {
       return [next, ...prev.slice(0, at), ...prev.slice(at + 1)]
     })
   }, [])
+
+  // The last message the firm sent to this client: did it reach WhatsApp?
+  const failedFor = useCallback(
+    (clientId: string) => {
+      const mine = conversations.flatMap((c) => c.msgs.filter((m) => m.from === 'ca' && m.clientId === clientId))
+      return mine.length ? (mine[mine.length - 1].failed ?? null) : null
+    },
+    [conversations],
+  )
 
   // The files were put in Document Master, or dropped. Either way they are no longer waiting for a place.
   const settle = useCallback(
@@ -537,10 +546,10 @@ export function InboxProvider({ children }: { children: ReactNode }) {
   )
 
   // Only the firm's own number is read, so only its chats can have something new.
-  const unreadTotal = !readReplies ? 0 : conversations.filter((c) => c.via === 'own').reduce((n, c) => n + c.unread, 0)
+  const unreadTotal = conversations.filter((c) => c.via === 'own').reduce((n, c) => n + c.unread, 0)
   const value = useMemo(
-    () => ({ conversations, unreadTotal, markRead, send, postToClient, settle, resolveFile, linkChat, arrive, patchMsg, markPlaced, notifyRejected }),
-    [conversations, unreadTotal, markRead, send, postToClient, settle, resolveFile, linkChat, arrive, patchMsg, markPlaced, notifyRejected],
+    () => ({ conversations, unreadTotal, markRead, send, postToClient, failedFor, settle, resolveFile, linkChat, arrive, patchMsg, markPlaced, notifyRejected }),
+    [conversations, unreadTotal, markRead, send, postToClient, failedFor, settle, resolveFile, linkChat, arrive, patchMsg, markPlaced, notifyRejected],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

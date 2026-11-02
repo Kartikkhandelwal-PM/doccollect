@@ -15,7 +15,7 @@ import { useMessenger } from '../data/messenger'
 import { defaultDue } from '../lib/dates'
 import { serviceColor } from '../lib/status'
 import { fillTemplate, formatDocuments } from '../lib/template'
-import { LINK_DOMAIN, SHARED_NUMBER_NAME } from '../lib/brand'
+import { LINK_DOMAIN } from '../lib/brand'
 import { linkToken } from '../lib/links'
 
 type CatalogDoc = { id: string; name: string; multiple?: boolean; optional?: boolean }
@@ -83,8 +83,8 @@ export default function NewRequest() {
   useContacts()
   const { create, receiveFile } = useRequests()
   const { markPlaced } = useInbox()
-  const { sendRequest } = useMessenger()
-  const { documents, groups, compliances, messageTemplates, firm, ownNumber, whatsapp, sendFrom, approvedTemplates, viaFor, addCompliance } = useSetup()
+  const { sendRequest, canSend: canSendMsg, askConnect } = useMessenger()
+  const { documents, groups, compliances, messageTemplates, firm, ownNumber, whatsapp, sendState, templateState, addCompliance } = useSetup()
   const [params] = useSearchParams()
   // Opened from the Tracker with some clients ticked: they are asked only for what each one is missing.
   const fromTracker = (useLocation().state as { tracker?: { kind: Kind; complianceId: string; clientIds: string[]; missing: Record<string, string[]> } } | null)?.tracker
@@ -111,12 +111,13 @@ export default function NewRequest() {
 
   // Starts on whatever is connected in Settings. Your own number is only there once it is connected.
   // The firm picks the number once in Settings; here it only shows.
-  const via: 'own' | 'kdk' = ownNumber && sendFrom === 'own' ? 'own' : 'kdk'
-  const shownVia = viaFor(via, 'request')
+  // CA Connect (the shared number) is off: was ownNumber && sendFrom === 'own' ? 'own' : 'kdk'
+  const via: 'own' | 'kdk' = 'own'
   const [due, setDue] = useState(() => defaultDue(compliances.find((c) => c.kind === kind)?.id ?? ''))
   const [dueTouched, setDueTouched] = useState(false)
   const [created, setCreated] = useState<DocRequest | null>(null)
   const [messageCount, setMessageCount] = useState(0)
+  const [notReached, setNotReached] = useState<string[]>([]) // clients whose number is not on WhatsApp
   const [step, setStep] = useState<1 | 2 | 3 | 4>(preClient ? 2 : 1)
 
   const allDocs = useMemo(() => [...groups.flatMap((g) => g.docs), ...custom], [groups, custom])
@@ -197,7 +198,7 @@ export default function NewRequest() {
 
   // The words come from Message templates, so editing that page changes what clients receive.
   const req = messageTemplates.find((m) => m.id === 'request')
-  const requestTemplate = (via === 'kdk' ? req?.onBehalf : req?.text) ?? ''
+  const requestTemplate = req?.text ?? ''
   const message = fillTemplate(requestTemplate, {
     name: first?.name ?? 'there',
     firm: firm.name,
@@ -209,6 +210,8 @@ export default function NewRequest() {
   })
 
   const send = () => {
+    // Nothing is created until the firm's WhatsApp can send it.
+    if (!canSendMsg('request')) return askConnect('request')
     if (complianceId === 'custom' && saveIt && customName.trim()) {
       addCompliance(customName.trim(), kind, docIds)
     }
@@ -228,14 +231,16 @@ export default function NewRequest() {
         markPlaced(convParam, fileParam, `Filed as ${doc.name} · To review`, { requestId: r.id, clientId: line.clientId, docId: doc.id })
       }
     }
-    sendRequest(r)
-    setMessageCount(chosenClients.length)
+    const failed = sendRequest(r)
+    setNotReached(failed)
+    setMessageCount(chosenClients.length - failed.length)
     setCreated(r)
     setStep(4)
   }
   const reset = () => {
     setStep(1)
     setSelected([])
+    setNotReached([])
     setCreated(null)
     setQuery('')
   }
@@ -253,6 +258,11 @@ export default function NewRequest() {
             {messageCount} WhatsApp {messageCount === 1 ? 'message' : 'messages'} went out to {created.clients.length}{' '}
             {created.clients.length === 1 ? 'client' : 'clients'}. Replies will show up here.
           </p>
+          {notReached.length > 0 && (
+            <p className="mx-auto mt-3 max-w-md rounded-xl bg-[#FEF0EE] px-4 py-2.5 text-[13px] text-danger">
+              Could not send to {notReached.join(', ')}: not on WhatsApp. Check the number on the client page, or share the upload link in another way.
+            </p>
+          )}
         </div>
         <div className="w-full max-w-xl rounded-[18px] border border-line bg-white px-6 py-2">
           {created.clients.map((rc) => {
@@ -670,17 +680,22 @@ export default function NewRequest() {
             <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-line px-4 py-3">
               <div className="min-w-0 flex-1">
                 <div className="text-[13px] font-semibold text-muted">Sent from</div>
-                <div className="text-sm font-semibold">{shownVia === 'own' ? `${whatsapp?.displayName ?? 'Your WhatsApp'} · ${ownNumber}` : SHARED_NUMBER_NAME}</div>
-                <div className="text-[13px] text-muted">
-                  {via === 'own'
-                    ? approvedTemplates.includes('request')
-                      ? 'Replies are read here.'
-                      : 'WhatsApp has not approved this message yet, so it goes from the shared number.'
-                    : 'Clients upload through the link. Replies are not read.'}
-                </div>
+                <div className="text-sm font-semibold">{whatsapp ? `${whatsapp.displayName ?? 'Your WhatsApp'} · ${ownNumber}` : 'Not connected'}</div>
+                {(() => {
+                  const t = templateState('request')
+                  const ok = sendState === 'ready' && t === 'approved'
+                  const text = ok
+                    ? 'Replies are read here.'
+                    : sendState === 'off'
+                      ? 'Connect your WhatsApp to send this request.'
+                      : sendState === 'lost'
+                        ? 'Your WhatsApp got disconnected. Connect it again to send this request.'
+                        : 'Waiting for WhatsApp to approve your messages. You can send once they are approved.'
+                  return <div className={`text-[13px] ${ok ? 'text-muted' : 'text-danger'}`}>{text}</div>
+                })()}
               </div>
               <Link to="/settings?tab=whatsapp" className="text-[13px] font-semibold text-brand hover:underline">
-                Change in Settings
+                {sendState === 'ready' && templateState('request') === 'approved' ? 'Change in Settings' : 'Open Settings'}
               </Link>
             </div>
             <div className="mt-4">
@@ -704,7 +719,6 @@ export default function NewRequest() {
               <div className="flex justify-between"><dt className="text-muted">{kind === 'GST' ? 'GSTINs' : kind === 'TDS' ? 'TANs' : 'Registrations'}</dt><dd className="font-semibold">{selected.length}</dd></div>
               <div className="flex justify-between"><dt className="text-muted">Documents each</dt><dd className="font-semibold">{docIds.length}</dd></div>
               <div className="flex justify-between"><dt className="text-muted">Last date</dt><dd className="font-semibold">{due ? fmtDate(due) : '—'}</dd></div>
-              <div className="flex justify-between"><dt className="text-muted">Sent from</dt><dd className="font-semibold">{via === 'own' ? (whatsapp?.displayName ?? 'Your WhatsApp') : SHARED_NUMBER_NAME}</dd></div>
             </dl>
             {noWhatsApp > 0 && (
               <p className="mt-2 rounded-lg bg-danger-soft px-3 py-2 text-xs leading-relaxed text-danger">
