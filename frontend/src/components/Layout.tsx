@@ -18,6 +18,7 @@ import { useInbox } from '../data/inbox'
 import { APP_NAME } from '../lib/brand'
 import { pageIn, spring } from '../lib/motion'
 import { resetDemo } from '../lib/session'
+import { ConnectBanner, ConnectDialog } from './ConnectWhatsApp'
 import GlobalHeader from './GlobalHeader'
 import MobileNav from './MobileNav'
 import UserMenu from './UserMenu'
@@ -153,6 +154,7 @@ export default function Layout() {
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
         <GlobalHeader />
+        <ConnectBanner />
         <main className="mobile-main min-h-0 flex-1 overflow-y-auto max-md:pb-[calc(4rem+env(safe-area-inset-bottom))]">
           {/* each screen eases in when you open it */}
           <motion.div key={pathname} variants={pageIn} initial="hidden" animate="show" className="h-full">
@@ -161,6 +163,7 @@ export default function Layout() {
         </main>
       </div>
       <MobileNav />
+      <ConnectDialog />
     </div>
   )
 }

@@ -1,0 +1,188 @@
+CA Connect (KDK's shared WhatsApp number) is not part of the product. The pieces taken out of the live screens are kept here, in case they are ever needed.
+They are copies of JSX from the files named in each heading and will not compile on their own.
+
+=== Settings.tsx: tiles, switch bars and the CA Connect card (Settings > WhatsApp) ===
+            {/* Choosing a tile only shows its details below. The bar is the one place where the number is really switched. */}
+            {CA_CONNECT_ON && <div role="radiogroup" aria-label="Send messages from" className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+              {([
+                ['kdk', SHARED_NUMBER_NAME, 'Works now · clients upload through the link, replies are not read'],
+                ['own', 'Your own number', whatsapp ? 'Your firm\'s WhatsApp · clients can reply in the chat' : 'Connect it once · clients can reply in the chat'],
+              ] as const).map(([key, title, sub]) => {
+                const shown = look === key
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    role="radio"
+                    aria-checked={shown}
+                    onClick={() => setLook(key)}
+                    className={`flex items-start gap-3 rounded-2xl p-4 text-left ${shown ? 'border-2 border-brand bg-[#EEF8F5]' : 'border border-line bg-white hover:border-brand'}`}
+                  >
+                    <WhatsAppIcon size={40} />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span className="text-[15px] font-semibold">{title}</span>
+                        {effective === key && <span className="rounded-md bg-ok-soft px-1.5 py-0.5 text-[12px] font-bold uppercase tracking-wide text-ok">In use</span>}
+                      </span>
+                      <span className="mt-0.5 block text-[13px] leading-snug text-muted">{sub}</span>
+                    </span>
+                    <span className={`mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${shown ? 'border-brand bg-brand text-white' : 'border-slate-300'}`}>{shown && <Check size={12} strokeWidth={3.4} />}</span>
+                  </button>
+                )
+              })}
+            </div>}
+
+            {/* The switch. */}
+            {look === 'kdk' && effective === 'own' && (
+              <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl bg-slate-50 px-4 py-3 text-sm">
+                <span className="min-w-0 flex-1 font-medium">Messages are now sent from your own number. It stays connected, so you can switch back any time.</span>
+                <button type="button" onClick={() => setAsk('kdk')} className="h-10 shrink-0 rounded-lg bg-brand px-4 text-[13px] font-semibold text-white hover:bg-brand-dark">
+                  Use {SHARED_NUMBER_NAME} instead
+                </button>
+              </div>
+            )}
+            {look === 'own' && whatsapp && effective !== 'own' && (
+              <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl bg-warn-soft px-4 py-3 text-sm text-warn">
+                <span className="min-w-0 flex-1 font-medium">Your number is connected but not in use. Messages go from the {SHARED_NUMBER_NAME} number.</span>
+                <button type="button" onClick={() => setAsk('own')} className="h-10 shrink-0 rounded-lg bg-white px-4 text-[13px] font-semibold text-ink shadow-sm">
+                  Use my number
+                </button>
+              </div>
+            )}
+
+            {/* CA Connect is always connected. Only who it is. */}
+            {look === 'kdk' && (
+              <div className="mt-4 overflow-hidden rounded-2xl border border-line bg-white">
+                <div className="flex items-center gap-3 border-b border-line px-5 py-3.5">
+                  <span className="text-[15px] font-bold">Your connection</span>
+                  <span className="rounded-md bg-ok-soft px-1.5 py-0.5 text-[12px] font-bold uppercase tracking-wide text-ok">Connected</span>
+                </div>
+                <div className="grid grid-cols-1 gap-4 px-5 py-5 md:grid-cols-2">
+                  {[
+                    ['Name clients see', SHARED_NUMBER_NAME],
+                    ['WhatsApp number', SHARED_NUMBER],
+                  ].map(([k, v]) => (
+                    <div key={k} className="min-w-0">
+                      <div className="text-[13px] font-semibold text-muted">{k}</div>
+                      <div className="mt-1 flex h-11 items-center truncate rounded-xl border border-line bg-slate-50 px-3.5 text-[15px] font-medium text-ink" title={v}>
+                        {v}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="border-t border-line bg-slate-50/70 px-5 py-3 text-[13px] text-muted">Managed by KDK. Nothing for you to do.</div>
+              </div>
+            )}
+
+
+
+=== Settings.tsx: dialog that asked before switching the sending number ===
+      {ask && (
+        <motion.div {...backdropProps} className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="Switch the sending number" onClick={() => setAsk(null)}>
+          <motion.div {...panelProps} onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <h2 className="text-lg font-bold">{ask === 'own' ? 'Send from your own number?' : `Send from ${SHARED_NUMBER_NAME}?`}</h2>
+            <p className="mt-1.5 text-sm leading-relaxed text-muted">
+              {ask === 'own' ? (
+                <>
+                  Messages will go from <b className="text-ink">{whatsapp?.number}</b>, and clients can reply in the chat. A message whose template WhatsApp has not approved yet still goes from the {SHARED_NUMBER_NAME} number.
+                </>
+              ) : (
+                <>
+                  Messages will go from <b className="text-ink">{SHARED_NUMBER}</b>. Clients upload through the link and replies are not read. Your own number stays connected.
+                </>
+              )}
+            </p>
+            <div className="mt-5 flex justify-end gap-3">
+              <button type="button" autoFocus onClick={() => setAsk(null)} className="h-11 rounded-xl border border-line px-5 text-sm font-semibold hover:bg-canvas">
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSendFrom(ask)
+                  setAsk(null)
+                  setToast(ask === 'own' ? 'Messages now go from your own number.' : `Messages now go from the ${SHARED_NUMBER_NAME} number.`)
+                }}
+                className="h-11 rounded-xl bg-brand px-5 text-sm font-semibold text-white"
+              >
+                {ask === 'own' ? 'Use my number' : `Use ${SHARED_NUMBER_NAME}`}
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+
+
+
+
+=== Inbox.tsx: account menu (switch between your number and CA Connect) ===
+            {CA_CONNECT_ON && showAccounts && (
+              <>
+                <button type="button" aria-label="Close menu" className="fixed inset-0 z-10 cursor-default" onClick={() => setShowAccounts(false)} />
+                <div role="menu" className="absolute left-0 right-0 z-20 mt-1.5 overflow-hidden rounded-xl border border-line bg-white py-1 shadow-xl">
+                  <div className="px-3.5 pb-1 pt-2 text-[12px] font-bold uppercase tracking-widest text-faint">Switch account</div>
+                  {(['own', 'kdk'] as const).map((k) => {
+                    const chats = allConversations.filter((c) => c.via === k && !c.unassigned)
+                    const fresh = k === 'own' && connected && readReplies ? chats.reduce((n, c) => n + (c.unread > 0 ? 1 : 0), 0) : 0
+                    return (
+                      <button
+                        key={k}
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setMode(k)
+                          setActiveId(allConversations.find((c) => c.via === k)?.id ?? '')
+                          setFilter('all')
+                          setShowAccounts(false)
+                        }}
+                        className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left hover:bg-canvas"
+                      >
+                        <WhatsAppIcon size={36} />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-semibold">{accounts[k]}</span>
+                          <span className="block truncate text-xs text-muted">
+                            {accountSub[k]} · {chats.length} {chats.length === 1 ? 'chat' : 'chats'}
+                            {fresh ? ` · ${fresh} unread` : ''}
+                          </span>
+                        </span>
+                        {mode === k && <Check size={16} className="shrink-0 text-brand" />}
+                      </button>
+                    )
+                  })}
+                  {!connected && (
+                    <Link to="/settings?tab=whatsapp" className="mt-1 block border-t border-line px-3.5 py-2.5 text-[13px] font-semibold text-brand hover:bg-canvas">
+                      Connect your WhatsApp
+                    </Link>
+                  )}
+                </div>
+              </>
+            )}
+
+
+=== Inbox.tsx: yellow bar under the CA Connect chats ===
+        {mode === 'kdk' ? (
+          <div className="shrink-0 border-t border-[#E9EDEF] bg-[#FFF8E1] px-5 py-3 text-[13px] leading-relaxed text-[#7A3B00]">
+            <b>These messages go from the {SHARED_NUMBER_NAME} number.</b> Files your clients send here are read and added to their request. Only your own clients' chats show here.
+          </div>
+
+
+
+=== Templates.tsx: 'Show messages sent from' toggle ===
+            {CA_CONNECT_ON && <span className="text-[13px] font-semibold text-muted max-md:hidden">Show messages sent from</span>}
+          {CA_CONNECT_ON && <div className="flex shrink-0 rounded-xl bg-[#E9EEF5] p-1 text-[13px] font-semibold text-slate-600 max-md:w-full" role="group" aria-label="Which number the messages are sent from">
+            <button type="button" onClick={() => setVoice('own')} className={`rounded-[9px] px-4 py-2 max-md:flex-1 ${voice === 'own' ? 'bg-white text-ink shadow-sm' : ''}`}>
+              Your WhatsApp
+            </button>
+            <button type="button" onClick={() => setVoice('kdk')} className={`rounded-[9px] px-4 py-2 max-md:flex-1 ${voice === 'kdk' ? 'bg-white text-ink shadow-sm' : ''}`}>
+              {SHARED_NUMBER_NAME} number
+            </button>
+          </div>}
+
+
+=== Requests.tsx: 'Sent from' filter ===
+          {CA_CONNECT_ON && <FilterSelect value={from} onChange={(v) => setFrom(v as typeof from)} label="Sent from" width="w-[230px]" named active={from !== 'all'}>
+            <option value="all">Any number</option>
+            <option value="own">Your WhatsApp</option>
+            <option value="kdk">{SHARED_NUMBER_NAME}</option>
+          </FilterSelect>}
+

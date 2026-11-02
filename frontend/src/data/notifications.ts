@@ -19,7 +19,7 @@ const MAX_OVERDUE = 3
 export function useNotifications(): Notice[] {
   const { requests } = useRequests()
   const { conversations } = useInbox()
-  const { readReplies, ownNumber } = useSetup()
+  const { ownNumber } = useSetup()
   const waiting = useWaitingFiles()
 
   return useMemo(() => {
@@ -39,7 +39,7 @@ export function useNotifications(): Notice[] {
     }
 
     // WhatsApp files that could not be matched to a client.
-    if (ownNumber && readReplies) {
+    if (ownNumber) {
       const files = waiting.total
       if (files > 0) out.push({ id: `u:${files}`, kind: 'unmatched', title: `${files} ${files === 1 ? 'file is' : 'files are'} not placed yet`, sub: 'Open the Inbox and choose where each goes', href: `/inbox?chat=${waiting.chats[0]?.id ?? ''}` })
     }
@@ -57,5 +57,5 @@ export function useNotifications(): Notice[] {
     if (docs > 0) out.push({ id: `d:${docs}`, kind: 'documents', title: `${docs} new ${docs === 1 ? 'document' : 'documents'} today`, sub: `From ${who.size} ${who.size === 1 ? 'client' : 'clients'}, ready to review`, href: '/requests?tab=review' })
 
     return out
-  }, [requests, conversations, ownNumber, readReplies, waiting])
+  }, [requests, conversations, ownNumber, waiting])
 }

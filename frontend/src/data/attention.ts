@@ -10,7 +10,7 @@ import type { AttentionItem } from './types'
 export function useAttention() {
   const { requests } = useRequests()
   const { conversations } = useInbox()
-  const { readReplies, ownNumber } = useSetup()
+  const { ownNumber } = useSetup()
 
   return useMemo(() => {
     const today = todayISO()
@@ -65,7 +65,7 @@ export function useAttention() {
 
     // Files from a WhatsApp number we could not match to a client. Only exists when the CA's own WhatsApp is connected.
     const unassigned: AttentionItem[] =
-      !ownNumber || !readReplies
+      !ownNumber
         ? []
         : conversations
             .filter((c) => c.unassigned)
@@ -86,5 +86,5 @@ export function useAttention() {
             }))
 
     return { items: [...review, ...silent, ...unassigned], stats }
-  }, [requests, conversations, ownNumber, readReplies])
+  }, [requests, conversations, ownNumber])
 }

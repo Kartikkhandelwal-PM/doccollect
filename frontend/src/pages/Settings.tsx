@@ -5,7 +5,6 @@ import { Check, Clock, ExternalLink } from 'lucide-react'
 import Page from '../components/Page'
 import { useEffect, useState } from 'react'
 import Avatar from '../components/Avatar'
-import WhatsAppIcon from '../components/WhatsAppIcon'
 import PhoneInput from '../components/PhoneInput'
 import { useWaitingFiles } from '../data/waiting'
 import FirmLogo from '../components/FirmLogo'
@@ -15,7 +14,8 @@ import { fmtDate, useRequests } from '../data/requests'
 import { addDays, expiresOn, todayISO } from '../lib/dates'
 import { useSetup } from '../data/setup'
 import type { Firm } from '../data/setup'
-import { RAMWIN_CONNECT_URL, SHARED_NUMBER, SHARED_NUMBER_NAME } from '../lib/brand'
+import { RAMWIN_CONNECT_URL, SHARED_NUMBER_NAME } from '../lib/brand'
+import { demoOn } from '../lib/demo'
 import { formatMobile, isMobile, mobileDigits } from '../lib/phone'
 
 type Tab = 'firm' | 'whatsapp' | 'links' | 'team' | 'usage'
@@ -94,18 +94,14 @@ export function Usage() {
 }
 
 export default function Settings() {
-  const { firm, saveFirm, team, whatsapp, connectWhatsApp, sendFrom, setSendFrom, approvedTemplates, approveTemplates, messageTemplates, graceDays, setGraceDays, readReplies, setReadReplies } = useSetup()
+  const { firm, saveFirm, team, whatsapp, connectWhatsApp, approvedTemplates, approveTemplates, connectionLost, loseConnection, messageTemplates, graceDays, setGraceDays } = useSetup()
   const { requests } = useRequests()
   const [params] = useSearchParams()
   const [tab, setTab] = useState<Tab>(params.get('tab') === 'whatsapp' ? 'whatsapp' : 'firm')
   const [disconnecting, setDisconnecting] = useState(false)
   const [draft, setDraft] = useState<Firm>(firm)
   const [toast, setToast] = useState<string | null>(null)
-  const [ask, setAsk] = useState<'own' | 'kdk' | null>(null) // asking before switching the number
   const navigate = useNavigate()
-  // The number a message really goes from now: your own only when it is connected and chosen.
-  const effective: 'own' | 'kdk' = whatsapp && sendFrom === 'own' ? 'own' : 'kdk'
-  const [look, setLook] = useState<'own' | 'kdk'>(effective) // the tile being looked at
   const goToRamwin = () => {
     // The real flow leaves for Ramwin's page; the demo uses our own stand-in screen.
     if (/^https?:/.test(RAMWIN_CONNECT_URL)) window.location.assign(RAMWIN_CONNECT_URL)
@@ -208,83 +204,11 @@ export default function Settings() {
       {tab === 'whatsapp' && (
         <div className="flex max-w-3xl flex-col gap-8">
           <section>
-            <h2 className="text-base font-bold tracking-tight">Send messages from</h2>
-            <p className="mt-0.5 text-sm text-muted">Choose the number your clients get your messages from. You choose it once here; when you send a request it only shows which number it goes from.</p>
-
-            {/* Choosing a tile only shows its details below. The bar is the one place where the number is really switched. */}
-            <div role="radiogroup" aria-label="Send messages from" className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-              {([
-                ['kdk', SHARED_NUMBER_NAME, 'Works now · clients upload through the link, replies are not read'],
-                ['own', 'Your own number', whatsapp ? 'Your firm\'s WhatsApp · clients can reply in the chat' : 'Connect it once · clients can reply in the chat'],
-              ] as const).map(([key, title, sub]) => {
-                const shown = look === key
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    role="radio"
-                    aria-checked={shown}
-                    onClick={() => setLook(key)}
-                    className={`flex items-start gap-3 rounded-2xl p-4 text-left ${shown ? 'border-2 border-brand bg-[#EEF8F5]' : 'border border-line bg-white hover:border-brand'}`}
-                  >
-                    <WhatsAppIcon size={40} />
-                    <span className="min-w-0 flex-1">
-                      <span className="flex flex-wrap items-center gap-2">
-                        <span className="text-[15px] font-semibold">{title}</span>
-                        {effective === key && <span className="rounded-md bg-ok-soft px-1.5 py-0.5 text-[12px] font-bold uppercase tracking-wide text-ok">In use</span>}
-                      </span>
-                      <span className="mt-0.5 block text-[13px] leading-snug text-muted">{sub}</span>
-                    </span>
-                    <span className={`mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${shown ? 'border-brand bg-brand text-white' : 'border-slate-300'}`}>{shown && <Check size={12} strokeWidth={3.4} />}</span>
-                  </button>
-                )
-              })}
-            </div>
-
-            {/* The switch. */}
-            {look === 'kdk' && effective === 'own' && (
-              <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl bg-slate-50 px-4 py-3 text-sm">
-                <span className="min-w-0 flex-1 font-medium">Messages are now sent from your own number. It stays connected, so you can switch back any time.</span>
-                <button type="button" onClick={() => setAsk('kdk')} className="h-10 shrink-0 rounded-lg bg-brand px-4 text-[13px] font-semibold text-white hover:bg-brand-dark">
-                  Use {SHARED_NUMBER_NAME} instead
-                </button>
-              </div>
-            )}
-            {look === 'own' && whatsapp && effective !== 'own' && (
-              <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl bg-warn-soft px-4 py-3 text-sm text-warn">
-                <span className="min-w-0 flex-1 font-medium">Your number is connected but not in use. Messages go from the {SHARED_NUMBER_NAME} number.</span>
-                <button type="button" onClick={() => setAsk('own')} className="h-10 shrink-0 rounded-lg bg-white px-4 text-[13px] font-semibold text-ink shadow-sm">
-                  Use my number
-                </button>
-              </div>
-            )}
-
-            {/* CA Connect is always connected. Only who it is. */}
-            {look === 'kdk' && (
-              <div className="mt-4 overflow-hidden rounded-2xl border border-line bg-white">
-                <div className="flex items-center gap-3 border-b border-line px-5 py-3.5">
-                  <span className="text-[15px] font-bold">Your connection</span>
-                  <span className="rounded-md bg-ok-soft px-1.5 py-0.5 text-[12px] font-bold uppercase tracking-wide text-ok">Connected</span>
-                </div>
-                <div className="grid grid-cols-1 gap-4 px-5 py-5 md:grid-cols-2">
-                  {[
-                    ['Name clients see', SHARED_NUMBER_NAME],
-                    ['WhatsApp number', SHARED_NUMBER],
-                  ].map(([k, v]) => (
-                    <div key={k} className="min-w-0">
-                      <div className="text-[13px] font-semibold text-muted">{k}</div>
-                      <div className="mt-1 flex h-11 items-center truncate rounded-xl border border-line bg-slate-50 px-3.5 text-[15px] font-medium text-ink" title={v}>
-                        {v}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="border-t border-line bg-slate-50/70 px-5 py-3 text-[13px] text-muted">Managed by KDK. Nothing for you to do.</div>
-              </div>
-            )}
+            <h2 className="text-base font-bold tracking-tight">Your WhatsApp</h2>
+            <p className="mt-0.5 text-sm text-muted">Your requests and reminders go to clients from your own WhatsApp number. Connect it once, and clients can reply in the chat.</p>
 
             {/* Your own number, not connected yet: one button. */}
-            {look === 'own' && !whatsapp && (
+            {!whatsapp && (
               <div className="mt-4 rounded-2xl border border-line bg-white p-5">
                 <h3 className="text-[15px] font-bold">Connect your own WhatsApp</h3>
                 <ol className="mt-3 flex flex-col gap-2.5 text-sm text-slate-700">
@@ -305,19 +229,34 @@ export default function Settings() {
                   <button type="button" onClick={goToRamwin} className="flex h-11 items-center gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white hover:bg-brand-dark">
                     Connect your own WhatsApp <ExternalLink size={16} />
                   </button>
-                  <span className="text-[13px] text-muted">Until you connect, messages go from the {SHARED_NUMBER_NAME} number.</span>
+                  <span className="text-[13px] text-muted">Until you connect, you cannot send requests or reminders.</span>
                 </div>
               </div>
             )}
 
             {/* Your own number, connected. */}
-            {look === 'own' && whatsapp && (
+            {whatsapp && (
               <div className="mt-4 overflow-hidden rounded-2xl border border-line bg-white">
                 <div className="flex items-center gap-3 border-b border-line px-5 py-3.5">
                   <span className="text-[15px] font-bold">Your connection</span>
-                  <span className="rounded-md bg-ok-soft px-1.5 py-0.5 text-[12px] font-bold uppercase tracking-wide text-ok">Connected</span>
+                  {connectionLost ? (
+                    <span className="rounded-md bg-danger-soft px-1.5 py-0.5 text-[12px] font-bold uppercase tracking-wide text-danger">Disconnected</span>
+                  ) : (
+                    <span className="rounded-md bg-ok-soft px-1.5 py-0.5 text-[12px] font-bold uppercase tracking-wide text-ok">Connected</span>
+                  )}
                 </div>
                 <div className="grid grid-cols-1 gap-4 px-5 py-5 md:grid-cols-2">
+                  {connectionLost && (
+                    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-danger/30 bg-danger-soft/60 px-4 py-3 md:col-span-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-semibold text-danger">WhatsApp logged this number out</div>
+                        <div className="text-[13px] leading-snug text-muted">Nothing can be sent until you connect it again. Your requests, chats and documents are safe.</div>
+                      </div>
+                      <button type="button" onClick={goToRamwin} className="h-10 shrink-0 rounded-lg bg-brand px-4 text-[13px] font-semibold text-white hover:bg-brand-dark">
+                        Connect again
+                      </button>
+                    </div>
+                  )}
                   {[
                     ['WhatsApp number', formatMobile(mobileDigits(whatsapp.number))],
                     ['Name clients see', whatsapp.displayName],
@@ -342,14 +281,14 @@ export default function Settings() {
                           <div className="text-sm font-semibold">{done === 0 ? 'Message templates: waiting for approval' : all ? 'Message templates: all approved' : `Message templates: ${done} of ${total} approved`}</div>
                           <div className="text-[13px] leading-snug text-muted">
                             {done === 0
-                              ? `Until a template is approved, its messages go out from the ${SHARED_NUMBER_NAME} number.`
+                              ? 'You can send requests and reminders once WhatsApp approves your messages. This usually takes a short while.'
                               : all
-                                ? 'Messages go out from your number.'
-                                : `Approved messages go out from your number. The rest go out from the ${SHARED_NUMBER_NAME} number until they are approved.`}
+                                ? 'You can send requests and reminders.'
+                                : 'You can send now. A few messages are still waiting for approval.'}
                           </div>
                         </div>
                         {!all && (
-                          <button type="button" onClick={() => (approveTemplates(), setToast(done === 0 ? 'WhatsApp has approved some templates.' : 'All templates are approved.'))} className="h-10 shrink-0 rounded-lg border border-line bg-white px-4 text-[13px] font-semibold hover:border-brand">
+                          <button type="button" onClick={() => (approveTemplates(), setToast(done === 0 ? 'WhatsApp has approved some templates.' : 'WhatsApp has approved more templates.'))} className="h-10 shrink-0 rounded-lg border border-line bg-white px-4 text-[13px] font-semibold hover:border-brand">
                             Check status
                           </button>
                         )}
@@ -361,40 +300,14 @@ export default function Settings() {
                   <button type="button" onClick={() => setDisconnecting(true)} className="h-10 rounded-lg px-4 text-[13px] font-semibold text-danger hover:bg-danger-soft">
                     Disconnect
                   </button>
+                  {demoOn() && !connectionLost && (
+                    <button type="button" onClick={() => (loseConnection(), setToast('Demo: WhatsApp logged your number out.'))} className="h-10 rounded-lg px-4 text-[13px] font-semibold text-muted hover:bg-canvas">
+                      Demo: connection lost
+                    </button>
+                  )}
                 </div>
               </div>
             )}
-          </section>
-
-          <section>
-            <h2 className="text-base font-bold tracking-tight">Client replies</h2>
-            <p className="mt-0.5 text-sm text-muted">What happens to the files clients send you on WhatsApp.</p>
-            <div className={`mt-4 rounded-2xl border border-line bg-white ${whatsapp ? '' : 'opacity-60'}`}>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={readReplies && !!whatsapp}
-                disabled={!whatsapp}
-                onClick={() => {
-                  setReadReplies(!readReplies)
-                  setToast(readReplies ? 'Replies are off. Clients upload through the link.' : 'Now reading replies to your requests')
-                }}
-                className="flex w-full items-center gap-4 p-4 text-left disabled:cursor-not-allowed"
-              >
-                <span className={`relative h-[24px] w-[42px] shrink-0 rounded-full ${readReplies && whatsapp ? 'bg-brand' : 'bg-slate-300'}`}>
-                  <span className={`absolute top-[3px] h-[18px] w-[18px] rounded-full bg-white transition-all ${readReplies && whatsapp ? 'left-[21px]' : 'left-[3px]'}`} />
-                </span>
-                <span className="flex-1">
-                  <span className="block text-sm font-semibold">Read client replies on WhatsApp</span>
-                  <span className="text-[13px] leading-snug text-muted">
-                    {whatsapp ? 'Turn this off and clients can only upload through the link.' : 'Only available when your own WhatsApp is connected.'}
-                  </span>
-                </span>
-              </button>
-              <div className="border-t border-line bg-slate-50/70 px-4 py-3.5 text-[13px] leading-relaxed text-slate-600">
-                <b className="text-ink">Use a number only for work, never your personal number.</b> Every chat on it comes into the Inbox, with messages, photos and files, so your team can see it. Files that look like documents are read and added to the client's request.
-              </div>
-            </div>
           </section>
         </div>
       )}
@@ -453,12 +366,12 @@ export default function Settings() {
         <motion.div {...backdropProps} className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="Disconnect your WhatsApp">
           <motion.div {...panelProps} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
             <h2 className="text-lg font-bold">Disconnect your WhatsApp?</h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted">From now, all communication with your clients will go from the {SHARED_NUMBER_NAME} number.</p>
+            <p className="mt-2 text-sm leading-relaxed text-muted">You will not be able to send requests or reminders until you connect a WhatsApp number again.</p>
             <ul className="mt-3 flex list-disc flex-col gap-1.5 pl-5 text-sm leading-relaxed text-slate-700">
               <li>
-                {requests.filter((r) => r.via === 'own').length} requests were sent from your WhatsApp. Their reminders will go from the {SHARED_NUMBER_NAME} number, as a link.
+                {requests.filter((r) => r.via === 'own').length} requests were sent from your WhatsApp. Their reminders will wait until you connect again.
               </li>
-              <li>Clients can no longer reply in the chat. They upload through the link, and replies to the {SHARED_NUMBER_NAME} number are not read.</li>
+              <li>Clients who already have an upload link can still use it.</li>
               <li>Your old chats stay in the Inbox to read.</li>
             </ul>
             <div className="mt-6 flex justify-end gap-3">
@@ -470,46 +383,11 @@ export default function Settings() {
                 onClick={() => {
                   connectWhatsApp(null)
                   setDisconnecting(false)
-                  setToast(`WhatsApp disconnected. Messages now go from the ${SHARED_NUMBER_NAME} number.`)
+                  setToast('WhatsApp disconnected. Connect it again to send messages.')
                 }}
                 className="h-11 rounded-xl bg-danger px-5 text-sm font-semibold text-white"
               >
                 Disconnect
-              </button>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-
-      {ask && (
-        <motion.div {...backdropProps} className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="Switch the sending number" onClick={() => setAsk(null)}>
-          <motion.div {...panelProps} onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-            <h2 className="text-lg font-bold">{ask === 'own' ? 'Send from your own number?' : `Send from ${SHARED_NUMBER_NAME}?`}</h2>
-            <p className="mt-1.5 text-sm leading-relaxed text-muted">
-              {ask === 'own' ? (
-                <>
-                  Messages will go from <b className="text-ink">{whatsapp?.number}</b>, and clients can reply in the chat. A message whose template WhatsApp has not approved yet still goes from the {SHARED_NUMBER_NAME} number.
-                </>
-              ) : (
-                <>
-                  Messages will go from <b className="text-ink">{SHARED_NUMBER}</b>. Clients upload through the link and replies are not read. Your own number stays connected.
-                </>
-              )}
-            </p>
-            <div className="mt-5 flex justify-end gap-3">
-              <button type="button" autoFocus onClick={() => setAsk(null)} className="h-11 rounded-xl border border-line px-5 text-sm font-semibold hover:bg-canvas">
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSendFrom(ask)
-                  setAsk(null)
-                  setToast(ask === 'own' ? 'Messages now go from your own number.' : `Messages now go from the ${SHARED_NUMBER_NAME} number.`)
-                }}
-                className="h-11 rounded-xl bg-brand px-5 text-sm font-semibold text-white"
-              >
-                {ask === 'own' ? 'Use my number' : `Use ${SHARED_NUMBER_NAME}`}
               </button>
             </div>
           </motion.div>

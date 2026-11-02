@@ -2,6 +2,22 @@
 
 Newest first. One line per change that a user or the team would notice.
 
+## November 2026
+
+- **Only the firm's own WhatsApp number; connect it first.** CA Connect (the shared number) is not part of the product. Its screen parts were taken out of the live code and kept in `frontend/src/parked/caConnect.txt`.
+  - **Not connected:** the app still works, a banner under the header says "Connect your WhatsApp to start sending requests and reminders" with a **Connect WhatsApp** button, and every send (New request, Remind, Send update, new link) opens a dialog "Connect your WhatsApp first" instead of sending. Nothing is created or sent.
+  - **Connected but WhatsApp has not approved the messages:** the banner and dialog say "Waiting for WhatsApp approval". No fallback to CA Connect.
+  - **Settings > WhatsApp** shows only your own number (no tiles, no switch to CA Connect). The Inbox has no account switcher and no CA Connect chats; Message templates has no "CA Connect number" view; Requests has no "Sent from" filter; New request step 3 shows the connection state.
+  - **Delete all data** starts not connected; the sample data stays connected.
+  - **The "Client replies" section is gone from Settings > WhatsApp** (the switch "Read client replies on WhatsApp" and the note about using a work number). Replies are always read.
+  - **A message WhatsApp did not approve:** Check status now goes 7 approved, then all but one turned down, then all approved. Only that message is blocked. **The firm never sees "rejected", names or a reason**: a turned-down message simply shows as "waiting for approval" like the others (a count such as "19 of 20 approved"); the rest is for KDK. Settings and the Message templates page show each message as Approved or Pending.
+  - **Connection lost** (WhatsApp logged the number out): banner, "Disconnected" in Settings with **Connect again**, and sending is blocked. (`?demo=1` shows a **Demo: connection lost** button.)
+  - **Not on WhatsApp:** when a number cannot get the message, the toast says so, the request row shows "Not on WhatsApp" in red, the chat shows "Not delivered", and the reminder is not counted as sent. The Request sent screen lists clients who could not be reached. The demo client is Vikram Enterprises.
+  - **24-hour rule in the Inbox:** more than 24 hours after the client's last message, typing is locked with a note, and Templates sends an approved, complete message as it is. The client writing again unlocks typing. Only approved templates are listed in the Inbox.
+  - **A document sent back while WhatsApp is not ready** is still rejected, and the message says the client was not told.
+  - New request step 3: "Sent from" is shown once (the second line in the summary is gone) and tells whether the request message can go.
+  - **Message templates page shows the real approval state.** It used to say "already approved by WhatsApp" for every message, even right after connecting a number. Now each message shows **Approved** or **Waiting for approval** (and the header says how many are approved), the same as Settings > WhatsApp.
+
 ## October 2026
 
 - **Message templates checked and updated for optional documents.**

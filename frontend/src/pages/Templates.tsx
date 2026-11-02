@@ -1,23 +1,23 @@
-import { ArrowLeft, BadgeCheck } from 'lucide-react'
+import { ArrowLeft, BadgeCheck, Clock } from 'lucide-react'
 import { useState } from 'react'
 import Page from '../components/Page'
 import { useSetup } from '../data/setup'
 import WaText from '../components/WaText'
 import { fillTemplate, sample, variables } from '../lib/template'
-import { SHARED_NUMBER_NAME } from '../lib/brand'
 
 // Phase 1: read-only. Every message is approved by WhatsApp once, so firms use them as they are.
 export default function Templates() {
-  const { messageTemplates, ownNumber } = useSetup()
-  // Which number the messages are for: your own WhatsApp ("we") or the shared number (names the firm).
-  const [voice, setVoice] = useState<'own' | 'kdk'>(ownNumber ? 'own' : 'kdk')
+  const { messageTemplates, ownNumber, templateState } = useSetup()
+  // A message can go from your number only after WhatsApp has approved it. The sample firm connected long ago, so all are approved; a number just connected has none yet.
+  const isApproved = (id: string) => templateState(id) === 'approved'
+  const approvedCount = messageTemplates.filter((m) => isApproved(m.id)).length
   // On a phone you see the list of messages, or the one you opened.
   const [detail, setDetail] = useState(false)
   const [selectedId, setSelectedId] = useState(messageTemplates[0].id)
   const selected = messageTemplates.find((m) => m.id === selectedId) ?? messageTemplates[0]
 
   // Which variables this message fills in, in the order they appear.
-  const body = voice === 'kdk' ? selected.onBehalf : selected.text
+  const body = selected.text
   const used = variables.filter((v) => body.includes(`{${v.key}}`))
 
   return (
@@ -27,18 +27,9 @@ export default function Templates() {
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-6">
           <div className="min-w-0">
             <h1 className="text-[24px] font-bold tracking-tight">Message templates</h1>
-            <p className="mt-0.5 text-sm text-muted">{messageTemplates.length} ready messages, already approved by WhatsApp.</p>
+            <p className="mt-0.5 text-sm text-muted">{messageTemplates.length} ready messages. {!ownNumber ? 'Connect your WhatsApp and WhatsApp will review them.' : approvedCount === messageTemplates.length ? 'All approved by WhatsApp.' : approvedCount === 0 ? 'Waiting for WhatsApp to approve them.' : `${approvedCount} approved by WhatsApp, the rest are waiting.`}</p>
           </div>
           <div className="flex shrink-0 items-center gap-3 max-md:flex-col max-md:items-stretch">
-            <span className="text-[13px] font-semibold text-muted max-md:hidden">Show messages sent from</span>
-          <div className="flex shrink-0 rounded-xl bg-[#E9EEF5] p-1 text-[13px] font-semibold text-slate-600 max-md:w-full" role="group" aria-label="Which number the messages are sent from">
-            <button type="button" onClick={() => setVoice('own')} className={`rounded-[9px] px-4 py-2 max-md:flex-1 ${voice === 'own' ? 'bg-white text-ink shadow-sm' : ''}`}>
-              Your WhatsApp
-            </button>
-            <button type="button" onClick={() => setVoice('kdk')} className={`rounded-[9px] px-4 py-2 max-md:flex-1 ${voice === 'kdk' ? 'bg-white text-ink shadow-sm' : ''}`}>
-              {SHARED_NUMBER_NAME} number
-            </button>
-          </div>
           </div>
         </div>
       }
@@ -62,7 +53,7 @@ export default function Templates() {
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className={`text-sm font-semibold ${selected.id === m.id ? 'text-brand-dark' : ''}`}>{m.name}</div>
-                      <BadgeCheck size={17} className="mt-0.5 shrink-0 text-ok" aria-label="Approved by WhatsApp" />
+                      {isApproved(m.id) ? <BadgeCheck size={17} className="mt-0.5 shrink-0 text-ok" aria-label="Approved by WhatsApp" /> : <Clock size={17} className="mt-0.5 shrink-0 text-warn" aria-label="Waiting for approval" />}
                     </div>
                     <div className="truncate text-xs text-muted">{m.hint}</div>
                   </button>
@@ -79,9 +70,15 @@ export default function Templates() {
           <section className="rounded-[18px] border border-line bg-white p-5">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold tracking-tight">{selected.name}</h2>
-              <span className="flex items-center gap-1.5 rounded-md bg-ok-soft px-2 py-1 text-[12px] font-semibold uppercase tracking-wide text-ok">
-                <BadgeCheck size={13} /> Approved
-              </span>
+              {isApproved(selected.id) ? (
+                <span className="flex items-center gap-1.5 rounded-md bg-ok-soft px-2 py-1 text-[12px] font-semibold uppercase tracking-wide text-ok">
+                  <BadgeCheck size={13} /> Approved
+                </span>
+              ) : (
+                <span className="flex items-center gap-1.5 rounded-md bg-warn-soft px-2 py-1 text-[12px] font-semibold uppercase tracking-wide text-warn">
+                  <Clock size={13} /> {ownNumber ? 'Pending' : 'Not connected'}
+                </span>
+              )}
             </div>
             <p className="mt-1 text-sm text-muted">{selected.hint}.</p>
 
@@ -112,7 +109,7 @@ export default function Templates() {
             <div className="mt-4 rounded-xl bg-canvas p-3.5 text-[13px] leading-relaxed text-slate-600">
               <b className="text-ink">Why can't I edit these?</b>
               <br />
-              WhatsApp only lets us send business messages that it has approved. We have already got these approved for you, so you never have to wait.
+              WhatsApp only lets us send business messages that it has approved. After you connect your number, WhatsApp reviews these messages. You can see the status of each one here and in Settings, under WhatsApp.
             </div>
           </section>
         </div>

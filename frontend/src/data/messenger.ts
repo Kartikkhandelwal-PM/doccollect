@@ -24,10 +24,22 @@ const SENT_BACK: Record<string, 'blurry' | 'wrongdoc' | 'pages' | 'wrongyear'> =
   'Wrong year': 'wrongyear',
 }
 
+// What a send came to. 'blocked' = nothing was sent because WhatsApp is not ready (a dialog has said why).
+export type SendResult = { status: 'sent' } | { status: 'blocked' } | { status: 'failed'; reason: string }
+// The line a screen shows after a send. null when nothing was sent (a dialog has already said why).
+export const sentToast = (r: SendResult, ok: string, who: string): string | null => (r.status === 'sent' ? ok : r.status === 'failed' ? `Could not send to ${who}: ${r.reason}` : null)
+// After a document was sent back: the document is rejected either way, this says whether the client was told.
+export const rejectedToast = (r: SendResult, doc: string): string =>
+  r.status === 'sent' ? `${doc} rejected. The client was told on WhatsApp.` : r.status === 'blocked' ? `${doc} rejected. The client was not told, because that message cannot be sent now. See Settings, under WhatsApp.` : `${doc} rejected. The client was not told: ${r.reason}.`
+type Delivery = { ok: true } | { ok: false; reason: string }
+
+// Numbers that are not on WhatsApp. In the real product this comes from WhatsApp's delivery report after a send; the demo has one such client (Vikram Enterprises).
+const NOT_ON_WHATSAPP = new Set(['+91 93777 88809'])
+
 export function useMessenger() {
-  const { firm, viaFor } = useSetup()
+  const { firm, viaFor, sendState, askConnect, templateState } = useSetup()
   const { getRequest, remind, newLink } = useRequests()
-  const { conversations, postToClient } = useInbox()
+  const { postToClient } = useInbox()
 
   // A request keeps the number it was sent from. Each message still goes from the firm's own number only if that number is connected and WhatsApp has approved that
   // message's template; otherwise it goes from the shared number. (Which template a message uses is worked out in tidOf.)
@@ -40,23 +52,19 @@ export function useMessenger() {
     return missing === 0 ? 'thanks' : approved > 0 ? 'update' : 'pendinglist'
   }
 
-  // Sends to the client on a number. If this client has only heard from the firm on the other number so far, a short introduction goes first.
+  // Sends to the client. The message also lands in that client's chat; when WhatsApp reports that the number is not on WhatsApp, the chat shows it as not delivered.
   const post = useCallback(
-    (to: { id: string; name: string; phone: string }, text: string, via: 'own' | 'kdk') => {
+    (to: { id: string; name: string; phone: string }, text: string, via: 'own' | 'kdk'): Delivery => {
       // The id is a registration. Its contact (maybe changed on the client page) gets the message, and only when WhatsApp is on for it.
       const book = getBookClient(to.id)
       const reg = book?.registrations.find((r) => r.id === to.id)
-      if (book && reg && !whatsappOn(book, reg)) return
+      if (book && reg && !whatsappOn(book, reg)) return { ok: false, reason: 'WhatsApp is switched off for this contact' }
       const client = book && reg ? { ...to, phone: contactOf(book, reg).phone || to.phone } : to
-      const here = conversations.some((c) => c.via === via && (c.phone === client.phone || c.clientIds.includes(client.id)))
-      const there = conversations.some((c) => c.via !== via && (c.phone === client.phone || c.clientIds.includes(client.id)))
-      if (!here && there) {
-        const t = seedMessages.find((m) => m.id === 'newnumber')!
-        postToClient(client, fillTemplate(via === 'kdk' ? t.onBehalf : t.text, { name: client.name, firm: firm.name }), via)
-      }
-      postToClient(client, text, via)
+      const failed = NOT_ON_WHATSAPP.has(client.phone) ? 'Not on WhatsApp' : undefined
+      postToClient(client, text, via, failed)
+      return failed ? { ok: false, reason: failed } : { ok: true }
     },
-    [conversations, postToClient, firm.name],
+    [postToClient],
   )
 
   const build = useCallback(
@@ -88,57 +96,79 @@ export function useMessenger() {
     [firm.name, viaOf],
   )
 
+  // A message can go only when the connection is fine and WhatsApp has approved that message. Otherwise a dialog says what is missing.
+  const canSendMsg = useCallback((tid: string) => sendState === 'ready' && templateState(tid) === 'approved', [sendState, templateState])
+  const blocked = useCallback(
+    (tid: string) => {
+      if (canSendMsg(tid)) return false
+      askConnect(tid)
+      return true
+    },
+    [canSendMsg, askConnect],
+  )
+
   // Every client of a new request gets their own message.
   const sendRequest = useCallback(
-    (r: DocRequest) =>
+    (r: DocRequest): string[] => {
+      const failed: string[] = []
       r.clients.forEach((rc) => {
         const client = getClient(rc.clientId)
-        if (client) post(client, build(r, rc, 'request'), viaOf(r, 'request'))
-      }),
+        if (client && !post(client, build(r, rc, 'request'), viaOf(r, 'request')).ok) failed.push(client.name)
+      })
+      return failed
+    },
     [build, post, viaOf],
   )
 
   const sendUpdate = useCallback(
-    (requestId: string, clientId: string) => {
+    (requestId: string, clientId: string): SendResult => {
       const r = getRequest(requestId)
       const rc = r?.clients.find((c) => c.clientId === clientId)
       const client = getClient(clientId)
-      if (!r || !rc || !client) return
-      post(client, build(r, rc, 'update'), viaOf(r, tidOf(rc, 'update')))
-      remind(requestId, clientId)
+      if (!r || !rc || !client) return { status: 'failed', reason: 'Client not found' }
+      const tid = tidOf(rc, 'update')
+      if (blocked(tid)) return { status: 'blocked' }
+      const d = post(client, build(r, rc, 'update'), viaOf(r, tid))
+      if (d.ok) remind(requestId, clientId)
+      return d.ok ? { status: 'sent' } : { status: 'failed', reason: d.reason }
     },
-    [getRequest, build, post, viaOf, remind],
+    [getRequest, build, post, viaOf, remind, blocked],
   )
 
   // The old link stops working and the client gets a fresh one.
   const sendNewLink = useCallback(
-    (requestId: string, clientId: string) => {
+    (requestId: string, clientId: string): SendResult => {
       const r = getRequest(requestId)
       const rc = r?.clients.find((c) => c.clientId === clientId)
       const client = getClient(clientId)
-      if (!r || !rc || !client) return
-      post(client, build(r, { ...rc, linkVersion: (rc.linkVersion ?? 1) + 1 }, 'newlink'), viaOf(r, 'newlink'))
-      newLink(requestId, clientId)
+      if (!r || !rc || !client) return { status: 'failed', reason: 'Client not found' }
+      if (blocked('newlink')) return { status: 'blocked' }
+      const d = post(client, build(r, { ...rc, linkVersion: (rc.linkVersion ?? 1) + 1 }, 'newlink'), viaOf(r, 'newlink'))
+      if (d.ok) newLink(requestId, clientId)
+      return d.ok ? { status: 'sent' } : { status: 'failed', reason: d.reason }
     },
-    [getRequest, build, post, viaOf, newLink],
+    [getRequest, build, post, viaOf, newLink, blocked],
   )
 
   // A document was sent back: the client is told which one and why. (Approving one document sends nothing.)
+  // The document is sent back whatever happens. The result says whether the client could be told, so the screen can say so.
   const sendRejected = useCallback(
-    (requestId: string, clientId: string, docName: string, reason: string, remark: string) => {
+    (requestId: string, clientId: string, docName: string, reason: string, remark: string): SendResult => {
       const r = getRequest(requestId)
       const rc = r?.clients.find((c) => c.clientId === clientId)
       const client = getClient(clientId)
-      if (!r || !rc || !client) return
+      if (!r || !rc || !client) return { status: 'failed', reason: 'Client not found' }
       // A ready-made reason with no note of your own uses its own message; anything else goes out as "we could not accept ...: <your words>".
       const ready = remark ? undefined : SENT_BACK[reason]
       const words = [reason, remark].filter(Boolean).join(' · ') || 'please send it again'
       // An optional document that is sent back gets its own, softer message: it can still be skipped.
       const optional = !!rc.docs.find((d) => d.name === docName)?.optional
       const rid = optional ? 'rejectedopt' : (ready ?? 'rejected')
-      post(client, build(r, rc, rid, { document: docName, reason: words.charAt(0).toLowerCase() + words.slice(1) }), viaOf(r, rid))
+      if (!canSendMsg(rid)) return { status: 'blocked' }
+      const d = post(client, build(r, rc, rid, { document: docName, reason: words.charAt(0).toLowerCase() + words.slice(1) }), viaOf(r, rid))
+      return d.ok ? { status: 'sent' } : { status: 'failed', reason: d.reason }
     },
-    [getRequest, build, post, viaOf],
+    [getRequest, build, post, viaOf, canSendMsg],
   )
 
   // The exact text a client would get right now, for the preview before sending.
@@ -151,5 +181,5 @@ export function useMessenger() {
     [getRequest, build],
   )
 
-  return { sendRequest, sendUpdate, sendNewLink, sendRejected, preview }
+  return { sendRequest, sendUpdate, sendNewLink, sendRejected, canSend: canSendMsg, ready: sendState === 'ready', askConnect, preview }
 }

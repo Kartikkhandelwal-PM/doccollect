@@ -1,7 +1,7 @@
 import { backdropProps, panelProps, rowIn } from '../lib/motion'
 import { motion } from 'framer-motion'
 import Toast from '../components/Toast'
-import { ArrowLeft, Check, Sparkles, CheckCheck, ChevronDown, ChevronRight, FolderOpen, Trash2, Image as ImageIcon, Info, Lock, PanelRightOpen, Search, Send, X } from 'lucide-react'
+import { ArrowLeft, Check, Sparkles, CheckCheck, ChevronRight, FolderOpen, Trash2, Image as ImageIcon, Info, Lock, PanelRightOpen, Search, Send, X } from 'lucide-react'
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
@@ -17,7 +17,7 @@ import WaText from '../components/WaText'
 import WhatsAppIcon from '../components/WhatsAppIcon'
 import FileTypeIcon from '../components/FileTypeIcon'
 import StatusBadge from '../components/StatusBadge'
-import { useMessenger } from '../data/messenger'
+import { rejectedToast, useMessenger } from '../data/messenger'
 import { useInbox } from '../data/inbox'
 import { findPlacement, isDuplicate, suggestClient } from '../data/docRead'
 import type { DocRead } from '../data/docRead'
@@ -37,7 +37,6 @@ import { useSetup } from '../data/setup'
 import { fillTemplate, sample } from '../lib/template'
 import { dayLabel, todayISO } from '../lib/dates'
 import { demoOn } from '../lib/demo'
-import { SHARED_NUMBER_NAME } from '../lib/brand'
 
 type Filter = 'all' | 'unread' | 'unassigned'
 
@@ -156,6 +155,11 @@ function Bubble({ m, status, onOpen, onPlace, onNot }: { m: Msg; status?: string
           {m.time}
           {mine && <Ticks tick={m.tick} />}
         </div>
+        {m.failed && (
+          <div className="mt-1 flex items-center gap-1.5 rounded-md bg-[#FEF0EE] px-2 py-1 text-xs font-semibold text-danger">
+            <Info size={12} className="shrink-0" /> Not delivered: {m.failed}
+          </div>
+        )}
       </div>
     </motion.div>
   )
@@ -609,20 +613,14 @@ function RightPanel({ conv, onReview, onPreview }: { conv: Conversation; onRevie
 
 function InboxMain() {
   const { conversations: allConversations, markRead, send, markPlaced, linkChat, arrive, patchMsg } = useInbox()
-  const { messageTemplates, firm, readReplies, ownNumber, whatsapp, onceIds } = useSetup()
-  // Each WhatsApp number is shown by its name, with the number under it.
-  const accounts = {
-    own: whatsapp?.displayName ?? 'Your WhatsApp',
-    kdk: SHARED_NUMBER_NAME,
-  } as const
-  const accountSub = {
-    own: whatsapp?.number ?? 'Not connected',
-    kdk: 'Shared number',
-  } as const
+  const { messageTemplates, firm, ownNumber, whatsapp, onceIds, sendState, templateState } = useSetup()
   const { sendRejected } = useMessenger()
   const { requests, setDocStatus, setDocFiled, unsorted, useUnsorted, dropUnsorted, addUnsorted, receiveFile, moveFile } = useRequests()
   // Everything except the first-request message can be dropped into a chat.
-  const templates = messageTemplates.filter((m) => m.id !== 'request')
+  // Only the messages WhatsApp has approved can be used.
+  // After 24 hours a template goes out as it is, so only one that is complete with the name, firm and link can be used here. The others (they list documents) are sent with Remind on the request.
+  const complete = (t: string) => [...t.matchAll(/\{(\w+)\}/g)].every((m) => ['name', 'firm', 'link'].includes(m[1]))
+  const approvedTemplatesList = messageTemplates.filter((m) => m.id !== 'request' && templateState(m.id) === 'approved')
   // ?client=... opens that client's chat (from the client page). Without it, the first chat.
   const [params] = useSearchParams()
   const wanted = params.get('client')
@@ -634,8 +632,8 @@ function InboxMain() {
     (wanted
       ? (allConversations.find((c) => c.via === 'own' && c.clientIds.some((x) => wantedIds.includes(x))) ?? allConversations.find((c) => c.clientIds.some((x) => wantedIds.includes(x))))
       : allConversations[0])
-  const [mode, setMode] = useState<'own' | 'kdk'>(() => target?.via ?? 'own')
-  const [activeId, setActiveId] = useState(() => target?.id ?? '')
+  // Only the firm's own number has chats here.
+  const [activeId, setActiveId] = useState(() => (target?.via === 'own' ? target.id : (allConversations.find((c) => c.via === 'own')?.id ?? '')))
   const [filter, setFilter] = useState<Filter>('all')
   const [query, setQuery] = useState('')
   const [text, setText] = useState('')
@@ -647,7 +645,6 @@ function InboxMain() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [showTemplates])
-  const [showAccounts, setShowAccounts] = useState(false)
   const [viewing, setViewing] = useState<Msg | null>(null)
   const [approving, setApproving] = useState<Approving | null>(null) // Approve asks where to keep the document
   const [filing, setFiling] = useState<Approving | null>(null) // an approved document being saved (or moved) in a folder later
@@ -683,21 +680,21 @@ function InboxMain() {
   }, [toast])
 
   // The firm's own number can be disconnected. Its old chats stay readable, but nothing can be sent from it.
-  const connected = !!ownNumber
-  const own = mode === 'own' && connected
+  const connected = !!ownNumber && sendState !== 'lost'
+  const own = connected
   // Are client replies being read at all? Not on the shared number, and not when the switch in Settings is off.
-  const reading = own && readReplies
+  const reading = own
   // On the firm's own number the whole chat comes in (it is a work number): texts, photos and files. On the shared CA Connect number
   // only what the firm sent and the files a client sends back are kept.
   const isWork = (m: Msg) => reading || m.from !== 'client' || !!m.file
   const conversations = useMemo(
     () =>
       allConversations
-        .filter((c) => c.via === mode)
+        .filter((c) => c.via === 'own')
         .filter((c) => reading || !c.unassigned)
         .map((c) => {
           // The shared CA Connect number is read too, but only for the firm's own clients (chats it cannot place are never shown here).
-          const readsHere = reading || mode === 'kdk'
+          const readsHere = reading
           const msgs = c.msgs.filter((m) => isWork(m) && (readsHere || m.from === 'ca'))
           return readsHere ? { ...c, msgs } : { ...c, msgs, unread: 0 }
         })
@@ -710,7 +707,7 @@ function InboxMain() {
           const key = (c: Conversation) => `${c.msgs[c.msgs.length - 1].day} ${c.msgs[c.msgs.length - 1].time}`
           return key(b).localeCompare(key(a))
         }),
-    [reading, mode, allConversations],
+    [reading, allConversations],
   )
   const active = conversations.find((c) => c.id === activeId) ?? conversations[0]
   const taRef = useRef<HTMLTextAreaElement>(null)
@@ -743,7 +740,6 @@ function InboxMain() {
     const existing = allConversations.find((c) => c.via === 'own' && c.phone === sc.phone)
     const id = existing?.id ?? `c-new-${Date.now()}`
     arrive(sc.phone, msg, id, sure ? { title: sure.clientName, clientIds: [sure.regId] } : undefined)
-    setMode('own')
     setFilter('all')
     setActiveId(id)
     setChatOpen(true)
@@ -770,9 +766,16 @@ function InboxMain() {
   const unread = conversations.filter((c) => c.unread > 0).length
   const unassigned = conversations.filter((c) => c.unassigned).length
 
+  // WhatsApp lets you type freely only for 24 hours after the client's last message. After that only approved templates can go, until the client writes again.
+  const lastFromClient = [...active.msgs].reverse().find((m) => m.from === 'client')
+  const lastAt = lastFromClient ? (lastFromClient.sentAt ?? new Date(`${lastFromClient.day}T${/^\d{1,2}:\d{2}$/.test(lastFromClient.time) ? lastFromClient.time.padStart(5, '0') : '12:00'}`).getTime()) : null
+  const windowOpen = lastAt !== null && Date.now() - lastAt < 24 * 60 * 60 * 1000
+  const canType = own && windowOpen
+  const templates = windowOpen ? approvedTemplatesList : approvedTemplatesList.filter((m) => complete(m.text))
+
   const submit = () => {
     const t = text.trim()
-    if (!t || !own) return
+    if (!t || !canType) return
     send(active.id, t)
     setText('')
   }
@@ -860,61 +863,13 @@ function InboxMain() {
             )}
           </div>
           <div className="relative mt-3">
-            <button
-              type="button"
-              onClick={() => setShowAccounts((v) => !v)}
-              aria-haspopup="menu"
-              aria-expanded={showAccounts}
-              className="flex w-full items-center gap-3 rounded-xl border border-[#E9EDEF] bg-white px-3 py-2.5 text-left hover:bg-[#F7F8F8]"
-            >
+            <div className="flex w-full items-center gap-3 rounded-xl border border-[#E9EDEF] bg-white px-3 py-2.5 text-left">
               <WhatsAppIcon size={36} />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-semibold">{accounts[mode]}</span>
-                <span className="block truncate text-xs text-muted">{accountSub[mode]}</span>
+                <span className="block truncate text-sm font-semibold">{whatsapp?.displayName ?? 'Your WhatsApp'}</span>
+                <span className="block truncate text-xs text-muted">{whatsapp?.number ?? 'Not connected'}</span>
               </span>
-              <ChevronDown size={16} className="shrink-0 text-[#54656F]" />
-            </button>
-            {showAccounts && (
-              <>
-                <button type="button" aria-label="Close menu" className="fixed inset-0 z-10 cursor-default" onClick={() => setShowAccounts(false)} />
-                <div role="menu" className="absolute left-0 right-0 z-20 mt-1.5 overflow-hidden rounded-xl border border-line bg-white py-1 shadow-xl">
-                  <div className="px-3.5 pb-1 pt-2 text-[12px] font-bold uppercase tracking-widest text-faint">Switch account</div>
-                  {(['own', 'kdk'] as const).map((k) => {
-                    const chats = allConversations.filter((c) => c.via === k && !c.unassigned)
-                    const fresh = k === 'own' && connected && readReplies ? chats.reduce((n, c) => n + (c.unread > 0 ? 1 : 0), 0) : 0
-                    return (
-                      <button
-                        key={k}
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          setMode(k)
-                          setActiveId(allConversations.find((c) => c.via === k)?.id ?? '')
-                          setFilter('all')
-                          setShowAccounts(false)
-                        }}
-                        className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left hover:bg-canvas"
-                      >
-                        <WhatsAppIcon size={36} />
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-semibold">{accounts[k]}</span>
-                          <span className="block truncate text-xs text-muted">
-                            {accountSub[k]} · {chats.length} {chats.length === 1 ? 'chat' : 'chats'}
-                            {fresh ? ` · ${fresh} unread` : ''}
-                          </span>
-                        </span>
-                        {mode === k && <Check size={16} className="shrink-0 text-brand" />}
-                      </button>
-                    )
-                  })}
-                  {!connected && (
-                    <Link to="/settings?tab=whatsapp" className="mt-1 block border-t border-line px-3.5 py-2.5 text-[13px] font-semibold text-brand hover:bg-canvas">
-                      Connect your WhatsApp
-                    </Link>
-                  )}
-                </div>
-              </>
-            )}
+            </div>
           </div>
           <label className="mt-3 flex h-10 items-center gap-3 rounded-[10px] bg-[#F0F2F5] px-3.5 text-sm text-[#54656F]">
             <Search size={16} />
@@ -1053,44 +1008,39 @@ function InboxMain() {
           <div ref={endRef} />
         </div>
 
-        {mode === 'kdk' ? (
+        {!connected ? (
           <div className="shrink-0 border-t border-[#E9EDEF] bg-[#FFF8E1] px-5 py-3 text-[13px] leading-relaxed text-[#7A3B00]">
-            <b>These messages go from the {SHARED_NUMBER_NAME} number.</b> Files your clients send here are read and added to their request. Only your own clients' chats show here.
-          </div>
-        ) : !connected ? (
-          <div className="shrink-0 border-t border-[#E9EDEF] bg-[#FFF8E1] px-5 py-3 text-[13px] leading-relaxed text-[#7A3B00]">
-            <b>Your WhatsApp is not connected.</b> You can read these chats, but nothing can be sent from here. Reminders now go from the {SHARED_NUMBER_NAME} number.{' '}
+            <b>Your WhatsApp is not connected.</b> You can read these chats, but nothing can be sent from here.{' '}
             <Link to="/settings?tab=whatsapp" className="font-semibold underline">
-              Connect again
+              Connect WhatsApp
             </Link>
           </div>
-        ) : !readReplies ? (
-          <div className="shrink-0 border-t border-[#E9EDEF] bg-[#FFF8E1] px-5 py-3 text-[13px] leading-relaxed text-[#7A3B00]">
-            <b>Reading replies is turned off.</b> Clients upload through the link. You can turn this on in Settings.
-          </div>
         ) : null}
+        {own && !windowOpen && (
+          <div className="shrink-0 border-t border-[#E9EDEF] bg-[#F1F5F9] px-5 py-3 text-[13px] leading-relaxed text-slate-700">
+            <b>It has been more than 24 hours since this client wrote.</b> WhatsApp only allows approved templates now. Pick one with <b>Templates</b>. When the client replies, you can type again.
+          </div>
+        )}
         <div className="relative flex shrink-0 items-end gap-3 bg-[#F0F2F5] px-4 py-3">
           {showTemplates && own && <button type="button" aria-label="Close templates" className="fixed inset-0 z-[9] cursor-default" onClick={() => setShowTemplates(false)} />}
           {showTemplates && own && (
             <div className="absolute bottom-[68px] left-4 z-10 max-h-[360px] w-80 overflow-y-auto rounded-xl border border-line bg-white py-1 shadow-xl">
+              {templates.length === 0 && <div className="px-4 py-3 text-sm text-muted">{windowOpen ? 'No message is approved by WhatsApp yet.' : 'No ready message fits here. To remind about documents, use Remind on the request.'}</div>}
               {templates.map((t) => (
                 <button
                   key={t.id}
                   type="button"
                   onClick={() => {
-                    setText(
-                      fillTemplate(
-                        t.text,
-                        {
-                          name: active.unassigned ? 'there' : active.title,
-                          firm: firm.name,
-                          link: sample.link,
-                        },
-                        false,
-                      ),
-                    )
+                    const filled = fillTemplate(t.text, { name: active.unassigned ? 'there' : active.title, firm: firm.name, link: sample.link }, false)
                     setShowTemplates(false)
-                    taRef.current?.focus()
+                    // Inside 24 hours the template lands in the box and can be changed. Outside, only the template as it is can go, so it is sent.
+                    if (windowOpen) {
+                      setText(filled)
+                      taRef.current?.focus()
+                    } else {
+                      send(active.id, filled)
+                      setToast(`${t.name} sent`)
+                    }
                   }}
                   className="block w-full px-4 py-2.5 text-left hover:bg-canvas"
                 >
@@ -1115,7 +1065,7 @@ function InboxMain() {
             ref={taRef}
             rows={1}
             value={text}
-            disabled={!own}
+            disabled={!canType}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
@@ -1123,7 +1073,7 @@ function InboxMain() {
                 submit()
               }
             }}
-            placeholder={own ? 'Type a message' : mode === 'kdk' ? `You cannot type here. Messages go from the ${SHARED_NUMBER_NAME} number` : 'Your WhatsApp is not connected'}
+            placeholder={!own ? 'Your WhatsApp is not connected' : windowOpen ? 'Type a message' : '24 hours passed. Use a template.'}
             className="max-h-[168px] min-h-11 flex-1 resize-none rounded-[10px] bg-white px-4 py-[11px] text-[15px] leading-[22px] outline-none placeholder:text-[#667781] disabled:bg-slate-100"
           />
           <button
@@ -1131,7 +1081,7 @@ function InboxMain() {
             onClick={submit}
             aria-label="Send"
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#008069] text-white disabled:opacity-40"
-            disabled={!text.trim() || !own}
+            disabled={!text.trim() || !canType}
           >
             <Send size={19} />
           </button>
@@ -1282,8 +1232,7 @@ function InboxMain() {
             const l = viewing.link!
             const docName = requests.find((r) => r.id === l.requestId)?.clients.find((c) => c.clientId === l.clientId)?.docs.find((d) => d.id === l.docId)?.name ?? 'the document'
             setDocStatus(l.requestId, l.clientId, l.docId, 'rejected', remark ? `${reason} · ${remark}` : reason)
-            sendRejected(l.requestId, l.clientId, docName, reason, remark)
-            setToast(`${docName} rejected. The client has been told.`)
+            setToast(rejectedToast(sendRejected(l.requestId, l.clientId, docName, reason, remark), docName))
             setViewing(null)
           }}
         />

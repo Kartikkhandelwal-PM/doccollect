@@ -4,7 +4,33 @@ How a firm connects its WhatsApp to DocCollect, how a message chooses its number
 
 Ramwin is the only way to connect. There is no other provider, and the firm never types an API key.
 
-## The two numbers
+## Only the firm's own number
+
+**CA Connect (KDK's shared number) is not part of the product.** One WhatsApp number is connected per firm account, so a file that arrives on it belongs to that firm. The screen parts of CA Connect are kept in `frontend/src/parked/caConnect.txt`. The firm must **connect its own WhatsApp first**. The sections below that talk about CA Connect describe how it worked and are not active now.
+
+- **Not connected:** the app works (clients, documents, checklists, reading), but a banner says "Connect your WhatsApp to start sending requests and reminders". Anything that would send (New request, Remind, Send update, new link) opens a dialog with a button to Settings > WhatsApp. Nothing is created or sent.
+- **Connected, waiting for WhatsApp to approve the messages:** the banner says so and sending is blocked in the same way. There is **no fallback** to CA Connect.
+- **Ready:** at least one template is approved. No banner.
+- A document that is sent back is still sent back when WhatsApp is not ready; the client just is not messaged.
+- "Delete all data" starts the firm not connected. The sample firm starts connected.
+
+## When a message cannot be sent
+
+These cases are built in the demo. The backend has to give the same behaviour with real WhatsApp (Ramwin) data.
+
+| Case | What the firm sees | What happens |
+|---|---|---|
+| **Not connected** | Banner under the header, and a dialog on every send, with a button to Settings > WhatsApp | Nothing is sent or created |
+| **Connected, templates not approved yet** | Banner "Waiting for WhatsApp to approve your messages"; dialog on send | Nothing is sent |
+| **One template not approved** (waiting or rejected) | Dialog "This message is waiting for approval" | Only that message is blocked. The others still go. Settings and the Message templates page show each template as Approved or Pending (a count like "19 of 20 approved", never a list of names). **A template WhatsApp turned down also shows as Pending, with no names and no reason**: templates are KDK's job (KDK fixes the words and sends them again), so the reason and the list are kept for KDK only. The Templates page and Inbox list only approved templates |
+| **Connection lost** (WhatsApp logged the number out or blocked it; the firm did not disconnect) | Banner "Your WhatsApp got disconnected", **Disconnected** in Settings with **Connect again**; dialog on send | Nothing is sent. Requests, chats and documents stay. Connecting again starts the template approval again |
+| **Client's number is not on WhatsApp** | Toast "Could not send to X: Not on WhatsApp", a red "Not on WhatsApp" next to the client's number in the request, "Not delivered: Not on WhatsApp" under the message in the Inbox chat, and a note on the "Request sent" screen | The reminder is not counted as sent (the "last reminded" time does not change). The backend sets this from WhatsApp's delivery report |
+| **A document is sent back while WhatsApp is not ready** (or that message is not approved) | Toast "X rejected. The client was not told, because that message cannot be sent now." | The document is still marked rejected. The client is not messaged |
+| **More than 24 hours since the client's last message** | Inbox: typing is locked, with a note. **Templates** lists only approved messages that need nothing but the name, firm and link, and one click sends it as it is | WhatsApp allows free text only within 24 hours of the client's last message. The client writing again opens it for another 24 hours. To remind about documents, use **Remind** on the request (a template) |
+
+In the demo: **Check status** in Settings moves the approval along (7 approved, then all but one with one turned down, then all), the client **Vikram Enterprises** has a number that is not on WhatsApp, and `?demo=1` shows **Demo: connection lost**.
+
+## The two numbers (CA Connect is off for now)
 
 | | CA Connect | Your own number |
 |---|---|---|
