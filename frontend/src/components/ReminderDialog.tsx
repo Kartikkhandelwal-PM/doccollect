@@ -30,7 +30,7 @@ export default function ReminderDialog({ targets, text, update, onSend, onClose 
             <h2 className="text-lg font-bold">
               {update ? 'Send update to' : 'Remind'} {n} {n === 1 ? 'client' : 'clients'}?
             </h2>
-            <p className="mt-1 text-sm leading-relaxed text-muted">Each client gets a WhatsApp message with their own approved and pending documents. It also appears in their Inbox chat.</p>
+            <p className="mt-1 text-sm leading-relaxed text-muted">{update ? 'Each client gets a WhatsApp message that says their documents are in. It also appears in their Inbox chat.' : 'Each client gets a WhatsApp message that says how many documents have come, and lists their own pending documents. It also appears in their Inbox chat.'}</p>
           </div>
           <button type="button" onClick={onClose} aria-label="Close" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-canvas">
             <X size={18} />

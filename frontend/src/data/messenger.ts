@@ -2,7 +2,7 @@ import { useCallback } from 'react'
 import { useInbox } from './inbox'
 import { contactOf, whatsappOn } from './contacts'
 import { getBookClient, getClient, regSuffix } from './mock'
-import { isCounted, useRequests } from './requests'
+import { autoStage, isCounted, useRequests } from './requests'
 import type { DocRequest, RequestClient } from './requests'
 import { useSetup } from './setup'
 import { LINK_DOMAIN } from '../lib/brand'
@@ -48,10 +48,8 @@ export function useMessenger() {
   const viaOf = useCallback((r: DocRequest, templateId: string): 'own' | 'kdk' => viaFor(r.via, templateId), [viaFor])
   const tidOf = (rc: RequestClient, id: string) => {
     if (id !== 'update') return id
-    const counted = rc.docs.filter(isCounted)
-    const missing = counted.filter((d) => d.status === 'pending' || d.status === 'rejected').length
-    const approved = counted.filter((d) => d.status === 'approved').length
-    return missing === 0 ? 'thanks' : approved > 0 ? 'update' : 'pendinglist'
+    const missing = rc.docs.filter(isCounted).filter((d) => d.status === 'pending' || d.status === 'rejected').length
+    return missing > 0 ? 'reminder' : autoStage(rc) === 'approved' ? 'approved' : 'thanks'
   }
 
   // Sends to the client. The message also lands in that client's chat; when WhatsApp reports that the number is not on WhatsApp, the chat shows it as not delivered.
@@ -76,7 +74,7 @@ export function useMessenger() {
       const counted = rc.docs.filter(isCounted)
       const missing = counted.filter((d) => d.status === 'pending' || d.status === 'rejected')
       const approved = counted.filter((d) => d.status === 'approved').length
-      const tid = id !== 'update' ? id : missing.length === 0 ? 'thanks' : approved > 0 ? 'update' : 'pendinglist'
+      const tid = id !== 'update' ? id : missing.length > 0 ? 'reminder' : autoStage(rc) === 'approved' ? 'approved' : 'thanks'
       const tpl = seedMessages.find((m) => m.id === tid)!
       return fillTemplate(viaOf(r, tid) === 'kdk' ? tpl.onBehalf : tpl.text, {
         name: client.name,

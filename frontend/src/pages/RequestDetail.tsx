@@ -202,7 +202,7 @@ function RequestView({ request }: { request: DocRequest }) {
   const toRemind = rows.filter((r) => r.missing > 0)
   // One button for the whole request: chase whoever is missing something, or, when nobody is, tell everyone who is done.
   const thanking = toRemind.length === 0
-  const toNotify = thanking ? rows.filter((r) => r.state === 'done') : toRemind
+  const toNotify = thanking ? rows.filter((r) => r.state === 'done' || r.state === 'review') : toRemind
 
   // Coming from the Dashboard: show the page that holds that client.
   const wanted = params.get('client') ?? (params.get('doc') ?? '').split(':')[0]
@@ -488,11 +488,11 @@ function RequestView({ request }: { request: DocRequest }) {
                       <Bell size={14} />
                       Remind
                     </button>
-                  ) : state === 'done' ? (
+                  ) : state === 'done' || state === 'review' ? (
                     <button
                       type="button"
                       onClick={() => {
-                        setToast(sentToast(sendUpdate(request.id, rc.clientId), `Thank-you sent to ${c.name} on WhatsApp`, c.name))
+                        setToast(sentToast(sendUpdate(request.id, rc.clientId), `Update sent to ${c.name} on WhatsApp`, c.name))
                       }}
                       className="flex h-9 w-[124px] items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-line bg-white text-[13px] font-semibold hover:border-brand hover:text-brand-dark"
                     >
@@ -635,7 +635,7 @@ function RequestView({ request }: { request: DocRequest }) {
         <motion.div {...backdropProps} className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="Reject document">
           <motion.div {...panelProps} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
             <h2 className="text-lg font-bold">Reject “{rejecting.docName}”?</h2>
-            <p className="mt-1 text-sm text-muted">Tell the client what is wrong. They get this on WhatsApp with a fresh upload link.</p>
+            <p className="mt-1 text-sm text-muted">Tell the client what is wrong. They get this on WhatsApp with the client's upload link.</p>
             <div className="mt-4 flex flex-wrap gap-2">
               {reasons.map((r) => (
                 <button
