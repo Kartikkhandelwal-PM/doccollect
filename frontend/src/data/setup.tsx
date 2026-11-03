@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useMemo, useState } from 'react
 import type { ReactNode } from 'react'
 import type { Service } from './types'
 import { groups as seedGroups, multipleIds, optionalIds, templates as seedTemplates } from './catalog'
-import { seedMessages } from './messageTemplates'
+import { usedMessages } from './messageTemplates'
 import type { MsgTemplate } from './messageTemplates'
 
 
@@ -120,7 +120,7 @@ export function SetupProvider({ children }: { children: ReactNode }) {
   const [documents, setDocuments] = useSessionState('documents', seedDocs)
   const [categories, setCategories] = useSessionState<string[]>('doc-categories', seedGroups.map((g) => g.title))
   const [compliances, setCompliances] = useSessionState('checklists', seedCompliances)
-  const [messageTemplates] = useState(seedMessages)
+  const [messageTemplates] = useState(usedMessages)
   const [firm, setFirm] = useState<Firm>({
     name: 'Kartik Khandelwal & Associates',
     logo: '',
@@ -140,7 +140,7 @@ export function SetupProvider({ children }: { children: ReactNode }) {
   })
   const [sendFrom, setSendFrom] = useSessionState<'own' | 'kdk'>('sendFrom', 'own')
   // The sample firm connected a while ago, so all its templates are approved. A number connected now starts with none, until WhatsApp approves them.
-  const [approvedTemplates, setApprovedTemplates] = useSessionState<string[]>('waApproved', emptyOn() ? [] : seedMessages.map((m) => m.id))
+  const [approvedTemplates, setApprovedTemplates] = useSessionState<string[]>('waApproved', emptyOn() ? [] : usedMessages.map((m) => m.id))
   const [rejectedTemplates, setRejectedTemplates] = useSessionState<Record<string, string>>('waRejected', {})
   const [connectionLost, setConnectionLost] = useSessionState('waLost', false)
   const loseConnection = useCallback(() => setConnectionLost(true), [setConnectionLost])
@@ -156,8 +156,8 @@ export function SetupProvider({ children }: { children: ReactNode }) {
   )
   // Demo of WhatsApp's review. First check: some are approved. Second: the rest, but WhatsApp turns one down. Third: that one was fixed and sent again, and is approved.
   const approveTemplates = useCallback(() => {
-    const all = seedMessages.map((m) => m.id)
-    if (approvedTemplates.length === 0) setApprovedTemplates(all.slice(0, 7))
+    const all = usedMessages.map((m) => m.id)
+    if (approvedTemplates.length === 0) setApprovedTemplates(all.slice(0, 4))
     else if (Object.keys(rejectedTemplates).length > 0 || approvedTemplates.length >= all.length - 1) {
       setApprovedTemplates(all)
       setRejectedTemplates({})

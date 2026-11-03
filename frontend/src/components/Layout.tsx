@@ -19,6 +19,7 @@ import { APP_NAME } from '../lib/brand'
 import { pageIn, spring } from '../lib/motion'
 import { resetDemo } from '../lib/session'
 import { ConnectBanner, ConnectDialog } from './ConnectWhatsApp'
+import AutoMessages from './AutoMessages'
 import GlobalHeader from './GlobalHeader'
 import MobileNav from './MobileNav'
 import UserMenu from './UserMenu'
@@ -164,6 +165,7 @@ export default function Layout() {
       </div>
       <MobileNav />
       <ConnectDialog />
+      <AutoMessages />
     </div>
   )
 }

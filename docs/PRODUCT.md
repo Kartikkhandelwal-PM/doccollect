@@ -41,10 +41,13 @@ Messages come from fixed, WhatsApp-approved templates. The CA does not edit the 
 | Action | Message |
 |---|---|
 | New request | Document request, one per client. A client with nothing to be asked gets none. |
-| Remind / Send update (one client or many) | Some approved and some missing: progress update ("2 approved, these are pending"). Nothing approved yet: pending list. Everything approved: "all documents received". |
+| Remind (one client or many) | **Gentle reminder**: "We have received 2 of 5 documents so far", then the pending list and the last date. |
+| Send update (a client whose required documents are all in) | **All documents received** if some are still in review, **All documents approved** if all are approved. The same two messages also go by themselves (next two rows). |
+| The last required document arrives | **All documents received**, by itself, once for the client. Optional documents never trigger it. |
+| The last required document is approved | **All documents approved**, by itself, once. If it cannot go (WhatsApp not connected, or the message not approved), the Approve window warns beforehand and the approval still goes through. |
 | New link | Fresh link message. The old link stops working. |
 | Document rejected | The template for the reason chosen (not clear, wrong document, pages missing, wrong year), or a general one with the CA's own words. |
-| Approve one document | **Nothing is sent.** |
+| Approve one document | **Nothing is sent**, except the last required one (see above). |
 | First message from another number | A short introduction goes first, once. |
 
 **Wording**

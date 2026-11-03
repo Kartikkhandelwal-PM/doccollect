@@ -16,6 +16,8 @@ import { seedMessages } from './messageTemplates'
 //   Remind / Send update    -> some approved, some missing: "update" (2 approved, x, y still pending)
 //                              nothing approved yet:        "pendinglist"
 //                              nothing missing:             "thanks" (all received)
+// Two messages also go by themselves, once for a client: "thanks" (All documents received) when the last required document arrives, and "approved"
+// (All documents approved) when the last required document is approved. See AutoMessages.
 // Sending a document back tells the client which one and why. Approving a single document sends nothing.
 const SENT_BACK: Record<string, 'blurry' | 'wrongdoc' | 'pages' | 'wrongyear'> = {
   'Blurry or unreadable': 'blurry',
@@ -68,7 +70,7 @@ export function useMessenger() {
   )
 
   const build = useCallback(
-    (r: DocRequest, rc: RequestClient, id: 'request' | 'update' | 'rejected' | 'rejectedopt' | 'newlink' | 'blurry' | 'wrongdoc' | 'pages' | 'wrongyear', extra: Record<string, string> = {}): string => {
+    (r: DocRequest, rc: RequestClient, id: 'request' | 'update' | 'thanks' | 'approved' | 'rejected' | 'rejectedopt' | 'newlink' | 'blurry' | 'wrongdoc' | 'pages' | 'wrongyear', extra: Record<string, string> = {}): string => {
       const client = getClient(rc.clientId)
       if (!client) return ''
       const counted = rc.docs.filter(isCounted)
@@ -85,6 +87,8 @@ export function useMessenger() {
         documents: formatDocuments(rc.docs.filter((d) => d.status !== 'na' && !d.optional).map((d) => d.name), rc.docs.filter((d) => d.status !== 'na' && d.optional).map((d) => d.name)),
         // An optional document that was sent and sent back is chased like the others, and is marked so.
         pending_documents: formatList(missing.map((d) => (d.optional ? `${d.name} (optional)` : d.name))),
+        received_count: String(counted.length - missing.length),
+        total_count: String(counted.length),
         pending_count: String(missing.length),
         pending_label: countLabel(missing.length),
         approved_count: String(approved),
@@ -171,6 +175,29 @@ export function useMessenger() {
     [getRequest, build, post, viaOf, canSendMsg],
   )
 
+  // The two automatic messages. Nothing is shown when they cannot go: the approve window has already warned the firm.
+  const sendAuto = useCallback(
+    (r: DocRequest, rc: RequestClient, kind: 'thanks' | 'approved'): SendResult => {
+      const client = getClient(rc.clientId)
+      if (!client) return { status: 'failed', reason: 'Client not found' }
+      if (!canSendMsg(kind)) return { status: 'blocked' }
+      const d = post(client, build(r, rc, kind), viaOf(r, kind))
+      return d.ok ? { status: 'sent' } : { status: 'failed', reason: d.reason }
+    },
+    [build, post, viaOf, canSendMsg],
+  )
+
+  // Why "All documents approved" would not reach the client now, for the note in the approve window. null when it can go.
+  const autoWarning = useCallback(
+    (kind: 'thanks' | 'approved'): string | null =>
+      sendState === 'off' || sendState === 'lost'
+        ? `The client will not get the message "${kind === 'approved' ? 'All documents approved' : 'All documents received'}" because WhatsApp is not connected.`
+        : templateState(kind) !== 'approved'
+          ? `The client will not get the message "${kind === 'approved' ? 'All documents approved' : 'All documents received'}" because this message is not approved by WhatsApp yet.`
+          : null,
+    [sendState, templateState],
+  )
+
   // The exact text a client would get right now, for the preview before sending.
   const preview = useCallback(
     (requestId: string, clientId: string) => {
@@ -181,5 +208,5 @@ export function useMessenger() {
     [getRequest, build],
   )
 
-  return { sendRequest, sendUpdate, sendNewLink, sendRejected, canSend: canSendMsg, ready: sendState === 'ready', askConnect, preview }
+  return { sendAuto, autoWarning, sendRequest, sendUpdate, sendNewLink, sendRejected, canSend: canSendMsg, ready: sendState === 'ready', askConnect, preview }
 }

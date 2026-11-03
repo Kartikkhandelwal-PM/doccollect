@@ -4,6 +4,7 @@ Newest first. One line per change that a user or the team would notice.
 
 ## November 2026
 
+- **Seven messages, two of them automatic.** The Message templates page shows only the messages in use: Document request, Fresh upload link, Gentle reminder, Document rejected, Optional document rejected, All documents received, All documents approved (the other templates are parked in the file, not shown). Gentle reminder now says "We have received X of Y documents so far". **All documents received** goes by itself when the last required document of a client arrives, and **All documents approved** when the last required document is approved (once each; optional documents never trigger them). Send update sends the one that fits. The Approve window warns beforehand when the automatic message cannot go.
 - **Only the firm's own WhatsApp number; connect it first.** CA Connect (the shared number) is not part of the product. Its screen parts were taken out of the live code and kept in `frontend/src/parked/caConnect.txt`.
   - **Not connected:** the app still works, a banner under the header says "Connect your WhatsApp to start sending requests and reminders" with a **Connect WhatsApp** button, and every send (New request, Remind, Send update, new link) opens a dialog "Connect your WhatsApp first" instead of sending. Nothing is created or sent.
   - **Connected but WhatsApp has not approved the messages:** the banner and dialog say "Waiting for WhatsApp approval". No fallback to CA Connect.
