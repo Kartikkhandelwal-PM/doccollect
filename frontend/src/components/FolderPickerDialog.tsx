@@ -20,7 +20,7 @@ interface Node {
 
 // "Save as" for Document Master: the folders as a tree, the way a computer asks where to save a file.
 // The folder we think it belongs to is open and selected. The CA picks another one, or makes a new folder, and saves.
-export default function FolderPickerDialog({ fileName, suggested, clientIds, step, title, more, saveLabel, alt, onSave, onClose }: { fileName: string; suggested?: string; step?: string; clientIds: string[]; title?: string; more?: string[]; saveLabel?: string; alt?: { label: string; onClick: () => void }; onSave: (folderId: string) => void; onClose: () => void }) {
+export default function FolderPickerDialog({ fileName, suggested, clientIds, step, title, more, saveLabel, alt, warn, onSave, onClose }: { warn?: string; fileName: string; suggested?: string; step?: string; clientIds: string[]; title?: string; more?: string[]; saveLabel?: string; alt?: { label: string; onClick: () => void }; onSave: (folderId: string) => void; onClose: () => void }) {
   const { requests } = useRequests()
   const { folders, uploads, folderNames, fileEdits, addFolder } = useMasterStore()
   const { onceIds } = useSetup()
@@ -189,6 +189,7 @@ export default function FolderPickerDialog({ fileName, suggested, clientIds, ste
             <X size={20} />
           </button>
         </div>
+        {warn && <div className="border-b border-line bg-warn-soft px-5 py-2.5 text-[13px] text-ink">{warn}</div>}
 
         <div className="flex h-[min(560px,calc(100vh-260px))] min-h-0">
           <div className="flex w-[340px] shrink-0 flex-col border-r border-line">

@@ -66,6 +66,17 @@ export interface NewRequestInput {
 
 export type RequestState = 'completed' | 'review' | 'waiting'
 
+// Where a client stands for the two automatic messages. Only required documents count; an optional one never triggers them.
+//   'approved' = every required document is approved ("All documents approved")
+//   'arrived'  = every required document has a file (waiting for review or approved), so "All documents received"
+export const autoStage = (rc: RequestClient): 'approved' | 'arrived' | null => {
+  const need = rc.docs.filter((d) => !d.optional && d.status !== 'na')
+  if (need.length === 0) return null
+  if (need.every((d) => d.status === 'approved')) return 'approved'
+  if (need.every((d) => d.status === 'approved' || d.status === 'to_review')) return 'arrived'
+  return null
+}
+
 export const isReceived = (d: RequestDoc) => d.status !== 'pending' && d.status !== 'na'
 
 // A document that holds a request: everything asked for, except the ones the client said do not apply and the optional ones that have not come.
